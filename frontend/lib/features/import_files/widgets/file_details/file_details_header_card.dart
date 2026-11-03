@@ -11,6 +11,9 @@ import '../../../comprehensive_report/models/comprehensive_dossier_model.dart';
 import '../../../experience_guide/models/guide_entry_model.dart';
 import '../../../experience_guide/widgets/experience_guide_alert_banner.dart';
 import '../shipment_milestone_tracker.dart';
+import '../../../../core/widgets/buttons/app_button.dart';
+import 'shipment_acid_status_badge.dart';
+import 'courier_tracking_action_button.dart';
 import 'file_details_action_handler.dart';
 
 /// 📌 Header card for Import File Details
@@ -78,6 +81,10 @@ class FileDetailsHeaderCard extends ConsumerWidget {
                         status: file.status,
                         size: AppStatusBadgeSize.small,
                       ),
+                      const SizedBox(width: 8),
+                      ShipmentAcidStatusBadge.fromImportFile(file, compact: true),
+                      const SizedBox(width: 8),
+                      CourierTrackingActionButton.fromImportFile(file, compact: true),
                     ],
                   ),
                   const SizedBox(height: 2),
@@ -150,20 +157,12 @@ class FileDetailsHeaderCard extends ConsumerWidget {
             const SizedBox(width: 12),
 
             // Dossier Bridge Action
-            ElevatedButton.icon(
+            AppButton(
               key: const Key('openMasterReportScreenBtn'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.cobalt,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                elevation: 0,
-              ),
-              icon: const Icon(Icons.open_in_new_rounded, size: 16),
-              label: Text(
-                isAr ? 'عرض التقرير والبطاقة الفنية الشاملة ↗' : 'View Master Dossier ↗',
-                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-              ),
+              label: isAr ? 'عرض التقرير والبطاقة الفنية الشاملة ↗' : 'View Master Dossier ↗',
+              icon: Icons.open_in_new_rounded,
+              size: AppButtonSize.small,
+              variant: AppButtonVariant.primary,
               onPressed: () {
                 Navigator.of(context).pop();
                 ref.read(selectedComprehensiveReportFileIdProvider.notifier).state = file.importFileId;

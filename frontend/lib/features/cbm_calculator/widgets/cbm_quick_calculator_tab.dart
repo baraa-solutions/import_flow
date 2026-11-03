@@ -7,8 +7,10 @@ import 'cbm_active_session_banner.dart';
 import 'cbm_items_table.dart';
 import 'cbm_results_summary_header.dart';
 import 'cbm_stacking_banner.dart';
+import 'dual_divisor_selector_card.dart';
+import 'volumetric_weight_comparison_tile.dart';
 
-class CbmQuickCalculatorTab extends StatelessWidget {
+class CbmQuickCalculatorTab extends StatefulWidget {
   final List<CBMItemModel> quickItems;
   final String quickShipmentMode;
   final bool isStackable;
@@ -61,11 +63,18 @@ class CbmQuickCalculatorTab extends StatelessWidget {
   });
 
   @override
+  State<CbmQuickCalculatorTab> createState() => _CbmQuickCalculatorTabState();
+}
+
+class _CbmQuickCalculatorTabState extends State<CbmQuickCalculatorTab> {
+  AirFreightDivisorMode _airDivisorMode = AirFreightDivisorMode.generalAir;
+
+  @override
   Widget build(BuildContext context) {
     double totalCbm = 0.0;
     double totalGrossWt = 0.0;
 
-    for (var item in quickItems) {
+    for (var item in widget.quickItems) {
       final lM = item.lengthM;
       final wM = item.widthM;
       final hM = item.heightM;
@@ -78,80 +87,100 @@ class CbmQuickCalculatorTab extends StatelessWidget {
       totalWeightKg: totalGrossWt,
     );
 
+    final isAirOrCourier = widget.quickShipmentMode == 'air' ||
+        widget.quickShipmentMode == 'express' ||
+        widget.quickShipmentMode == 'courier';
+
     return CallbackShortcuts(
       bindings: {
         const SingleActivator(LogicalKeyboardKey.keyD, control: true): () {
-          if (quickItems.isNotEmpty) {
-            final targetIdx = (lastFocusedItemIndex >= 0 && lastFocusedItemIndex < quickItems.length)
-                ? lastFocusedItemIndex
-                : quickItems.length - 1;
-            onCloneItem(targetIdx);
+          if (widget.quickItems.isNotEmpty) {
+            final targetIdx = (widget.lastFocusedItemIndex >= 0 && widget.lastFocusedItemIndex < widget.quickItems.length)
+                ? widget.lastFocusedItemIndex
+                : widget.quickItems.length - 1;
+            widget.onCloneItem(targetIdx);
           }
         },
         const SingleActivator(LogicalKeyboardKey.keyD, meta: true): () {
-          if (quickItems.isNotEmpty) {
-            final targetIdx = (lastFocusedItemIndex >= 0 && lastFocusedItemIndex < quickItems.length)
-                ? lastFocusedItemIndex
-                : quickItems.length - 1;
-            onCloneItem(targetIdx);
+          if (widget.quickItems.isNotEmpty) {
+            final targetIdx = (widget.lastFocusedItemIndex >= 0 && widget.lastFocusedItemIndex < widget.quickItems.length)
+                ? widget.lastFocusedItemIndex
+                : widget.quickItems.length - 1;
+            widget.onCloneItem(targetIdx);
           }
         },
       },
       child: Focus(
         autofocus: true,
         child: Scrollbar(
-          controller: scrollController,
+          controller: widget.scrollController,
           thumbVisibility: true,
           trackVisibility: true,
           child: SingleChildScrollView(
-            controller: scrollController,
+            controller: widget.scrollController,
             padding: const EdgeInsets.all(16),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 // Active Editing Session Banner
-                if (activeSessionId != null && activeSessionCode != null) ...[
+                if (widget.activeSessionId != null && widget.activeSessionCode != null) ...[
                   CbmActiveSessionBanner(
-                    activeSessionCode: activeSessionCode!,
-                    activeSessionTitle: activeSessionTitle,
-                    onSaveChanges: onSaveChanges,
-                    onNewBlankSession: onNewBlankSession,
+                    activeSessionCode: widget.activeSessionCode!,
+                    activeSessionTitle: widget.activeSessionTitle,
+                    onSaveChanges: widget.onSaveChanges,
+                    onNewBlankSession: widget.onNewBlankSession,
                   ),
                 ],
 
                 // Live Results Summary Cards Header
                 CbmResultsSummaryHeader(
-                  items: quickItems,
-                  shipmentMode: quickShipmentMode,
-                  isStackable: isStackable,
+                  items: widget.quickItems,
+                  shipmentMode: widget.quickShipmentMode,
+                  isStackable: widget.isStackable,
                 ),
                 const SizedBox(height: 12),
 
+                // Air Freight vs Express Courier Volumetric Assessment
+                if (isAirOrCourier) ...[
+                  DualDivisorSelectorCard(
+                    selectedMode: _airDivisorMode,
+                    onModeChanged: (mode) => setState(() => _airDivisorMode = mode),
+                    showDensityExplanation: true,
+                  ),
+                  const SizedBox(height: 12),
+                  VolumetricWeightComparisonTile(
+                    actualGrossWeightKg: totalGrossWt,
+                    totalCbm: totalCbm,
+                    activeMode: _airDivisorMode,
+                  ),
+                  const SizedBox(height: 12),
+                ],
+
                 // Smart Mode & Cargo Stacking Skill Banner
                 CbmStackingBanner(
-                  isStackable: isStackable,
-                  onStackableChanged: onStackableChanged,
-                  onCompareContainers: onCompareContainers,
-                  onVisualLoadPlan: onVisualLoadPlan,
+                  isStackable: widget.isStackable,
+                  onStackableChanged: widget.onStackableChanged,
+                  onCompareContainers: widget.onCompareContainers,
+                  onVisualLoadPlan: widget.onVisualLoadPlan,
                   dualRec: dualRec,
                 ),
                 const SizedBox(height: 12),
 
                 // Dynamic Line Items Table
                 CbmItemsTable(
-                  items: quickItems,
-                  shipmentMode: quickShipmentMode,
-                  activeSessionId: activeSessionId,
-                  onShipmentModeChanged: onShipmentModeChanged,
-                  onAddPackageLine: onAddPackageLine,
-                  onSaveCalculation: onSaveCalculation,
-                  onExportExcel: onExportExcel,
-                  onExportPdf: onExportPdf,
-                  onCopyPackagesTsv: onCopyPackagesTsv,
-                  onCopyStudyReport: onCopyStudyReport,
-                  onItemUpdated: onItemUpdated,
-                  onCloneItem: onCloneItem,
-                  onDeleteItem: onDeleteItem,
+                  items: widget.quickItems,
+                  shipmentMode: widget.quickShipmentMode,
+                  activeSessionId: widget.activeSessionId,
+                  onShipmentModeChanged: widget.onShipmentModeChanged,
+                  onAddPackageLine: widget.onAddPackageLine,
+                  onSaveCalculation: widget.onSaveCalculation,
+                  onExportExcel: widget.onExportExcel,
+                  onExportPdf: widget.onExportPdf,
+                  onCopyPackagesTsv: widget.onCopyPackagesTsv,
+                  onCopyStudyReport: widget.onCopyStudyReport,
+                  onItemUpdated: widget.onItemUpdated,
+                  onCloneItem: widget.onCloneItem,
+                  onDeleteItem: widget.onDeleteItem,
                 ),
                 const SizedBox(height: 20),
               ],

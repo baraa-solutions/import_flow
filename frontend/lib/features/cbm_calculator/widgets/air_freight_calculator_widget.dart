@@ -3,6 +3,8 @@ import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/widgets.dart';
 import '../../freight_booking/l10n/air_lcl_l10n.dart';
+import 'dual_divisor_selector_card.dart';
+import 'volumetric_weight_comparison_tile.dart';
 
 /// Reusable Air Freight IATA Volumetric & Chargeable Weight Calculator Component.
 /// Strict adherence to:
@@ -10,6 +12,7 @@ import '../../freight_booking/l10n/air_lcl_l10n.dart';
 /// - Pure language separation (no mixing Arabic and English in parentheses)
 /// - Unified widgets: AppButton, CustomTextField, AppStatusBadge, AppTheme.cardDecorationOf
 /// - Safe clipboard copying via CopyHelper.copy
+/// - Dual Divisor support (IATA 6000 vs Express Courier 5000)
 class AirFreightCalculatorWidget extends StatefulWidget {
   final double? initialGrossWeightKg;
   final ValueChanged<double>? onWeightApplied;
@@ -30,6 +33,8 @@ class _AirFreightCalculatorWidgetState extends State<AirFreightCalculatorWidget>
   final _heightController = TextEditingController();
   final _grossWeightController = TextEditingController();
   final _quantityController = TextEditingController(text: '1');
+
+  AirFreightDivisorMode _divisorMode = AirFreightDivisorMode.generalAir;
 
   double? _calculatedVolumetricKg;
   double? _calculatedChargeableKg;
@@ -66,8 +71,9 @@ class _AirFreightCalculatorWidgetState extends State<AirFreightCalculatorWidget>
       return;
     }
 
-    // IATA Standard Formula: (L * W * H cm) / 6000
-    final volPerUnit = (length * width * height) / 6000.0;
+    // Dynamic formula based on selected divisor: (L * W * H cm) / divisor
+    final divisor = _divisorMode.divisor;
+    final volPerUnit = (length * width * height) / divisor;
     final totalVolumetric = volPerUnit * quantity;
     final totalGross = grossPerUnit * quantity;
     final totalCbm = ((length * width * height) / 1000000.0) * quantity;
@@ -108,13 +114,22 @@ class _AirFreightCalculatorWidgetState extends State<AirFreightCalculatorWidget>
                   ),
                 ),
                 AppStatusBadge(
-                  label: l.transportModeAirFreight,
+                  label: _divisorMode.title(l.isArabic),
                   severity: AppSeverity.info,
-                  icon: Icons.flight_takeoff,
+                  icon: _divisorMode.isGeneralAir ? Icons.flight_takeoff : Icons.local_shipping_outlined,
                 ),
               ],
             ),
             const SizedBox(height: 12),
+            DualDivisorSelectorCard(
+              selectedMode: _divisorMode,
+              onModeChanged: (mode) {
+                setState(() => _divisorMode = mode);
+                _calculate();
+              },
+              showDensityExplanation: true,
+            ),
+            const SizedBox(height: 14),
             Row(
               children: [
                 Expanded(
@@ -197,6 +212,12 @@ class _AirFreightCalculatorWidgetState extends State<AirFreightCalculatorWidget>
             if (_calculatedChargeableKg != null) ...[
               const SizedBox(height: 16),
               const Divider(height: 1),
+              const SizedBox(height: 14),
+              VolumetricWeightComparisonTile(
+                actualGrossWeightKg: _actualGrossTotalKg ?? 0.0,
+                totalCbm: _calculatedCbm ?? 0.0,
+                activeMode: _divisorMode,
+              ),
               const SizedBox(height: 14),
               Wrap(
                 spacing: 12,

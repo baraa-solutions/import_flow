@@ -5,6 +5,8 @@ import '../../../core/localization/app_localizations.dart';
 import '../../../core/localization/app_localizations_ar.dart';
 import '../../../core/services/display_name_resolver.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/buttons/app_button.dart';
+import 'milestone_tracker/smart_stage_skip_indicator.dart';
 import '../models/import_file_model.dart';
 
 class ShipmentMilestoneTracker extends StatefulWidget {
@@ -63,8 +65,10 @@ class _ShipmentMilestoneTrackerState extends State<ShipmentMilestoneTracker> {
       } else if (stepNum == 4) {
         return 1; // Phase 2: Financial Approval
       } else if (stepNum == 5) {
-        // If ACID is already issued/present, advance past Phase 3 to Phase 4
-        if (importFile.acidNumber != null && importFile.acidNumber!.trim().isNotEmpty) {
+        // If ACID is skipped or already issued/present, advance past Phase 3 to Phase 4
+        if (SmartStageSkipIndicator.isStepSkipped(importFile.skippedStages, 'STEP_05') ||
+            importFile.acidRequirement == 'EXEMPT_POSTAL' ||
+            (importFile.acidNumber != null && importFile.acidNumber!.trim().isNotEmpty)) {
           return 3; // Phase 4: Shipment Booking
         }
         return 2; // Phase 3: Docs & ACID
@@ -198,7 +202,8 @@ class _ShipmentMilestoneTrackerState extends State<ShipmentMilestoneTracker> {
       displayLine = 'Wan Hai';
     }
 
-    return Card(
+    return SelectionArea(
+      child: Card(
       elevation: 2,
       color: isDark ? AppTheme.darkCardBackground : Colors.white,
       shape: RoundedRectangleBorder(
@@ -370,19 +375,38 @@ class _ShipmentMilestoneTrackerState extends State<ShipmentMilestoneTracker> {
               ),
             ),
 
+            // ── Skipped Stages Banner ──────────────────────────────────────
+            SmartStageSkipIndicator.banner(
+              skippedStages: widget.importFile.skippedStages,
+              isArabic: isArabic,
+              isDark: isDark,
+            ),
+
             // ── Stepper / Horizontal Progress Line ──────────────────────────
             SingleChildScrollView(
               scrollDirection: Axis.horizontal,
               child: Row(
                 children: List.generate(_allPhases.length, (idx) {
                   final phase = _allPhases[idx];
-                  final isDone = idx < activeIndex || isClosed;
-                  final isCurrent = idx == activeIndex && !isClosed;
+                  final phaseNum = phase['num'] as int;
+                  final isSkipped = SmartStageSkipIndicator.isPhaseSkipped(widget.importFile.skippedStages, phaseNum);
+                  final isDone = (idx < activeIndex || isClosed) && !isSkipped;
+                  final isCurrent = idx == activeIndex && !isClosed && !isSkipped;
                   final phaseName = isArabic ? (phase['name_ar'] as String) : (phase['name_en'] as String);
 
                   Color circleColor = isDark ? AppTheme.darkElevatedSurface : Colors.grey.shade300;
                   Color iconColor = isDark ? AppTheme.darkTextMuted : Colors.grey.shade600;
-                  if (isDone) {
+                  Border? circleBorder;
+                  if (isSkipped) {
+                    circleColor = isDark
+                        ? AppTheme.emerald.withValues(alpha: 0.25)
+                        : AppTheme.emerald.withValues(alpha: 0.15);
+                    iconColor = isDark ? Colors.tealAccent : AppTheme.emerald;
+                    circleBorder = Border.all(
+                      color: isDark ? Colors.tealAccent : AppTheme.emerald,
+                      width: 1.5,
+                    );
+                  } else if (isDone) {
                     circleColor = AppTheme.emerald;
                     iconColor = Colors.white;
                   } else if (isCurrent) {
@@ -400,44 +424,67 @@ class _ShipmentMilestoneTrackerState extends State<ShipmentMilestoneTracker> {
                             decoration: BoxDecoration(
                               color: circleColor,
                               shape: BoxShape.circle,
+                              border: circleBorder,
                               boxShadow: isCurrent
                                   ? [BoxShadow(color: AppTheme.cobalt.withOpacity(isDark ? 0.6 : 0.4), blurRadius: 8, spreadRadius: 2)]
                                   : null,
                             ),
                             child: Icon(
-                              isDone ? Icons.check : (phase['icon'] as IconData),
+                              isSkipped
+                                  ? Icons.verified_outlined
+                                  : (isDone ? Icons.check : (phase['icon'] as IconData)),
                               color: iconColor,
                               size: 18,
                             ),
                           ),
                           const SizedBox(height: 6),
-                          Text(
-                            isArabic ? 'م${phase['num']}' : 'P${phase['num']}',
-                            style: TextStyle(
-                              fontSize: 10,
-                              fontWeight: isCurrent ? FontWeight.bold : FontWeight.normal,
-                              color: isCurrent
-                                  ? (isDark ? Colors.lightBlueAccent : AppTheme.cobalt)
-                                  : (isDone
-                                      ? (isDark ? Colors.tealAccent : AppTheme.emerald)
-                                      : (isDark ? AppTheme.darkTextMuted : Colors.grey.shade600)),
+                          if (isSkipped)
+                            SmartStageSkipIndicator.phaseBadge(isArabic: isArabic, isDark: isDark)
+                          else
+                            Text(
+                              isArabic ? 'م${phase['num']}' : 'P${phase['num']}',
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: isCurrent ? FontWeight.bold : FontWeight.normal,
+                                color: isCurrent
+                                    ? (isDark ? Colors.lightBlueAccent : AppTheme.cobalt)
+                                    : (isDone
+                                        ? (isDark ? Colors.tealAccent : AppTheme.emerald)
+                                        : (isDark ? AppTheme.darkTextMuted : Colors.grey.shade600)),
+                              ),
                             ),
-                          ),
                           const SizedBox(height: 2),
                           SizedBox(
                             width: 78,
-                            child: Text(
-                              phaseName,
-                              textAlign: TextAlign.center,
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                fontSize: 9,
-                                fontWeight: isCurrent ? FontWeight.bold : FontWeight.normal,
-                                color: isCurrent
-                                  ? (isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal)
-                                  : (isDark ? AppTheme.darkTextSecondary : Colors.grey.shade700),
-                              ),
+                            child: Column(
+                              children: [
+                                Text(
+                                  phaseName,
+                                  textAlign: TextAlign.center,
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    fontSize: 9,
+                                    fontWeight: isCurrent ? FontWeight.bold : FontWeight.normal,
+                                    color: isCurrent
+                                      ? (isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal)
+                                      : (isDark ? AppTheme.darkTextSecondary : Colors.grey.shade700),
+                                  ),
+                                ),
+                                if (isSkipped)
+                                  Padding(
+                                    padding: const EdgeInsets.only(top: 2),
+                                    child: Text(
+                                      isArabic ? 'معفى نظامياً (طرد)' : 'Exempt (Postal)',
+                                      textAlign: TextAlign.center,
+                                      style: TextStyle(
+                                        fontSize: 8,
+                                        fontWeight: FontWeight.bold,
+                                        color: isDark ? Colors.tealAccent : AppTheme.emerald,
+                                      ),
+                                    ),
+                                  ),
+                              ],
                             ),
                           ),
                         ],
@@ -447,7 +494,7 @@ class _ShipmentMilestoneTrackerState extends State<ShipmentMilestoneTracker> {
                           width: 40,
                           height: 3,
                           margin: const EdgeInsets.only(bottom: 24),
-                          color: isDone
+                          color: (isDone || isSkipped)
                               ? AppTheme.emerald
                               : (isDark ? AppTheme.darkBorder : Colors.grey.shade300),
                         ),
@@ -493,7 +540,7 @@ class _ShipmentMilestoneTrackerState extends State<ShipmentMilestoneTracker> {
                             children: [
                               Text(
                                 isArabic
-                                    ? 'بوابة المعرفة والإنذار التشغيلي (Knowledge Gate)'
+                                    ? 'بوابة المعرفة والإنذار التشغيلي'
                                     : 'Operational Knowledge Gate',
                                 style: TextStyle(
                                   fontSize: 12.5,
@@ -553,19 +600,11 @@ class _ShipmentMilestoneTrackerState extends State<ShipmentMilestoneTracker> {
                         mainAxisAlignment: MainAxisAlignment.end,
                         children: [
                           if (!_isAcknowledged)
-                            ElevatedButton.icon(
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color(0xFFD97706),
-                                foregroundColor: Colors.white,
-                                elevation: 0,
-                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
-                              ),
-                              icon: const Icon(Icons.check_circle_outline_rounded, size: 14),
-                              label: Text(
-                                isArabic ? 'إقرار واطلاع قبل المتابعة (Acknowledge)' : 'Acknowledge Gate',
-                                style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
-                              ),
+                            AppButton(
+                              label: isArabic ? 'إقرار واطلاع قبل المتابعة' : 'Acknowledge Gate',
+                              icon: Icons.check_circle_outline_rounded,
+                              size: AppButtonSize.small,
+                              variant: AppButtonVariant.warning,
                               onPressed: () {
                                 setState(() {
                                   _isAcknowledged = true;
@@ -609,6 +648,7 @@ class _ShipmentMilestoneTrackerState extends State<ShipmentMilestoneTracker> {
           ],
         ),
       ),
+    )
     );
   }
 }

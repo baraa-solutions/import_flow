@@ -62,3 +62,18 @@ from modules.transport_locations.model import City, Country, TransportLocation
 from modules.users.model import Permission, Role, RolePermission, User, UserPermission
 from modules.vessel_tracking.model import ShipmentVesselTracking, Vessel, VesselPositionLog
 from modules.warehouse_receiving.model import WarehouseReceivingRecord
+from modules.logistics_rules.model import LogisticsOperationalRule
+
+from modules.customs_regimes.model import CustomsSpecialRegime
+from modules.trade_agreements.model import PreferentialOriginVerification
+from modules.legal_claims.model import CargoClaimAndReservation
+from modules.logistics_exceptions.model import LogisticsException
+from modules.deposits_recovery.model import RefundableDeposit
+from modules.vendor_quality.model import VendorQualityAndPSI
+from modules.container_tracking.model import ContainerLifecycleUnit, ContainerDemurrageCharge
+from modules.split_shipments.model import SplitShipmentAllocation
+from modules.multimodal_freight.model import MultimodalFreightDetails
+from modules.regulatory_matrix.model import HsCodeRegulatoryRequirement
+from modules.trade_finance.model import ImportFinanceInstrument, LcBankCharge, FxHedgingAndVariance
+from modules.broker_custody.model import CustomsBrokerAdvance, BrokerSettlementReceipt
+

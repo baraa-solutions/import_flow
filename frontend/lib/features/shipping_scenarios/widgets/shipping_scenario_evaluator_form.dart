@@ -8,9 +8,11 @@ import 'package:frontend/core/widgets/widgets.dart';
 
 import '../../import_files/providers/import_files_provider.dart';
 import '../../purchase_orders/models/purchase_order_model.dart';
+import 'evaluator/acid_compliance_feasibility_banner.dart';
+import 'evaluator/postal_savings_breakdown_card.dart';
 
-/// نموذج إدخال جاهزية الشحنة والـ pick-up ومحددات الحاويات
-class ShippingScenarioEvaluatorForm extends ConsumerWidget {
+/// نموذج إدخال جاهزية الشحنة والـ pick-up ومحددات الحاويات وتقييم الجدوى الجمركية
+class ShippingScenarioEvaluatorForm extends ConsumerStatefulWidget {
   final String title;
   final ValueChanged<String> onTitleChanged;
   final DateTime cargoReadyDate;
@@ -69,34 +71,68 @@ class ShippingScenarioEvaluatorForm extends ConsumerWidget {
   });
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<ShippingScenarioEvaluatorForm> createState() => _ShippingScenarioEvaluatorFormState();
+}
+
+class _ShippingScenarioEvaluatorFormState extends ConsumerState<ShippingScenarioEvaluatorForm> {
+  bool _showFeasibilitySimulator = false;
+  late final TextEditingController _simWeightController;
+  late final TextEditingController _simValueController;
+
+  @override
+  void initState() {
+    super.initState();
+    _simWeightController = TextEditingController(text: '35.0');
+    _simValueController = TextEditingController(text: '1200.0');
+    _simWeightController.addListener(_onSimValuesChanged);
+    _simValueController.addListener(_onSimValuesChanged);
+  }
+
+  void _onSimValuesChanged() {
+    setState(() {});
+  }
+
+  @override
+  void dispose() {
+    _simWeightController.removeListener(_onSimValuesChanged);
+    _simValueController.removeListener(_onSimValuesChanged);
+    _simWeightController.dispose();
+    _simValueController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final l = context.l10n;
+    final isArabic = l.isArabic;
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     // Linked PO packing list metrics
     double totalCargoCbm = 0.0;
     double totalCargoWeightKg = 0.0;
+    double totalCargoValueUsd = 0.0;
     double totalFloorAreaM2 = 0.0;
     int linkedPlCount = 0;
     bool hasNonStackableItems = false;
     bool hasExplicitPackingList = false;
 
     List<PurchaseOrderModel> filteredPOs = [];
-    if (selectedImportFileId != null) {
+    if (widget.selectedImportFileId != null) {
       final importFiles = ref.watch(importFilesProvider).valueOrNull ?? [];
-      final selectedFile = importFiles.where((f) => f.importFileId == selectedImportFileId).firstOrNull;
+      final selectedFile = importFiles.where((f) => f.importFileId == widget.selectedImportFileId).firstOrNull;
       if (selectedFile != null) {
         final filePoIds = selectedFile.poIds ?? [];
-        filteredPOs = poList.where((p) =>
+        filteredPOs = widget.poList.where((p) =>
             (p.poId != null && filePoIds.contains(p.poId)) ||
             (p.importFileId != null && p.importFileId == selectedFile.importFileId) ||
             (selectedFile.importFileCode.isNotEmpty && p.importFileCode != null && p.importFileCode == selectedFile.importFileCode)).toList();
       }
-    } else if (selectedPoId != null) {
-      filteredPOs = poList.where((p) => p.poId == selectedPoId).toList();
+    } else if (widget.selectedPoId != null) {
+      filteredPOs = widget.poList.where((p) => p.poId == widget.selectedPoId).toList();
     }
 
     for (var po in filteredPOs) {
+      totalCargoValueUsd += po.totalAmountFob;
       if (po.packingListItems.isNotEmpty) {
         hasExplicitPackingList = true;
         linkedPlCount += po.packingListItems.length;
@@ -108,13 +144,16 @@ class ShippingScenarioEvaluatorForm extends ConsumerWidget {
           totalFloorAreaM2 += ContainerRequirementEngine.calculateFloorAreaM2(lengthM: lM, widthM: wM, quantity: pl.qtyPkg.toInt());
           if (!pl.isStackable) hasNonStackableItems = true;
         }
+      } else if (po.totalGrossWeightKg > 0) {
+        totalCargoWeightKg += po.totalGrossWeightKg;
+        totalCargoCbm += po.totalCbm;
       }
     }
 
     final containerRec = ContainerRequirementEngine.calculate(
       totalCbm: totalCargoCbm,
       totalWeightKg: totalCargoWeightKg,
-      isStackable: isStackable,
+      isStackable: widget.isStackable,
     );
 
     final dualRec = ContainerRequirementEngine.calculateBoth(
@@ -126,7 +165,7 @@ class ShippingScenarioEvaluatorForm extends ConsumerWidget {
     final lclChargeableCbm = ContainerRequirementEngine.calculateLclChargeableCbm(
       physicalCbm: totalCargoCbm,
       floorAreaM2: totalFloorAreaM2,
-      isStackable: isStackable && !hasNonStackableItems,
+      isStackable: widget.isStackable && !hasNonStackableItems,
     );
     final oceanRevenueTon = ContainerRequirementEngine.calculateOceanRevenueTon(
       chargeableCbm: lclChargeableCbm,
@@ -137,7 +176,7 @@ class ShippingScenarioEvaluatorForm extends ConsumerWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         // Active Edit Study Banner
-        if (editingSessionId != null) ...[
+        if (widget.editingSessionId != null) ...[
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
             decoration: BoxDecoration(
@@ -151,7 +190,7 @@ class ShippingScenarioEvaluatorForm extends ConsumerWidget {
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(
-                    '⚠️ ${l.activeEditStudyBanner}: ${editingSessionCode ?? ''} (${title.isNotEmpty ? title : l.noDataFound}). ${l.activeEditStudyHint}',
+                    '⚠️ ${l.activeEditStudyBanner}: ${widget.editingSessionCode ?? ''} (${widget.title.isNotEmpty ? widget.title : l.noDataFound}). ${l.activeEditStudyHint}',
                     style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.wcagOrange, fontSize: 13),
                   ),
                 ),
@@ -160,7 +199,7 @@ class ShippingScenarioEvaluatorForm extends ConsumerWidget {
                   icon: Icons.cancel_outlined,
                   variant: AppButtonVariant.secondary,
                   size: AppButtonSize.small,
-                  onPressed: onCancelEdit,
+                  onPressed: widget.onCancelEdit,
                 ),
               ],
             ),
@@ -180,33 +219,33 @@ class ShippingScenarioEvaluatorForm extends ConsumerWidget {
                 final isNarrowParam = paramConstraints.maxWidth < 768;
 
                 final titleWidget = TextFormField(
-                  key: ValueKey('title_${editingSessionId ?? "new"}_$editFormVersion'),
-                  initialValue: title,
+                  key: ValueKey('title_${widget.editingSessionId ?? "new"}_${widget.editFormVersion}'),
+                  initialValue: widget.title,
                   decoration: InputDecoration(labelText: '${l.studyTitleLabel} *', hintText: l.studyTitleLabel, isDense: true),
                   validator: (v) => v == null || v.trim().isEmpty ? l.requiredField : null,
-                  onChanged: (v) => onTitleChanged(v.trim()),
+                  onChanged: (v) => widget.onTitleChanged(v.trim()),
                 );
 
                 final crdWidget = InkWell(
                   onTap: () async {
                     final picked = await showDatePicker(
                       context: context,
-                      initialDate: cargoReadyDate,
+                      initialDate: widget.cargoReadyDate,
                       firstDate: DateTime(2020),
                       lastDate: DateTime(2030),
                     );
                     if (picked != null) {
-                      onCargoReadyDateChanged(picked);
+                      widget.onCargoReadyDateChanged(picked);
                     }
                   },
                   child: InputDecorator(
                     decoration: InputDecoration(labelText: '${l.crdLabel} *', isDense: true),
-                    child: Text(cargoReadyDate.toString().substring(0, 10), style: const TextStyle(fontWeight: FontWeight.bold)),
+                    child: Text(widget.cargoReadyDate.toString().substring(0, 10), style: const TextStyle(fontWeight: FontWeight.bold)),
                   ),
                 );
 
                 final importFileWidget = SearchableDropdownField<int?>(
-                  value: selectedImportFileId,
+                  value: widget.selectedImportFileId,
                   labelText: l.linkImportFile,
                   items: [
                     SearchableDropdownItem<int?>(value: null, label: l.unassigned),
@@ -216,58 +255,58 @@ class ShippingScenarioEvaluatorForm extends ConsumerWidget {
                         )),
                   ],
                   onChanged: (v) {
-                    onImportFileChanged(v);
+                    widget.onImportFileChanged(v);
                     if (v != null) {
                       final importFiles = ref.read(importFilesProvider).valueOrNull ?? [];
                       final f = importFiles.where((file) => file.importFileId == v).firstOrNull;
                       if (f != null) {
                         final fCode = f.displayName;
-                        onTitleChanged('[$fCode] ${f.companyName}');
+                        widget.onTitleChanged('[$fCode] ${f.companyName}');
                       }
                     }
                   },
                 );
 
                 final poWidget = SearchableDropdownField<int?>(
-                  value: selectedPoId,
+                  value: widget.selectedPoId,
                   labelText: l.linkPurchaseOrder,
                   items: [
                     SearchableDropdownItem<int?>(value: null, label: l.unassigned),
-                    ...poList.map((po) => SearchableDropdownItem<int?>(
+                    ...widget.poList.map((po) => SearchableDropdownItem<int?>(
                           value: po.poId,
                           label: '${po.displayName} (${po.poNumber}) (${po.supplierName ?? "Supplier"})',
                         )),
                   ],
-                  onChanged: onPoChanged,
+                  onChanged: widget.onPoChanged,
                 );
 
                 final projectWidget = SearchableDropdownField<int?>(
-                  value: selectedProjectId,
+                  value: widget.selectedProjectId,
                   labelText: l.linkProject,
                   items: [
                     SearchableDropdownItem<int?>(value: null, label: l.unassigned),
-                    ...projectsList.map((p) => SearchableDropdownItem<int?>(
+                    ...widget.projectsList.map((p) => SearchableDropdownItem<int?>(
                           value: p.projectId,
                           label: '${p.projectCode} - ${p.projectName}',
                         )),
                   ],
-                  onChanged: onProjectChanged,
+                  onChanged: widget.onProjectChanged,
                 );
 
                 final form4Widget = TextFormField(
-                  key: ValueKey('avg_form4_${editingSessionId ?? "new"}_$editFormVersion'),
-                  initialValue: avgForm4Days.toString(),
+                  key: ValueKey('avg_form4_${widget.editingSessionId ?? "new"}_${widget.editFormVersion}'),
+                  initialValue: widget.avgForm4Days.toString(),
                   keyboardType: TextInputType.number,
                   decoration: InputDecoration(labelText: l.avgForm4DaysLabel, isDense: true, suffixText: 'd'),
-                  onChanged: (v) => onAvgForm4DaysChanged(int.tryParse(v) ?? 5),
+                  onChanged: (v) => widget.onAvgForm4DaysChanged(int.tryParse(v) ?? 5),
                 );
 
                 final clearanceWidget = TextFormField(
-                  key: ValueKey('avg_clearance_${editingSessionId ?? "new"}_$editFormVersion'),
-                  initialValue: avgClearanceDays.toString(),
+                  key: ValueKey('avg_clearance_${widget.editingSessionId ?? "new"}_${widget.editFormVersion}'),
+                  initialValue: widget.avgClearanceDays.toString(),
                   keyboardType: TextInputType.number,
                   decoration: InputDecoration(labelText: l.avgClearanceDaysLabel, isDense: true, suffixText: 'd'),
-                  onChanged: (v) => onAvgClearanceDaysChanged(int.tryParse(v) ?? 7),
+                  onChanged: (v) => widget.onAvgClearanceDaysChanged(int.tryParse(v) ?? 7),
                 );
 
                 return Column(
@@ -318,15 +357,15 @@ class ShippingScenarioEvaluatorForm extends ConsumerWidget {
 
                     // Parameters Row 2 (Pick-up Address)
                     TextFormField(
-                      key: ValueKey('pickup_addr_${editingSessionId ?? "new"}_$editFormVersion'),
-                      initialValue: pickUpAddress,
+                      key: ValueKey('pickup_addr_${widget.editingSessionId ?? "new"}_${widget.editFormVersion}'),
+                      initialValue: widget.pickUpAddress,
                       decoration: InputDecoration(
                         labelText: l.pickupAddressLabel,
                         hintText: 'Factory / Industrial Zone, Origin Country',
                         prefixIcon: const Icon(Icons.location_on_outlined, color: AppTheme.cobalt),
                         isDense: true,
                       ),
-                      onChanged: (v) => onPickUpAddressChanged(v.trim()),
+                      onChanged: (v) => widget.onPickUpAddressChanged(v.trim()),
                     ),
                     const SizedBox(height: 12),
 
@@ -362,7 +401,7 @@ class ShippingScenarioEvaluatorForm extends ConsumerWidget {
                     ],
 
                     // Linked Packing List & Container Engine Section
-                    if (selectedImportFileId != null || selectedPoId != null) ...[
+                    if (widget.selectedImportFileId != null || widget.selectedPoId != null) ...[
                       const SizedBox(height: 14),
                       Container(
                         padding: const EdgeInsets.all(12),
@@ -463,26 +502,26 @@ class ShippingScenarioEvaluatorForm extends ConsumerWidget {
                                 const SizedBox(width: 8),
                                 ChoiceChip(
                                   label: Text('📦 ${l.stackableOption}'),
-                                  selected: isStackable,
+                                  selected: widget.isStackable,
                                   selectedColor: AppTheme.cobalt,
                                   labelStyle: TextStyle(
-                                    color: isStackable ? AppTheme.white : AppTheme.charcoal,
+                                    color: widget.isStackable ? AppTheme.white : AppTheme.charcoal,
                                     fontWeight: FontWeight.bold,
                                     fontSize: 11,
                                   ),
-                                  onSelected: (val) => onStackableChanged(true),
+                                  onSelected: (val) => widget.onStackableChanged(true),
                                 ),
                                 const SizedBox(width: 8),
                                 ChoiceChip(
                                   label: Text('🚫 ${l.nonStackableOption}'),
-                                  selected: !isStackable,
+                                  selected: !widget.isStackable,
                                   selectedColor: AppTheme.wcagOrange,
                                   labelStyle: TextStyle(
-                                    color: !isStackable ? AppTheme.white : AppTheme.charcoal,
+                                    color: !widget.isStackable ? AppTheme.white : AppTheme.charcoal,
                                     fontWeight: FontWeight.bold,
                                     fontSize: 11,
                                   ),
-                                  onSelected: (val) => onStackableChanged(false),
+                                  onSelected: (val) => widget.onStackableChanged(false),
                                 ),
                               ],
                             ),
@@ -496,15 +535,15 @@ class ShippingScenarioEvaluatorForm extends ConsumerWidget {
                                 Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                                   decoration: BoxDecoration(
-                                    color: (isStackable ? AppTheme.emerald : AppTheme.wcagOrange).withValues(alpha: 0.15),
+                                    color: (widget.isStackable ? AppTheme.emerald : AppTheme.wcagOrange).withValues(alpha: 0.15),
                                     borderRadius: BorderRadius.circular(6),
-                                    border: Border.all(color: isStackable ? AppTheme.emerald : AppTheme.wcagOrange),
+                                    border: Border.all(color: widget.isStackable ? AppTheme.emerald : AppTheme.wcagOrange),
                                   ),
                                   child: Text(
                                     containerRec.recommendationSummary,
                                     style: TextStyle(
                                       fontWeight: FontWeight.bold,
-                                      color: isStackable ? AppTheme.emerald : AppTheme.wcagOrange,
+                                      color: widget.isStackable ? AppTheme.emerald : AppTheme.wcagOrange,
                                       fontSize: 12,
                                     ),
                                   ),
@@ -517,7 +556,7 @@ class ShippingScenarioEvaluatorForm extends ConsumerWidget {
                                     border: Border.all(color: AppTheme.textMuted),
                                   ),
                                   child: Text(
-                                    isStackable
+                                    widget.isStackable
                                         ? '${l.nonStackableOption}: ${dualRec.nonStackableResult.requiredContainersCount}x ${dualRec.nonStackableResult.recommendedContainerCode}'
                                         : '${l.stackableOption}: ${dualRec.stackableResult.requiredContainersCount}x ${dualRec.stackableResult.recommendedContainerCode}',
                                     style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.charcoal, fontSize: 11),
@@ -528,7 +567,7 @@ class ShippingScenarioEvaluatorForm extends ConsumerWidget {
                                   icon: Icons.table_chart,
                                   variant: AppButtonVariant.secondary,
                                   size: AppButtonSize.small,
-                                  onPressed: () => onShowContainerComparison(dualRec, totalCargoCbm, totalCargoWeightKg),
+                                  onPressed: () => widget.onShowContainerComparison(dualRec, totalCargoCbm, totalCargoWeightKg),
                                 ),
                                 const SizedBox(width: 8),
                                 AppButton(
@@ -536,14 +575,31 @@ class ShippingScenarioEvaluatorForm extends ConsumerWidget {
                                   icon: Icons.view_in_ar,
                                   variant: AppButtonVariant.success,
                                   size: AppButtonSize.small,
-                                  onPressed: () => onShowVisualLoadPlan(filteredPOs, totalCargoCbm, totalCargoWeightKg),
+                                  onPressed: () => widget.onShowVisualLoadPlan(filteredPOs, totalCargoCbm, totalCargoWeightKg),
                                 ),
                               ],
                             ),
                           ],
                         ),
                       ),
+                      // ── ACID Compliance & Express Courier Feasibility for Linked Cargo ──
+                      const SizedBox(height: 14),
+                      AcidComplianceFeasibilityBanner(
+                        grossWeightKg: totalCargoWeightKg,
+                        customsValueUsd: totalCargoValueUsd,
+                      ),
+                      if (totalCargoWeightKg <= 50.0 && totalCargoValueUsd <= 2000.0) ...[
+                        const SizedBox(height: 12),
+                        PostalSavingsBreakdownCard(
+                          grossWeightKg: totalCargoWeightKg,
+                          customsValueUsd: totalCargoValueUsd,
+                        ),
+                      ],
                     ],
+
+                    // ── Standalone Postal Parcel Feasibility Simulator ──
+                    const SizedBox(height: 14),
+                    _buildFeasibilitySimulatorSection(context, isDark: isDark, isArabic: isArabic),
                   ],
                 );
               },
@@ -551,6 +607,100 @@ class ShippingScenarioEvaluatorForm extends ConsumerWidget {
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildFeasibilitySimulatorSection(
+    BuildContext context, {
+    required bool isDark,
+    required bool isArabic,
+  }) {
+    final simWeight = double.tryParse(_simWeightController.text.trim()) ?? 0.0;
+    final simValue = double.tryParse(_simValueController.text.trim()) ?? 0.0;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: isDark ? AppTheme.darkSurface : Colors.grey.shade50,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: isDark ? AppTheme.darkBorder : Colors.grey.shade300,
+        ),
+      ),
+      padding: const EdgeInsets.all(12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(
+                Icons.rule_folder_outlined,
+                color: AppTheme.cobalt,
+                size: 18,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  isArabic
+                      ? 'محاكي الجدوى الجمركية وإعفاء البريد السريع (معيار 50 كجم / 2000 دولار)'
+                      : 'ACID Compliance & Courier Exemption Feasibility Simulator',
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.bold,
+                    color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
+                  ),
+                ),
+              ),
+              AppButton(
+                label: _showFeasibilitySimulator
+                    ? (isArabic ? 'إخفاء المحاكي' : 'Hide Simulator')
+                    : (isArabic ? 'فتح المحاكي' : 'Open Simulator'),
+                icon: _showFeasibilitySimulator ? Icons.expand_less : Icons.tune,
+                variant: AppButtonVariant.secondary,
+                size: AppButtonSize.small,
+                onPressed: () => setState(() => _showFeasibilitySimulator = !_showFeasibilitySimulator),
+              ),
+            ],
+          ),
+          if (_showFeasibilitySimulator) ...[
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: CustomTextField(
+                    controller: _simWeightController,
+                    label: isArabic ? 'الوزن القائم (كجم)' : 'Gross Weight (kg)',
+                    hint: '35.0',
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    textDirection: TextDirection.ltr,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: CustomTextField(
+                    controller: _simValueController,
+                    label: isArabic ? 'القيمة الجمركية (دولار)' : 'Customs Value (\$ USD)',
+                    hint: '1200.0',
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    textDirection: TextDirection.ltr,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            AcidComplianceFeasibilityBanner(
+              grossWeightKg: simWeight,
+              customsValueUsd: simValue,
+            ),
+            if (simWeight <= 50.0 && simValue <= 2000.0) ...[
+              const SizedBox(height: 12),
+              PostalSavingsBreakdownCard(
+                grossWeightKg: simWeight,
+                customsValueUsd: simValue,
+              ),
+            ],
+          ],
+        ],
+      ),
     );
   }
 }

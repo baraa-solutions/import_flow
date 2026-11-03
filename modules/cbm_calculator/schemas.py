@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Annotated, Any, List, Literal, Optional, Tuple
+from typing import Annotated, Any, Dict, List, Literal, Optional, Tuple
 
 from pydantic import BaseModel, BeforeValidator, ConfigDict, Field, PrivateAttr, model_validator
 
@@ -15,6 +15,8 @@ class CBMItemBase(BaseModel):
     unit: cargo_math.LengthUnit = Field(default="cm", json_schema_extra={"example": "cm"})
     gross_weight_per_unit_kg: float = Field(default=0.0, ge=0, json_schema_extra={"example": 25.0})
     is_stackable: bool = Field(default=True, json_schema_extra={"example": True})
+    freight_type: Optional[str] = Field(default="air_freight", json_schema_extra={"example": "air_freight"})
+    divisor: Optional[float] = Field(default=None, json_schema_extra={"example": 6000.0})
 
     @model_validator(mode="before")
     @classmethod
@@ -69,6 +71,8 @@ class CBMItemResponse(BaseModel):
     volumetric_weight_kg: float
     total_gross_weight_kg: float
     is_stackable: bool = True
+    freight_type: Optional[str] = None
+    divisor: Optional[float] = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -89,6 +93,8 @@ ShipmentModeCode = Annotated[Optional[Literal["AIR", "SEA"]], BeforeValidator(_s
 class CBMCalculationBase(BaseModel):
     title: Optional[str] = Field(default=None, json_schema_extra={"example": "Solar Panels Batch Measurement"})
     shipment_mode: ShipmentModeCode = Field(default=None, json_schema_extra={"example": "SEA"})
+    freight_type: Optional[str] = Field(default=None, json_schema_extra={"example": "air_freight"}) # air_freight | courier
+    divisor: Optional[float] = Field(default=None, json_schema_extra={"example": 6000.0}) # 6000.0 or 5000.0
     import_file_id: Optional[int] = None
     project_id: Optional[int] = None
     po_id: Optional[int] = None
@@ -100,17 +106,17 @@ class CBMCalculationCreate(CBMCalculationBase):
     items: List[CBMItemCreate] = Field(..., min_length=1)
 
 
-
 class CBMCalculationUpdate(BaseModel):
     title: Optional[str] = None
     shipment_mode: ShipmentModeCode = None
+    freight_type: Optional[str] = None
+    divisor: Optional[float] = None
     import_file_id: Optional[int] = None
     project_id: Optional[int] = None
     po_id: Optional[int] = None
     notes: Optional[str] = None
     is_stackable: Optional[bool] = None
     items: Optional[List[CBMItemCreate]] = None
-
 
 
 class CBMCalculationResponse(CBMCalculationBase):
@@ -147,6 +153,8 @@ class CBMCalculationResponse(CBMCalculationBase):
 
 class CBMQuickCalcRequest(BaseModel):
     items: List[CBMItemCreate] = Field(..., min_length=1)
+    freight_type: Optional[str] = Field(default="air_freight", json_schema_extra={"example": "air_freight"})
+    divisor: Optional[float] = Field(default=None, json_schema_extra={"example": 6000.0})
 
 
 class CBMQuickCalcResponse(BaseModel):
@@ -165,6 +173,8 @@ class CBMQuickCalcResponse(BaseModel):
     hybrid_savings_count: Optional[int] = 0
     smart_hybrid_containers_count: Optional[int] = None
     flat_only_containers_count: Optional[int] = None
+    freight_type: Optional[str] = None
+    divisor: Optional[float] = None
     items: List[dict]
 
 
@@ -180,3 +190,25 @@ class CloneCBMCalculationRequest(BaseModel):
     copy_items: bool = True
     notes: Optional[str] = None
 
+
+class AirFreightComparisonRequest(BaseModel):
+    packages: Optional[List[Dict[str, Any]]] = None
+    length_cm: Optional[float] = None
+    width_cm: Optional[float] = None
+    height_cm: Optional[float] = None
+    gross_weight_kg: Optional[float] = 0.0
+    quantity: int = 1
+    air_rate_per_kg: Optional[float] = 0.0
+    courier_rate_per_kg: Optional[float] = 0.0
+    estimated_rate_per_kg: Optional[float] = 0.0
+
+
+class AirFreightComparisonResponse(BaseModel):
+    cbm: float
+    gross_weight_kg: float
+    air_freight: Dict[str, Any]
+    courier: Dict[str, Any]
+    chargeable_weight_difference_kg: float
+    chargeable_weight_increase_percent: float
+    cost_difference: float
+    recommendation: Optional[str] = None

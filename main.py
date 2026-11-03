@@ -199,6 +199,18 @@ from modules.container_deposit.router import router as container_deposit_router
 from modules.system_parameters.router import router as system_parameters_router
 from modules.stage_notes.router import router as stage_notes_router
 from modules.master_items.router import router as master_items_router
+from modules.logistics_rules.router import router as logistics_rules_router
+from modules.customs_regimes.router import router as customs_regimes_router
+from modules.trade_agreements.router import router as trade_agreements_router
+from modules.legal_claims.router import router as legal_claims_router
+from modules.container_tracking.router import router as container_tracking_router
+from modules.split_shipments.router import router as split_shipments_router
+from modules.multimodal_freight.router import router as multimodal_freight_router
+from modules.regulatory_matrix.router import router as regulatory_matrix_router
+from modules.trade_finance.router import router as trade_finance_router
+from modules.logistics_exceptions.router import router as logistics_exceptions_router
+from modules.deposits_recovery.router import router as deposits_recovery_router
+from modules.vendor_quality.router import router as vendor_quality_router
 from modules.system_observability.middleware import ObservabilityMiddleware
 from modules.system_observability.service import setup_query_listener
 
@@ -457,6 +469,18 @@ app.include_router(container_deposit_router)
 app.include_router(system_parameters_router)
 app.include_router(stage_notes_router)
 app.include_router(master_items_router)
+app.include_router(logistics_rules_router)
+app.include_router(customs_regimes_router)
+app.include_router(trade_agreements_router)
+app.include_router(legal_claims_router)
+app.include_router(container_tracking_router)
+app.include_router(split_shipments_router)
+app.include_router(multimodal_freight_router)
+app.include_router(regulatory_matrix_router)
+app.include_router(trade_finance_router)
+app.include_router(logistics_exceptions_router)
+app.include_router(deposits_recovery_router)
+app.include_router(vendor_quality_router)
 
 
 

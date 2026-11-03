@@ -111,6 +111,62 @@ PERMISSIONS_CATALOG = [
 
     # 19. System Updates (granted to ADMIN only, through the "*" wildcard)
     {"code": "system.update", "module": "system", "action": "update", "en": "Install System Updates", "ar": "تنزيل وتثبيت تحديثات النظام", "desc": "Can download, install and roll back application updates"},
+
+    # 21. Customs Special Regimes (Wave 3)
+    {"code": "customs_regimes.view", "module": "customs_regimes", "action": "view", "en": "View Customs Special Regimes", "ar": "عرض النظم الجمركية المعلقة", "desc": "View customs suspended duty regimes, guarantees, and re-export deadlines"},
+    {"code": "customs_regimes.manage", "module": "customs_regimes", "action": "manage", "en": "Manage Customs Special Regimes", "ar": "إدارة النظم الجمركية وخطابات الضمان", "desc": "Create and update suspended duty regimes and bank guarantees"},
+    {"code": "customs_regimes.settle", "module": "customs_regimes", "action": "settle", "en": "Settle Customs Regimes", "ar": "تسوية النظم المعلقة والدروباك", "desc": "Reconcile drawback refunds and finalize re-export closures"},
+
+    # 22. Preferential Trade Agreements (Wave 3)
+    {"code": "trade_agreements.view", "module": "trade_agreements", "action": "view", "en": "View Preferential Agreements", "ar": "عرض الاتفاقيات التفضيلية وشهادات المنشأ", "desc": "View trade agreements, origin certificates, and provisional escrow status"},
+    {"code": "trade_agreements.manage", "module": "trade_agreements", "action": "manage", "en": "Manage Preferential Agreements", "ar": "إدارة الاتفاقيات والأمانات الجمركية", "desc": "Register origin certificates and manage provisional customs escrows"},
+    {"code": "trade_agreements.verify", "module": "trade_agreements", "action": "verify", "en": "Verify Preferential Origin", "ar": "التحقق من صحة أصل شهادة المنشأ", "desc": "Record verification of original certificates and approve escrow refunds"},
+
+    # 23. Cargo Claims & Legal Reservations (Wave 3)
+    {"code": "legal_claims.view", "module": "legal_claims", "action": "view", "en": "View Cargo Claims and Reservations", "ar": "عرض رادار المطالبات والتحفظات القانونية", "desc": "Monitor time-bar countdowns, latent damage deadlines, and recovery claims"},
+    {"code": "legal_claims.manage", "module": "legal_claims", "action": "manage", "en": "Manage Cargo Claims and Reservations", "ar": "إدارة خطابات التحفظ والمعاينات المشتركة", "desc": "Issue official reservation letters and schedule joint surveys"},
+    {"code": "legal_claims.settle", "module": "legal_claims", "action": "settle", "en": "Settle Cargo Claims", "ar": "تسوية المطالبات والتعويضات القانونية والتأمينية", "desc": "Finalize settlements and record compensation amounts from carriers and insurers"},
+
+    # 20. Logistics Operational Rules
+    {"code": "logistics_rules.view", "module": "logistics_rules", "action": "view", "en": "View Logistics Rules", "ar": "عرض القواعد التشغيلية", "desc": "View operational rules and effective values"},
+    {"code": "logistics_rules.create", "module": "logistics_rules", "action": "create", "en": "Create / Update Logistics Rule", "ar": "إنشاء وتحديث القاعدة التشغيلية", "desc": "Create new rules and submit version updates"},
+    {"code": "logistics_rules.verify", "module": "logistics_rules", "action": "verify", "en": "Verify Logistics Rule", "ar": "توثيق وتحقق القاعدة التشغيلية", "desc": "Mark a rule as VERIFIED after review (Maker-Checker)"},
+    {"code": "logistics_rules.admin", "module": "logistics_rules", "action": "admin", "en": "Admin Logistics Rules", "ar": "إدارة كاملة للقواعد التشغيلية", "desc": "Full admin: archive, force-verify, export"},
+
+    # 24. Container Tracking & Demurrage (Wave 2)
+    {"code": "container_tracking.view", "module": "container_tracking", "action": "view", "en": "View Container Tracking", "ar": "عرض دورة حياة الحاويات والغرامات", "desc": "View container status, milestones, and demurrage calculations"},
+    {"code": "container_tracking.manage", "module": "container_tracking", "action": "manage", "en": "Manage Container Tracking", "ar": "إدارة الحاويات واحتساب الغرامات", "desc": "Create and update containers, milestones, and demurrage charges"},
+
+    # 25. Split Shipments & Allocations (Wave 2)
+    {"code": "split_shipments.view", "module": "split_shipments", "action": "view", "en": "View Split Shipments", "ar": "عرض تجزئة الشحنات والبوالص", "desc": "View split B/L allocations and multi-PO distributions"},
+    {"code": "split_shipments.manage", "module": "split_shipments", "action": "manage", "en": "Manage Split Shipments", "ar": "إدارة تجزئة البوالص واحتساب التكاليف", "desc": "Create and edit split B/L allocations and calculate prorated costs"},
+
+    # 26. Multimodal Freight (Wave 2)
+    {"code": "multimodal_freight.view", "module": "multimodal_freight", "action": "view", "en": "View Multimodal Freight", "ar": "عرض تفاصيل الشحن المتعدد", "desc": "View Air, LCL, Ro-Ro, and Bulk freight details and charges"},
+    {"code": "multimodal_freight.manage", "module": "multimodal_freight", "action": "manage", "en": "Manage Multimodal Freight", "ar": "إدارة وسائط الشحن المتعدد", "desc": "Manage Air, LCL, Ro-Ro, and Bulk freight records and cost breakdowns"},
+    # 27. Regulatory Matrix (Wave 1)
+    {"code": "regulatory_matrix.view", "module": "regulatory_matrix", "action": "view", "en": "View Regulatory Matrix", "ar": "عرض مصفوفة المتطلبات الرقابية", "desc": "View HS code regulatory agencies and requirements"},
+    {"code": "regulatory_matrix.manage", "module": "regulatory_matrix", "action": "manage", "en": "Manage Regulatory Matrix", "ar": "إدارة مصفوفة المتطلبات الرقابية", "desc": "Create and update regulatory agencies and requirements"},
+
+    # 28. Trade Finance & Payments (Wave 1)
+    {"code": "trade_finance.view", "module": "trade_finance", "action": "view", "en": "View Trade Finance", "ar": "عرض اعتمادات وتمويل الاستيراد", "desc": "View letters of credit, CAD, bank charges, and FX hedging"},
+    {"code": "trade_finance.manage", "module": "trade_finance", "action": "manage", "en": "Manage Trade Finance", "ar": "إدارة تمويل الاستيراد والاعتمادات", "desc": "Create and update LC, bank charges, and FX variance records"},
+
+    # 29. Broker Custody & Settlement (Wave 1)
+    {"code": "broker_custody.view", "module": "broker_custody", "action": "view", "en": "View Broker Custody", "ar": "عرض عهد وتسويات المخلصين", "desc": "View customs broker advances and official settlement receipts"},
+    {"code": "broker_custody.manage", "module": "broker_custody", "action": "manage", "en": "Manage Broker Custody", "ar": "إدارة عهد وتسويات المخلصين", "desc": "Issue advances, log receipts, and execute custody settlements"},
+
+    # 30. Logistics Exceptions (Wave 4)
+    {"code": "logistics_exceptions.view", "module": "logistics_exceptions", "action": "view", "en": "View Logistics Exceptions", "ar": "عرض استثناءات واضطرابات الشحن", "desc": "View vessel roll-overs, blank sailings, and valuation disputes"},
+    {"code": "logistics_exceptions.manage", "module": "logistics_exceptions", "action": "manage", "en": "Manage Logistics Exceptions", "ar": "إدارة استثناءات واضطرابات الشحن", "desc": "Log exceptions, align ACID validity, and file valuation appeals"},
+
+    # 31. Deposits Recovery (Wave 4)
+    {"code": "deposits_recovery.view", "module": "deposits_recovery", "action": "view", "en": "View Refundable Deposits", "ar": "عرض تأمينات الحاويات والضمانات", "desc": "View refundable container deposits, customs securities, and bank LGs"},
+    {"code": "deposits_recovery.manage", "module": "deposits_recovery", "action": "manage", "en": "Manage Refundable Deposits", "ar": "إدارة استرداد التأمينات والضمانات", "desc": "Track EIR returns, claim deposit refunds, and release bank LGs"},
+
+    # 32. Vendor Quality & PSI (Wave 4)
+    {"code": "vendor_quality.view", "module": "vendor_quality", "action": "view", "en": "View Vendor Quality & PSI", "ar": "عرض فحص ما قبل الشحن وتقييم الموردين", "desc": "View pre-shipment inspection certificates and vendor performance ratings"},
+    {"code": "vendor_quality.manage", "module": "vendor_quality", "action": "manage", "en": "Manage Vendor Quality & PSI", "ar": "إدارة فحص الجودة وتقييم الموردين", "desc": "Upload PSI inspection reports and calculate vendor scorecards"},
 ]
 
 
@@ -150,7 +206,9 @@ ROLES_CONFIG = [
             "master_data.view",
             "users.view",
             "audit_logs.view",
-            "reports.view", "reports.export",
+            "reports.view",
+            "reports.export",
+            "logistics_rules.view", "logistics_rules.verify",
         ],
     },
     {
@@ -175,6 +233,7 @@ ROLES_CONFIG = [
             "quotations.view", "quotations.manage",
             "master_data.view",
             "reports.view",
+            "logistics_rules.view", "logistics_rules.create",
         ],
     },
     {
@@ -264,6 +323,24 @@ DERIVED_GRANTS: Dict[str, str] = {
     "cargo_shipping.approve": "cargo_shipping.update",
     "cargo_insurance.view": "freight_booking.view",
     "cargo_insurance.manage": "freight_booking.create",
+    "logistics_rules.view": "import_files.view",
+    "logistics_rules.create": "import_files.edit",
+    "logistics_rules.verify": "import_files.close",
+    "customs_regimes.view": "customs_clearance.view",
+    "customs_regimes.manage": "customs_clearance.update",
+    "customs_regimes.settle": "customs_clearance.release",
+    "trade_agreements.view": "customs_clearance.view",
+    "trade_agreements.manage": "customs_clearance.update",
+    "trade_agreements.verify": "customs_clearance.release",
+    "legal_claims.view": "warehouse_receiving.view",
+    "legal_claims.manage": "cargo_insurance.manage",
+    "legal_claims.settle": "financial_approval.approve",
+    "container_tracking.view": "import_files.view",
+    "container_tracking.manage": "import_files.edit",
+    "split_shipments.view": "import_files.view",
+    "split_shipments.manage": "import_files.edit",
+    "multimodal_freight.view": "import_files.view",
+    "multimodal_freight.manage": "import_files.edit",
 }
 
 

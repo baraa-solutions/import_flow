@@ -56,6 +56,16 @@ import '../../transport_locations/screens/transport_locations_screen.dart';
 import '../../auth/screens/users_management_screen.dart';
 import '../../vessel_tracking/screens/vessel_tracking_radar_screen.dart';
 import '../../warehouse_receiving/screens/inbound_warehouse_hub_screen.dart';
+import '../../regulatory_matrix/screens/regulatory_matrix_screen.dart';
+import '../../trade_finance/screens/trade_finance_screen.dart';
+import '../../container_tracking/container_tracking_board_screen.dart';
+import '../../split_shipments/split_shipments_screen.dart';
+import '../../multimodal_freight/multimodal_freight_screen.dart';
+import '../../customs_regimes/customs_regimes_screen.dart';
+import '../../trade_agreements/trade_agreements_screen.dart';
+import '../../logistics_exceptions/logistics_exceptions_screen.dart';
+import '../../deposits_recovery/deposits_recovery_screen.dart';
+import '../../vendor_quality/vendor_quality_screen.dart';
 
 const List<Widget> kHomeScreenRegistry = [
   // 0..3: Core Workspace (Phase 1)
@@ -219,4 +229,34 @@ const List<Widget> kHomeScreenRegistry = [
 
   // 77: Item Price Trends Radar
   ItemPriceTrendsScreen(key: ValueKey('item_price_trends_screen')),
+
+  // 78: Regulatory Requirements Compliance Matrix (Wave 1)
+  RegulatoryMatrixScreen(key: ValueKey('regulatory_matrix_screen')),
+
+  // 79: Trade Finance & Letters of Credit Hub (Wave 1)
+  TradeFinanceScreen(key: ValueKey('trade_finance_screen')),
+
+  // 80: Container-Level Tracking & Demurrage Board (Wave 2)
+  ContainerTrackingBoardScreen(key: ValueKey('container_tracking_board_screen')),
+
+  // 81: Split Shipments & Partial B/L Allocation Hub (Wave 2)
+  SplitShipmentsScreen(key: ValueKey('split_shipments_screen')),
+
+  // 82: Multimodal Freight Operations (Air, LCL, Ro-Ro, Bulk) (Wave 2)
+  MultimodalFreightScreen(key: ValueKey('multimodal_freight_screen')),
+
+  // 83: Complete Customs Special Regimes (Drawback, Free Zones, Under-Bond) (Wave 3)
+  CustomsRegimesScreen(key: ValueKey('customs_regimes_screen')),
+
+  // 84: Preferential Trade Agreements & Origin Verification (Wave 3)
+  TradeAgreementsScreen(key: ValueKey('trade_agreements_screen')),
+
+  // 85: Logistics Exceptions, Roll-overs & Valuation Disputes (Wave 4)
+  LogisticsExceptionsScreen(key: ValueKey('logistics_exceptions_screen')),
+
+  // 86: Refundable Container Deposits & Bank Guarantee Recovery (Wave 4)
+  DepositsRecoveryScreen(key: ValueKey('deposits_recovery_screen')),
+
+  // 87: Pre-Shipment Inspection (PSI) & Vendor Quality Scorecards (Wave 4)
+  VendorQualityScreen(key: ValueKey('vendor_quality_screen')),
 ];

@@ -15,6 +15,7 @@ import '../../../experience_guide/widgets/add_guide_entry_dialog.dart';
 import '../../../comprehensive_report/widgets/shipment_audit_timeline_dialog.dart';
 import '../../../smart_checklists/widgets/smart_checklist_dialog.dart';
 import 'file_details_action_handler.dart';
+import '../milestone_tracker/smart_stage_skip_indicator.dart';
 
 /// ⏳ Stages & Timeline tab for Import File Details
 /// Displays the 10-phase operational lifecycle timeline, institutional knowledge
@@ -140,6 +141,7 @@ class FileDetailsStagesTimelineTab extends ConsumerWidget {
             ),
           ),
           const SizedBox(height: 8),
+          SmartStageSkipIndicator.banner(skippedStages: file.skippedStages, isArabic: isAr, isDark: isDark),
           _buildLifecycleStagesList(context, ref, isDark: isDark, isAr: isAr),
           const SizedBox(height: 16),
 
@@ -303,17 +305,22 @@ class FileDetailsStagesTimelineTab extends ConsumerWidget {
         separatorBuilder: (_, __) => Divider(height: 1, color: isDark ? AppTheme.darkBorder : Colors.grey.shade200),
         itemBuilder: (ctx, idx) {
           final s = stages[idx];
+          bool isSkipped = false;
+          if (s.step == 2) isSkipped = SmartStageSkipIndicator.isStepSkipped(file.skippedStages, 'STEP_05');
+          if (s.step == 3) isSkipped = SmartStageSkipIndicator.isStepSkipped(file.skippedStages, 'STEP_12');
+          if (s.step == 6) isSkipped = SmartStageSkipIndicator.isStepSkipped(file.skippedStages, 'STEP_10');
+
           return ListTile(
             dense: true,
             leading: CircleAvatar(
               radius: 14,
-              backgroundColor: s.isDone
+              backgroundColor: (s.isDone || isSkipped)
                   ? (isDark ? AppTheme.emerald.withValues(alpha: 0.3) : AppTheme.emerald.withValues(alpha: 0.15))
                   : (isDark ? AppTheme.darkElevatedSurface : Colors.grey.shade100),
               child: Icon(
-                s.isDone ? Icons.check_circle_rounded : s.icon,
+                (s.isDone || isSkipped) ? Icons.check_circle_rounded : s.icon,
                 size: 16,
-                color: s.isDone ? AppTheme.emerald : (isDark ? AppTheme.darkTextMuted : Colors.grey),
+                color: (s.isDone || isSkipped) ? AppTheme.emerald : (isDark ? AppTheme.darkTextMuted : Colors.grey),
               ),
             ),
             title: Text(
@@ -327,11 +334,18 @@ class FileDetailsStagesTimelineTab extends ConsumerWidget {
             trailing: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                AppStatusBadge(
-                  label: s.isDone ? (isAr ? 'مكتمل' : 'Completed') : (isAr ? 'قيد المتابعة' : 'Pending'),
-                  severity: s.isDone ? AppSeverity.success : AppSeverity.warning,
-                  size: AppStatusBadgeSize.small,
-                ),
+                if (isSkipped)
+                  AppStatusBadge(
+                    label: isAr ? 'معفى نظامياً (طرد بريدي)' : 'Exempt (Postal)',
+                    severity: AppSeverity.success,
+                    size: AppStatusBadgeSize.small,
+                  )
+                else
+                  AppStatusBadge(
+                    label: s.isDone ? (isAr ? 'مكتمل' : 'Completed') : (isAr ? 'قيد المتابعة' : 'Pending'),
+                    severity: s.isDone ? AppSeverity.success : AppSeverity.warning,
+                    size: AppStatusBadgeSize.small,
+                  ),
                 const SizedBox(width: 8),
                 AppButton(
                   label: isAr ? s.actionLabelAr : s.actionLabelEn,

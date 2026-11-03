@@ -5,6 +5,10 @@ from modules.broker_custody.schemas import (
     BrokerCustodyAdvanceUpdate,
     BrokerExpenseItemCreate,
     BrokerExpenseItemUpdate,
+    BrokerSettlementReceiptCreate,
+    BrokerSettlementReceiptUpdate,
+    CustomsBrokerAdvanceCreate,
+    CustomsBrokerAdvanceUpdate,
 )
 
 VALID_EXPENSE_CATEGORIES = {
@@ -16,9 +20,19 @@ VALID_EXPENSE_CATEGORIES = {
     "SUNDRY_PETTY_CASH",
 }
 
+VALID_RECEIPT_TYPES = {
+    "WHITE_RECEIPT_CUSTOMS_DUTIES",
+    "RED_RECEIPT_EXAMINATION_INSPECTION",
+    "PORT_AUTHORITY_RECEIPT",
+    "BROKER_SERVICE_FEE",
+    "STORAGE_RECEIPT",
+    "OTHER_OFFICIAL_RECEIPT",
+}
+
 VALID_PAYMENT_METHODS = {"CASH", "BANK_TRANSFER", "CHECK"}
 VALID_ADVANCE_STATUSES = {"OPEN", "PARTIALLY_SETTLED", "SETTLED"}
 VALID_APPROVAL_STATUSES = {"PENDING", "APPROVED", "REJECTED"}
+VALID_RECEIPT_VERIFICATION_STATUSES = {"PENDING", "VERIFIED", "REJECTED"}
 
 
 def _bad_request(detail: str) -> HTTPException:
@@ -30,6 +44,15 @@ def validate_expense_category(category: str) -> str:
     if cleaned not in VALID_EXPENSE_CATEGORIES:
         raise _bad_request(
             f"تصنيف المصروف غير صالح: {category}. التصنيفات المعتمدة: {', '.join(sorted(VALID_EXPENSE_CATEGORIES))}"
+        )
+    return cleaned
+
+
+def validate_receipt_type(receipt_type: str) -> str:
+    cleaned = (receipt_type or "").strip().upper()
+    if cleaned not in VALID_RECEIPT_TYPES:
+        raise _bad_request(
+            f"نوع الإيصال غير صالح: {receipt_type}. الأنواع المعتمدة: {', '.join(sorted(VALID_RECEIPT_TYPES))}"
         )
     return cleaned
 
@@ -61,6 +84,15 @@ def validate_approval_status(status_val: str) -> str:
     return cleaned
 
 
+def validate_receipt_verification_status(status_val: str) -> str:
+    cleaned = (status_val or "").strip().upper()
+    if cleaned not in VALID_RECEIPT_VERIFICATION_STATUSES:
+        raise _bad_request(
+            f"حالة تدقيق الإيصال غير صالحة: {status_val}."
+        )
+    return cleaned
+
+
 def validate_wht_rate(rate: float) -> float:
     if rate is None or not (0.0 <= rate <= 1.0):
         raise _bad_request(f"نسبة الخصم من المنبع (WHT) غير صالحة: {rate}. يجب أن تكون نسبة عشرية بين 0.0 و 1.0.")
@@ -79,6 +111,54 @@ def validate_positive_amount(amount: float, field_name: str) -> float:
     return amount
 
 
+# -------------------------------------------------------------
+# Wave 1 Customs Broker Advance Validators
+# -------------------------------------------------------------
+def validate_customs_advance_create(data: CustomsBrokerAdvanceCreate) -> None:
+    validate_positive_amount(data.advance_amount, "العهدة")
+    validate_payment_method(data.payment_method)
+
+
+def validate_customs_advance_update(data: CustomsBrokerAdvanceUpdate) -> Dict[str, Any]:
+    updates = data.model_dump(exclude_unset=True)
+    if "advance_amount" in updates and updates["advance_amount"] is not None:
+        validate_positive_amount(updates["advance_amount"], "العهدة")
+    if "payment_method" in updates and updates["payment_method"] is not None:
+        updates["payment_method"] = validate_payment_method(updates["payment_method"])
+    if "status" in updates and updates["status"] is not None:
+        updates["status"] = validate_advance_status(updates["status"])
+    return updates
+
+
+# -------------------------------------------------------------
+# Wave 1 Settlement Receipts Validators
+# -------------------------------------------------------------
+def validate_settlement_receipt_create(data: BrokerSettlementReceiptCreate) -> None:
+    validate_receipt_type(data.receipt_type)
+    if not data.receipt_number or not data.receipt_number.strip():
+        raise _bad_request("رقم الإيصال أو الفاتورة إلزامي.")
+    if not data.issuing_entity or not data.issuing_entity.strip():
+        raise _bad_request("الجهة المصدرة للإيصال إلزامية.")
+    validate_positive_amount(data.amount, "الإيصال")
+    validate_wht_rate(data.tax_withholding_rate)
+
+
+def validate_settlement_receipt_update(data: BrokerSettlementReceiptUpdate) -> Dict[str, Any]:
+    updates = data.model_dump(exclude_unset=True)
+    if "receipt_type" in updates and updates["receipt_type"] is not None:
+        updates["receipt_type"] = validate_receipt_type(updates["receipt_type"])
+    if "amount" in updates and updates["amount"] is not None:
+        validate_positive_amount(updates["amount"], "الإيصال")
+    if "tax_withholding_rate" in updates and updates["tax_withholding_rate"] is not None:
+        updates["tax_withholding_rate"] = validate_wht_rate(updates["tax_withholding_rate"])
+    if "verification_status" in updates and updates["verification_status"] is not None:
+        updates["verification_status"] = validate_receipt_verification_status(updates["verification_status"])
+    return updates
+
+
+# -------------------------------------------------------------
+# Legacy Validators (Preserved)
+# -------------------------------------------------------------
 def validate_broker_advance_create(data: BrokerCustodyAdvanceCreate) -> None:
     validate_positive_amount(data.advance_amount, "العهدة")
     validate_payment_method(data.payment_method)

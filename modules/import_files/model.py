@@ -60,6 +60,12 @@ class ImportFile(Base):
     project_names = Column(String(500), nullable=True)
 
     shipment_mode = Column(String(50), nullable=False, default="Sea FCL") # Sea FCL, Sea LCL, Air, Land
+    shipment_sub_mode = Column(String(50), default="General Air Cargo", nullable=True) # General Air Cargo, Express Courier
+    courier_operator = Column(String(50), nullable=True) # DHL, FedEx, UPS, Aramex, etc.
+    chargeable_divisor = Column(Integer, default=6000, nullable=True) # 5000 or 6000
+    acid_requirement = Column(String(50), default="MANDATORY", nullable=True) # MANDATORY, EXEMPT_POSTAL
+    acid_exemption_reason = Column(String(255), nullable=True)
+    courier_tracking_no = Column(String(100), nullable=True)
     incoterm_code = Column(String(20), nullable=False, default="FOB") # FOB, CIF, CFR, etc.
     priority = Column(String(20), nullable=False, default="High") # Low, Medium, High, Critical
     shipment_category = Column(String(50), nullable=False, default="New Purchase") # New Purchase, Repair, Replacement, Sample

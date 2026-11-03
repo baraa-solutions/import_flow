@@ -13,7 +13,7 @@ Handles:
 import logging
 import re
 from datetime import datetime, timezone, date
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, Tuple
 from sqlalchemy.orm import Session
 from sqlalchemy import or_
 from sqlalchemy.exc import IntegrityError
@@ -312,6 +312,83 @@ def compute_file_formulas(
     }
 
 
+
+
+def evaluate_acid_requirement(
+    shipment_mode: Optional[str],
+    shipment_sub_mode: Optional[str] = None,
+    gross_weight_kg: Optional[float] = 0.0,
+    customs_value_usd: Optional[float] = 0.0,
+) -> Tuple[str, str]:
+    """
+    Evaluates ACID filing requirement based on Egyptian Customs Law 207/2020:
+    - Ocean shipments always MANDATORY.
+    - Air & Express Courier:
+      - If Gross Weight > 50.0 kg OR Total Customs Value (USD) > 2000.0 USD:
+        acid_requirement = "MANDATORY"
+        acid_exemption_reason = "Exceeds courier threshold: weight > 50kg or value > $2000"
+      - If Gross Weight <= 50.0 kg AND Total Customs Value (USD) <= 2000.0 USD:
+        acid_requirement = "EXEMPT_POSTAL"
+        acid_exemption_reason = "Postal parcel under 50kg and $2000 (Article 1, Customs Law 207/2020)"
+    """
+    mode_str = (shipment_mode or "").strip().lower()
+    sub_mode_str = (shipment_sub_mode or "").strip().lower()
+    weight = float(gross_weight_kg or 0.0)
+    value = float(customs_value_usd or 0.0)
+
+    # Ocean shipments are always mandatory
+    if "sea" in mode_str or "ocean" in mode_str or mode_str in ["fcl", "lcl"]:
+        return "MANDATORY", "Ocean shipments require mandatory ACID"
+
+    # Air Freight & Express Courier
+    if weight > 50.0 or value > 2000.0:
+        return "MANDATORY", "Exceeds courier threshold: weight > 50kg or value > $2000"
+    else:
+        return "EXEMPT_POSTAL", "Postal parcel under 50kg and $2000 (Article 1, Customs Law 207/2020)"
+
+
+def validate_acid_stage_gate(file_rec: Any, step_code: Optional[str] = None) -> None:
+    """
+    Stage Gate: Enforce valid 19-digit ACID number before advancing past STEP_05.
+    If acid_requirement == "MANDATORY":
+        Requires a valid 19-digit numeric acid_number.
+    If acid_requirement == "EXEMPT_POSTAL":
+        Permitted without acid_number (bypassed under Customs Law 207/2020).
+    """
+    acid_req = getattr(file_rec, "acid_requirement", "MANDATORY") if not isinstance(file_rec, dict) else file_rec.get("acid_requirement", "MANDATORY")
+    if acid_req == "EXEMPT_POSTAL":
+        return
+
+    acid_num = getattr(file_rec, "acid_number", None) if not isinstance(file_rec, dict) else file_rec.get("acid_number")
+    clean_acid = str(acid_num).strip() if acid_num else ""
+    is_valid = bool(clean_acid and len(clean_acid) == 19 and clean_acid.isdigit())
+    if not is_valid:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot advance past STEP_05: Valid 19-digit ACID number is mandatory for non-exempt shipments.",
+        )
+
+
+def _extract_weight_and_value(
+    packing_lists: Optional[List[Dict[str, Any]]],
+    invoices: Optional[List[Dict[str, Any]]],
+    estimated_cost: Optional[float] = 0.0,
+) -> Tuple[float, float]:
+    weight = 0.0
+    if packing_lists:
+        for pl in packing_lists:
+            if isinstance(pl, dict):
+                weight += float(pl.get("gross_weight_kg") or 0.0)
+
+    val = 0.0
+    if invoices:
+        for inv in invoices:
+            if isinstance(inv, dict):
+                val += float(inv.get("amount") or 0.0)
+    if val == 0.0 and estimated_cost:
+        val = float(estimated_cost or 0.0)
+    return weight, val
+
 def create_import_file_service(
     db: Session, payload: ImportFileCreate, current_user: str = "System"
 ) -> ImportFile:
@@ -358,6 +435,36 @@ def create_import_file_service(
         starting_step = payload.initial_starting_step or "STEP_01"
         data_dict.update(step_tracking_columns("STEP_08_PO" if starting_step == "STEP_08" else starting_step))
 
+        # Evaluate ACID requirement and courier rules
+        w, v = _extract_weight_and_value(payload.packing_lists_data, payload.invoices_data, payload.estimated_cost)
+        calc_req, calc_reason = evaluate_acid_requirement(payload.shipment_mode, payload.shipment_sub_mode, w, v)
+        if not payload.acid_requirement or (payload.acid_requirement == "MANDATORY" and calc_req == "EXEMPT_POSTAL"):
+            data_dict["acid_requirement"] = calc_req
+            data_dict["acid_exemption_reason"] = calc_reason
+        elif payload.acid_requirement:
+            data_dict["acid_requirement"] = payload.acid_requirement
+            data_dict["acid_exemption_reason"] = payload.acid_exemption_reason or calc_reason
+        else:
+            data_dict["acid_requirement"] = calc_req
+            data_dict["acid_exemption_reason"] = calc_reason
+
+        # Divisor logic
+        if not payload.chargeable_divisor or payload.chargeable_divisor == 6000:
+            if (payload.shipment_sub_mode and "courier" in payload.shipment_sub_mode.lower()) or (payload.shipment_mode and "courier" in payload.shipment_mode.lower()) or payload.courier_operator:
+                data_dict["chargeable_divisor"] = 5000
+            else:
+                data_dict["chargeable_divisor"] = 6000
+        else:
+            data_dict["chargeable_divisor"] = payload.chargeable_divisor
+
+        # Lifecycle stage skipping for exempt postal shipments
+        skipped = list(data_dict.get("skipped_stages") or [])
+        if data_dict.get("acid_requirement") == "EXEMPT_POSTAL":
+            for st in ["STEP_05", "STEP_10", "STEP_12"]:
+                if st not in skipped:
+                    skipped.append(st)
+        data_dict["skipped_stages"] = skipped
+
         try:
             created_file = repo.create_import_file(db, data_dict)
             break
@@ -384,6 +491,20 @@ def create_import_file_service(
         auto_sync_checklist(db, created_file.import_file_id)
     except Exception:
         logger.exception("Failed to auto-seed and auto-sync checklist for %s", file_code)
+
+    if created_file and created_file.acid_requirement == "EXEMPT_POSTAL":
+        try:
+            from modules.audit_logs.service import AuditLogService
+            AuditLogService(db).log_activity(
+                entity_type="ImportFile",
+                entity_id=created_file.import_file_id,
+                entity_code=created_file.import_file_code,
+                action="ACID_EXEMPTION_APPLIED",
+                notes="Postal exemption under Customs Law 207/2020: STEP_05, STEP_10, STEP_12 bypassed cleanly.",
+                performed_by=current_user,
+            )
+        except Exception:
+            pass
 
     return created_file
 
@@ -431,10 +552,63 @@ def update_import_file_service(
     for field_name in forbidden_tracking:
         update_dict.pop(field_name, None)
 
+    # Dynamic ACID & Courier evaluation
+    new_mode = payload.shipment_mode or existing.shipment_mode
+    new_sub_mode = payload.shipment_sub_mode or existing.shipment_sub_mode
+    pls = payload.packing_lists_data if payload.packing_lists_data is not None else existing.packing_lists_data
+    invs = payload.invoices_data if payload.invoices_data is not None else existing.invoices_data
+    cost = getattr(payload, "estimated_cost", None)
+    if cost is None:
+        cost = existing.estimated_cost
+
+    w, v = _extract_weight_and_value(pls, invs, cost)
+    calc_req, calc_reason = evaluate_acid_requirement(new_mode, new_sub_mode, w, v)
+
+    if payload.acid_requirement is not None:
+        update_dict["acid_requirement"] = payload.acid_requirement
+        update_dict["acid_exemption_reason"] = payload.acid_exemption_reason or calc_reason
+    elif any(f in update_dict for f in ["shipment_mode", "shipment_sub_mode", "packing_lists_data", "invoices_data", "estimated_cost"]):
+        update_dict["acid_requirement"] = calc_req
+        update_dict["acid_exemption_reason"] = calc_reason
+
+    # Divisor evaluation
+    if payload.chargeable_divisor is not None:
+        update_dict["chargeable_divisor"] = payload.chargeable_divisor
+    elif any(f in update_dict for f in ["shipment_mode", "shipment_sub_mode", "courier_operator"]):
+        if (new_sub_mode and "courier" in new_sub_mode.lower()) or (new_mode and "courier" in new_mode.lower()) or payload.courier_operator or existing.courier_operator:
+            update_dict["chargeable_divisor"] = 5000
+        else:
+            update_dict["chargeable_divisor"] = 6000
+
+    # Skipped stages update
+    current_skipped = list(payload.skipped_stages if payload.skipped_stages is not None else (existing.skipped_stages or []))
+    effective_req = update_dict.get("acid_requirement") or existing.acid_requirement
+    if effective_req == "EXEMPT_POSTAL":
+        for st in ["STEP_05", "STEP_10", "STEP_12"]:
+            if st not in current_skipped:
+                current_skipped.append(st)
+        update_dict["skipped_stages"] = current_skipped
+    elif effective_req == "MANDATORY" and existing.acid_requirement == "EXEMPT_POSTAL":
+        current_skipped = [st for st in current_skipped if st not in ["STEP_05", "STEP_10", "STEP_12"]]
+        update_dict["skipped_stages"] = current_skipped
+
     actor_username = getattr(actor, "username", None) or (str(actor) if actor else "System")
     update_dict["updated_by"] = actor_username
 
     updated_file = repo.update_import_file(db, import_file_id, update_dict)
+    if updated_file and updated_file.acid_requirement == "EXEMPT_POSTAL" and existing.acid_requirement != "EXEMPT_POSTAL":
+        try:
+            from modules.audit_logs.service import AuditLogService
+            AuditLogService(db).log_activity(
+                entity_type="ImportFile",
+                entity_id=updated_file.import_file_id,
+                entity_code=updated_file.import_file_code,
+                action="ACID_EXEMPTION_APPLIED",
+                notes="Postal exemption under Customs Law 207/2020: STEP_05, STEP_10, STEP_12 bypassed cleanly.",
+                performed_by=actor_username,
+            )
+        except Exception:
+            pass
     if updated_file:
         try:
             from modules.smart_tasks.service import auto_generate_system_tasks_for_file

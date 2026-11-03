@@ -323,6 +323,14 @@ def skip_step_service(
     file_rec = _resolve_and_validate_file(db, import_file_code=payload.import_file_code)
     validators.validate_step_code(payload.current_step_code)
 
+    # Check if postal exempt step under Customs Law 207/2020
+    is_postal_exempt_step = (
+        getattr(file_rec, "acid_requirement", None) == "EXEMPT_POSTAL"
+        and payload.current_step_code in ["STEP_05", "STEP_10", "STEP_12"]
+    )
+    if is_postal_exempt_step and (not payload.skip_reason or len(payload.skip_reason.strip()) < 5):
+        payload.skip_reason = "Postal parcel under 50kg and $2000 (Article 1, Customs Law 207/2020)"
+
     # Mandatory Reason Check (Section 9.3 & 10.1)
     if not payload.skip_reason or len(payload.skip_reason.strip()) < 5:
         raise HTTPException(
@@ -331,44 +339,48 @@ def skip_step_service(
         )
 
     # Enforce Configurable Skip Policy (Section 10.1, 10.2, 10.5)
-    cfg = repo.get_step_config(db, payload.current_step_code)
-    skip_policy = cfg.skip_policy if cfg else "blocked"  # Safest default: blocked
+    if not is_postal_exempt_step:
+        cfg = repo.get_step_config(db, payload.current_step_code)
+        skip_policy = cfg.skip_policy if cfg else "blocked"  # Safest default: blocked
 
-    if skip_policy == "blocked":
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"الخطوة '{payload.current_step_code}' محظورة من التخطي حسب سياسة النظام المعتمدة (Policy: blocked). يتطلب التخطي تعديل سياسة المرحلة من قبل المدير أولاً."
-        )
+        if skip_policy == "blocked":
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"الخطوة '{payload.current_step_code}' محظورة من التخطي حسب سياسة النظام المعتمدة (Policy: blocked). يتطلب التخطي تعديل سياسة المرحلة من قبل المدير أولاً."
+            )
 
-    if skip_policy == "dual_approval" and not is_admin_user(actor):
-        raise CodedHTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            code="LC_SKIP_DUAL_APPROVAL_REQUIRED",
-            message_ar=f"الخطوة '{payload.current_step_code}' تتطلب موافقة مزدوجة لتخطيها، وهو مقصور حالياً على مدير النظام (ADMIN).",
-            step_code=payload.current_step_code,
-        )
+        if skip_policy == "dual_approval" and not is_admin_user(actor):
+            raise CodedHTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                code="LC_SKIP_DUAL_APPROVAL_REQUIRED",
+                message_ar=f"الخطوة '{payload.current_step_code}' تتطلب موافقة مزدوجة لتخطيها، وهو مقصور حالياً على مدير النظام (ADMIN).",
+                step_code=payload.current_step_code,
+            )
+    else:
+        skip_policy = "postal_exempt"
 
     # Role validation is mandatory: the caller role comes from the authenticated user (never a header)
-    effective_role = current_user_role or (
-        actor.assigned_role.role_code
-        if actor and getattr(actor, "assigned_role", None)
-        else getattr(actor, "role", None)
-    )
-    is_admin = is_admin_user(actor)
-    if not is_admin:
-        if not effective_role or not effective_role.strip():
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="تعذر تحديد دور المستخدم."
-            )
-        user_role_norm = effective_role.strip().upper()
-        allowed_roles = [r.strip().upper() for r in (cfg.approver_roles if cfg else ["Manager"])]
-        is_authorized = user_role_norm in allowed_roles or user_role_norm in ["ADMIN", "MANAGER", "GENERAL_MANAGER"]
-        if not is_authorized:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail=f"دورك '{effective_role}' غير مخول باعتماد تخطي هذه الخطوة. الأدوار المعتمدة: {cfg.approver_roles if cfg else ['Manager']}."
-            )
+    if not is_postal_exempt_step:
+        effective_role = current_user_role or (
+            actor.assigned_role.role_code
+            if actor and getattr(actor, "assigned_role", None)
+            else getattr(actor, "role", None)
+        )
+        is_admin = is_admin_user(actor)
+        if not is_admin:
+            if not effective_role or not effective_role.strip():
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="تعذر تحديد دور المستخدم."
+                )
+            user_role_norm = effective_role.strip().upper()
+            allowed_roles = [r.strip().upper() for r in (cfg.approver_roles if cfg else ["Manager"])]
+            is_authorized = user_role_norm in allowed_roles or user_role_norm in ["ADMIN", "MANAGER", "GENERAL_MANAGER"]
+            if not is_authorized:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail=f"دورك '{effective_role}' غير مخول باعتماد تخطي هذه الخطوة. الأدوار المعتمدة: {cfg.approver_roles if cfg else ['Manager']}."
+                )
 
     # Check for incomplete SmartTasks associated with this step
     from modules.smart_tasks.model import SmartTask
@@ -797,6 +809,20 @@ def initialize_file_lifecycle_service(db: Session, import_file_code: str, starti
             completion_type="bypassed",
         )
 
+    # Pre-mark postal exempt stages as Skipped if file has EXEMPT_POSTAL
+    file_rec = db.query(ImportFile).filter(ImportFile.import_file_code == import_file_code).first()
+    if file_rec and getattr(file_rec, "acid_requirement", None) == "EXEMPT_POSTAL":
+        for exempt_step in ["STEP_05", "STEP_10", "STEP_12"]:
+            repo.save_or_update_activity(
+                db,
+                import_file_code=import_file_code,
+                step_code=exempt_step,
+                status="Skipped",
+                completed_at=now_str,
+                notes="Postal exemption under Customs Law 207/2020: Bypassed cleanly",
+                completion_type="skipped",
+            )
+
     # Activate starting step
     start_msg = msg("LC_STARTING_POINT_SET", step_code=normalized_starting_step)
     repo.save_or_update_activity(
@@ -917,12 +943,20 @@ def advance_lifecycle_step_service(
     # 2. Validate completed step
     validators.validate_step_code(completed_step_code)
 
+    # Stage gate: Enforce valid 19-digit ACID when completing STEP_05
+    if completed_step_code == "STEP_05" and "STEP_05" not in (getattr(file_rec, "skipped_stages", None) or []):
+        from modules.import_files.import_file_lifecycle_service import validate_acid_stage_gate
+        validate_acid_stage_gate(file_rec, completed_step_code)
+
     # 3. Resolve target step(s)
     if target_step_codes is None:
         if completed_step_code == "STEP_21":
             target_step_codes = []
         else:
             _, natural_next = get_step_neighbors(completed_step_code)
+            skipped = set(getattr(file_rec, "skipped_stages", None) or [])
+            while natural_next and natural_next in skipped:
+                _, natural_next = get_step_neighbors(natural_next)
             target_step_codes = [natural_next] if natural_next else []
     else:
         validators.validate_multi_step_codes(target_step_codes)

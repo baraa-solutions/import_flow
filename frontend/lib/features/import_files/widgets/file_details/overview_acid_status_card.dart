@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/localization/app_localizations.dart';
 import '../../models/import_file_model.dart';
+import 'shipment_acid_status_badge.dart';
+import 'courier_tracking_action_button.dart';
 
 /// 📌 ACID & Form 4 Expiry Tracking Card for Overview Tab
 class OverviewAcidStatusCard extends StatelessWidget {
@@ -167,9 +169,17 @@ class OverviewAcidStatusCard extends StatelessWidget {
                       ],
                     ),
                   ] else ...[
-                    Text(
-                      l.noImportFilesFound,
-                      style: TextStyle(fontSize: 12, color: isDark ? AppTheme.darkTextMuted : Colors.grey),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 4),
+                      child: Wrap(
+                        spacing: 8,
+                        runSpacing: 6,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        children: [
+                          ShipmentAcidStatusBadge.fromImportFile(file),
+                          CourierTrackingActionButton.fromImportFile(file),
+                        ],
+                      ),
                     ),
                   ],
                   if (file.form4No != null && file.form4No!.isNotEmpty) ...[

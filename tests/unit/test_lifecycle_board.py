@@ -287,6 +287,7 @@ def test_full_stage_advancement_and_phase_transition(db_session):
     repo.save_or_update_activity(db_session, "IMP-2026-0001", "STEP_05", "In-Progress")
     file1.current_stage = "Phase 2: Approvals & ACID"
     file1.current_module = "STEP_05 إصدار رقم ACID نافذة"
+    file1.acid_number = "5281534391025810014"
     db_session.commit()
 
     # Advance without next_step_codes -> should auto-infer STEP_06 (Phase 3 transition)

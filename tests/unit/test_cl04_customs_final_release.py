@@ -20,10 +20,15 @@ client = TestClient(app)
 def db_session():
     generator = get_db()
     db = next(generator)
+    app.dependency_overrides[get_db] = lambda: db
     try:
         yield db
     finally:
-        pass
+        app.dependency_overrides.pop(get_db, None)
+        try:
+            generator.close()
+        except Exception:
+            pass
 
 
 def test_issue_final_customs_release_success(db_session: Session):

@@ -225,6 +225,8 @@ class HomeSidebarNavList extends ConsumerWidget {
             _buildMenuItem(ref, Icons.description_outlined, 'Customs Tariff & HS Explorer', 'جدول ومستكشف التعريفة الجمركية', 36),
             _buildMenuItem(ref, Icons.currency_exchange_outlined, 'Currencies & Rates', 'العملات وأسعار الصرف', 38),
             _buildMenuItem(ref, Icons.receipt_long_outlined, 'Expense Catalog & Codes', 'كتالوج المصروفات الجمركية القياسي', 72),
+            _buildMenuItem(ref, Icons.rule_outlined, 'Regulatory Requirements Matrix', 'مصفوفة المتطلبات الرقابية', 78),
+            _buildMenuItem(ref, Icons.policy_outlined, 'Preferential Trade Agreements', 'الاتفاقيات التفضيلية وشهادات المنشأ', 84),
           ],
         ),
         _buildHubTile(
@@ -250,6 +252,7 @@ class HomeSidebarNavList extends ConsumerWidget {
             _buildMenuItem(ref, Icons.analytics_outlined, 'Freight Studies & Saved Log', 'دراسة النولون والجدول الزمني والسجلات المحفوظة', 4),
             _buildMenuItem(ref, Icons.gavel_outlined, 'Customs Studies & Clearance RFQ', 'الدراسات الجمركية وعروض التخليص ومراجعة الضرائب', 6),
             _buildMenuItem(ref, Icons.verified_outlined, 'Import Regulatory Requirements', 'متطلبات واشتراطات الاستيراد للشحنة', 43),
+            _buildMenuItem(ref, Icons.rate_review_outlined, 'Pre-Shipment Inspection & Vendor Rating', 'فحص ما قبل الشحن وتقييم أداء الموردين', 87),
           ],
         ),
         _buildHubTile(
@@ -262,6 +265,7 @@ class HomeSidebarNavList extends ConsumerWidget {
           children: [
             _buildMenuItem(ref, Icons.account_balance_wallet_outlined, 'Finance Approvals & Budget', 'اعتمادات الميزانية وسداد الموردين', 8),
             _buildMenuItem(ref, Icons.receipt_long_outlined, 'Logistics Invoices & Payments', 'فواتير ومدفوعات الخدمات اللوجستية', 70),
+            _buildMenuItem(ref, Icons.account_balance_outlined, 'Trade Finance & Letters of Credit', 'اعتمادات وتمويل الاستيراد وفروق العملة', 79),
             _buildMenuItem(ref, Icons.qr_code_2_outlined, 'ACID Operations', 'الرقم التعريفي المبدئي للشحنة ACID', 11),
           ],
         ),
@@ -275,6 +279,9 @@ class HomeSidebarNavList extends ConsumerWidget {
           children: [
             _buildMenuItem(ref, Icons.bookmark_added_outlined, 'Freight Booking', 'حجز النولون وتأكيد الخط الملاحي', 25),
             _buildMenuItem(ref, Icons.directions_boat_outlined, 'Cargo Shipping & Tracking', 'حركة وتتبع الشحن وتوزيع الحاويات', 26),
+            _buildMenuItem(ref, Icons.call_split_outlined, 'Split Shipments & Allocations', 'تجزئة الشحنات وتوزيع بنود أوامر الشراء', 81),
+            _buildMenuItem(ref, Icons.flight_takeoff_outlined, 'Multimodal Freight Operations', 'عمليات الشحن متعدد الوسائط', 82),
+            _buildMenuItem(ref, Icons.warning_amber_rounded, 'Logistics Exceptions & Disputes', 'استثناءات الشحن ونزاعات التثمين الجمركي', 85),
             _buildMenuItem(ref, Icons.shield_outlined, 'Cargo Insurance', 'شهادات ووثائق التأمين على البضائع', 65),
             _buildMenuItem(ref, Icons.fact_check_outlined, '1. PO & Packing Reconciliation', '1. مطابقة الفاتورة والباكينج مع أمر الشراء', 21),
             _buildMenuItem(ref, Icons.assignment_turned_in_outlined, '2. Draft B/L Review & Approval', '2. مراجعة واعتماد مسودة بوليصة الشحن', 18),
@@ -309,8 +316,10 @@ class HomeSidebarNavList extends ConsumerWidget {
           children: [
             _buildMenuItem(ref, Icons.description_outlined, 'Customs Declaration 46', 'شهادة الإجراءات الجمركية إقرار 46 ك.م', 23),
             _buildMenuItem(ref, Icons.fact_check_outlined, 'Customs Clearance Hub', 'متابعة التخليص والكشف والعينات والرسوم', 27),
+            _buildMenuItem(ref, Icons.account_balance_wallet_outlined, 'Customs Special Regimes', 'النظم الجمركية المعلقة والمناطق الحرة', 83),
             _buildMenuItem(ref, Icons.shield_outlined, 'Customs Custody Release', 'الإفراج تحت التحفظ وتعهدات البضائع', 74),
             _buildMenuItem(ref, Icons.timer_outlined, 'Demurrage & Detention', 'تتبع غرامات الأرضيات وحراسات الحاويات', 44),
+            _buildMenuItem(ref, Icons.inventory_2_outlined, 'Container Lifecycle & Demurrage', 'دورة حياة الحاويات الفردية وغرامات التأخير', 80),
           ],
         ),
         _buildHubTile(
@@ -322,6 +331,7 @@ class HomeSidebarNavList extends ConsumerWidget {
           color: AppTheme.emerald,
           children: [
             _buildMenuItem(ref, Icons.warehouse_outlined, 'Inbound & Warehouse Hub', 'مركز الاستلام والمخازن والبضاعة بالطريق', 28),
+            _buildMenuItem(ref, Icons.savings_outlined, 'Deposits & Guarantees Recovery', 'استرداد تأمينات الحاويات والضمانات البنكية', 86),
             _buildMenuItem(ref, Icons.price_check_outlined, 'Landed Cost & Settlement Hub', 'تكلفة الوصول والتسوية المالية ومقارنة الفروق', 29),
             _buildMenuItem(ref, Icons.task_alt_outlined, 'Import File Final Closure', 'الإغلاق المالي والإداري لملف الاستيراد', 30),
           ],

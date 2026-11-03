@@ -18,6 +18,8 @@ import 'file_details/file_details_stages_timeline_tab.dart';
 import 'file_details/file_details_financial_summary_tab.dart';
 import 'file_details/file_details_documents_tab.dart';
 import 'file_details/file_details_actions_bar.dart';
+import 'file_details/shipment_acid_status_badge.dart';
+import 'file_details/courier_tracking_action_button.dart';
 
 /// 🚢 Modular Coordinator for Import File Details Dialog
 ///
@@ -171,6 +173,17 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
             height: 480,
             child: Column(
               children: [
+                // ── Courier & ACID Smart Metadata Bar ─────────────────────
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 6),
+                  child: Row(
+                    children: [
+                      ShipmentAcidStatusBadge.fromImportFile(file, compact: true),
+                      const SizedBox(width: 8),
+                      CourierTrackingActionButton.fromImportFile(file, compact: true),
+                    ],
+                  ),
+                ),
                 Container(
                   color: isDark ? AppTheme.darkElevatedSurface : AppTheme.charcoal,
                   child: TabBar(
