@@ -8831,6 +8831,154 @@ class AppLocalizationsEn extends AppLocalizations {
   String get dynCellInClearancePort => 'In Clearance (Port)';
   @override
   String dynRecordsCount(int count) => '$count records';
+  @override
+  String get dynCatCourierAir => 'Express Courier & Air Cargo';
+  @override
+  String get dynCatContainersDemurrage => 'Container Lifecycle & Demurrage';
+  @override
+  String get dynCatCustomsReleaseDuties => 'Customs Release & Duties';
+  @override
+  String get dynCatInlandHaulage => 'Inland Haulage & Warehouse Transport';
+  @override
+  String get dynCatLandedCostSettlement => 'Actual Landed Cost & Settlement';
+  @override
+  String get dynCatCargoXDigitalDocs => 'CargoX & Original Documents Courier';
+  @override
+  String get dynCatPartialShipments => 'Partial Shipments & Hierarchy';
+  @override
+  String get dynCatHoldsNotes => 'Operational Notes & Hold Status';
+  @override
+  String get dynColCourierOperator => 'Courier Operator';
+  @override
+  String get dynColCourierTrackingNo => 'Courier Tracking Number';
+  @override
+  String get dynColShipmentSubMode => 'Shipment Sub-Mode';
+  @override
+  String get dynColChargeableDivisor => 'Volumetric Divisor';
+  @override
+  String get dynColAcidRequirement => 'ACID Requirement';
+  @override
+  String get dynColAcidExemptionReason => 'Postal Exemption Reason';
+  @override
+  String get dynColBlNumber => 'Bill of Lading Number';
+  @override
+  String get dynColBookingNo => 'Booking Number';
+  @override
+  String get dynColVesselName => 'Vessel Name';
+  @override
+  String get dynColDeliveryOrderNo => 'Delivery Order Number';
+  @override
+  String get dynColDeliveryOrderExpiryDate => 'Delivery Order Expiry Date';
+  @override
+  String get dynColEmptyContainersReturnedAt => 'Empty Return Date';
+  @override
+  String get dynColEmptyContainersReturnStatus => 'Empty Return Status';
+  @override
+  String get dynColEmptyContainersEirNumbers => 'EIR Numbers';
+  @override
+  String get dynColEmptyContainersDepotName => 'Empty Return Depot';
+  @override
+  String get dynColCustomsReleasePermitNo => 'Customs Release Permit No';
+  @override
+  String get dynColCustomsReleaseType => 'Customs Release Type';
+  @override
+  String get dynColCustomsReleaseOfficer => 'Customs Officer';
+  @override
+  String get dynColCustomsGatePassNo => 'Gate Pass Number';
+  @override
+  String get dynColCustomsDutyPaidAmount => 'Customs Duty Paid Amount';
+  @override
+  String get dynColCustomsDutyReceiptNo => 'Duty Receipt Number';
+  @override
+  String get dynColCustomsDutySadadNo => 'Sadad Payment Number';
+  @override
+  String get dynColCustomsDutyPaymentDate => 'Duty Payment Date';
+  @override
+  String get dynColCustomsBrokerDelegationNo => 'Broker Delegation Number';
+  @override
+  String get dynColInlandTransportStatus => 'Inland Transport Status';
+  @override
+  String get dynColInlandCarrierName => 'Inland Carrier Name';
+  @override
+  String get dynColInlandTruckPlateNo => 'Truck Plate Number';
+  @override
+  String get dynColInlandDriverName => 'Inland Driver Name';
+  @override
+  String get dynColInlandDriverPhone => 'Driver Phone Number';
+  @override
+  String get dynColInlandTransportCostEgp => 'Inland Transport Cost EGP';
+  @override
+  String get dynColInlandDepartureDate => 'Port Departure Date';
+  @override
+  String get dynColInlandActualArrivalDate => 'Actual Warehouse Arrival Date';
+  @override
+  String get dynColTotalClearanceExpensesEgp => 'Clearance Expenses EGP';
+  @override
+  String get dynColActualLandedCostTotalEgp => 'Actual Landed Cost EGP';
+  @override
+  String get dynColActualLandedCostMarkupFactor => 'Actual Markup Factor';
+  @override
+  String get dynColActualLandedCostVarianceEgp => 'Cost Variance EGP';
+  @override
+  String get dynColActualLandedCostVariancePct => 'Cost Variance %';
+  @override
+  String get dynColFinancialSettlementStatus => 'Settlement Status';
+  @override
+  String get dynColCargoxEnvelopeCode => 'CargoX Envelope Code';
+  @override
+  String get dynColCargoxEnvelopeStatus => 'CargoX Envelope Status';
+  @override
+  String get dynColCargoxTransferredAt => 'CargoX Transferred Date';
+  @override
+  String get dynColOriginalDocumentsCourierNo => 'Original Docs Courier AWB';
+  @override
+  String get dynColOriginalDocumentsStatus => 'Original Docs Status';
+  @override
+  String get dynColOriginalDocumentsReceivedAt => 'Original Docs Received Date';
+  @override
+  String get dynColIsPartialShipment => 'Partial Shipment';
+  @override
+  String get dynColParentFileCode => 'Parent File Code';
+  @override
+  String get dynColHoldReason => 'Hold Reason';
+  @override
+  String get dynColHoldDate => 'Hold Date';
+  @override
+  String get dynColHsCode => 'HS Code';
+  @override
+  String get dynColProductCategory => 'Product Category';
+  @override
+  String get dynFilterReleaseStatusLabel => 'Customs Release';
+  @override
+  String get dynFilterReleaseStatusAll => 'All';
+  @override
+  String get dynFilterReleaseStatusReleased => 'Released';
+  @override
+  String get dynFilterReleaseStatusPending => 'Under Clearance';
+  @override
+  String get dynFilterAcidReqLabel => 'ACID Requirement';
+  @override
+  String get dynFilterAcidReqAll => 'All Shipments';
+  @override
+  String get dynFilterAcidReqMandatory => 'Mandatory ACID';
+  @override
+  String get dynFilterAcidReqExempt => 'Postal Exempt';
+  @override
+  String get dynSaveCustomPresetBtn => 'Save Custom Preset';
+  @override
+  String get dynResetColumnsBtn => 'Reset Columns';
+  @override
+  String get dynPresetSavedToast => 'Custom preset saved successfully';
+  @override
+  String get dynPresetResetToast => 'Columns reset to default';
+  @override
+  String get dynFilterAll => 'All';
+  @override
+  String get dynStatusHeld => 'On Hold';
+  @override
+  String get dynYes => 'Yes';
+  @override
+  String get dynNo => 'No';
 
   // ── Screen 68: Comprehensive Import File Report ───────────────────────────
   @override

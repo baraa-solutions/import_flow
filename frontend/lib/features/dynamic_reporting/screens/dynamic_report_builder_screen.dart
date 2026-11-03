@@ -12,6 +12,7 @@ import 'package:frontend/features/dynamic_reporting/models/dynamic_report_models
 import 'package:frontend/features/dynamic_reporting/widgets/builder/dynamic_report_builder_actions.dart';
 import 'package:frontend/features/dynamic_reporting/widgets/builder/dynamic_report_builder_constants.dart';
 import 'package:frontend/features/dynamic_reporting/widgets/builder/dynamic_report_cell_resolver.dart';
+import 'package:frontend/features/dynamic_reporting/widgets/builder/dynamic_report_preset_manager.dart';
 import 'package:frontend/features/dynamic_reporting/widgets/builder/dynamic_report_summary_bar.dart';
 import 'package:frontend/features/dynamic_reporting/widgets/builder/dynamic_report_table_view.dart';
 import 'package:frontend/features/dynamic_reporting/widgets/dynamic_report_column_picker_sheet.dart';
@@ -44,6 +45,8 @@ class _DynamicReportBuilderScreenState
 
   String _filterMode = 'All';
   String _filterPriority = 'All';
+  String _filterCustomsRelease = 'All';
+  String _filterAcidReq = 'All';
   final String _filterStatus = 'All';
   String _searchQuery = '';
   final TextEditingController _searchController = TextEditingController();
@@ -52,6 +55,9 @@ class _DynamicReportBuilderScreenState
   void initState() {
     super.initState();
     _masterColumns = DynamicReportBuilderConstants.buildMasterColumnCatalog();
+    DynamicReportPresetManager.loadCustomPreset(_masterColumns).then((_) {
+      if (mounted) setState(() {});
+    });
     _refreshData();
   }
 
@@ -104,6 +110,21 @@ class _DynamicReportBuilderScreenState
       onApply: () => setState(() => _templateMode = ReportTemplateMode.custom),
       onStateChanged: () => setState(() {}),
     );
+  }
+
+  Future<void> _handleSavePreset() async {
+    await DynamicReportPresetManager.saveCustomPreset(
+      context: context,
+      masterColumns: _masterColumns,
+    );
+  }
+
+  Future<void> _handleResetPreset() async {
+    await DynamicReportPresetManager.resetToDefault(
+      context: context,
+      masterColumns: _masterColumns,
+    );
+    if (mounted) setState(() {});
   }
 
   Future<void> _exportToCSV(
@@ -163,6 +184,8 @@ class _DynamicReportBuilderScreenState
       filterPriority: _filterPriority,
       filterStatus: _filterStatus,
       searchQuery: _searchQuery,
+      filterCustomsRelease: _filterCustomsRelease,
+      filterAcidReq: _filterAcidReq,
     );
 
     return Scaffold(
@@ -201,6 +224,14 @@ class _DynamicReportBuilderScreenState
                 filterPriority: _filterPriority,
                 onFilterPriorityChanged: (v) =>
                     setState(() => _filterPriority = v),
+                filterCustomsRelease: _filterCustomsRelease,
+                onFilterCustomsReleaseChanged: (v) =>
+                    setState(() => _filterCustomsRelease = v),
+                filterAcidReq: _filterAcidReq,
+                onFilterAcidReqChanged: (v) =>
+                    setState(() => _filterAcidReq = v),
+                onSavePreset: _handleSavePreset,
+                onResetPreset: _handleResetPreset,
                 onExportCsv: () => _exportToCSV(filtered, activeCols),
                 onExportPdf: () => _exportToPDF(filtered, activeCols),
                 onCopyTsv: () => _copyDataToClipboard(filtered, activeCols),

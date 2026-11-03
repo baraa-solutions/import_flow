@@ -18,6 +18,12 @@ class DynamicReportFilterToolbar extends StatelessWidget {
   final ValueChanged<String> onFilterModeChanged;
   final String filterPriority;
   final ValueChanged<String> onFilterPriorityChanged;
+  final String filterCustomsRelease;
+  final ValueChanged<String> onFilterCustomsReleaseChanged;
+  final String filterAcidReq;
+  final ValueChanged<String> onFilterAcidReqChanged;
+  final VoidCallback? onSavePreset;
+  final VoidCallback? onResetPreset;
   final VoidCallback onExportCsv;
   final VoidCallback onExportPdf;
   final VoidCallback onCopyTsv;
@@ -36,6 +42,12 @@ class DynamicReportFilterToolbar extends StatelessWidget {
     required this.onFilterModeChanged,
     required this.filterPriority,
     required this.onFilterPriorityChanged,
+    this.filterCustomsRelease = 'All',
+    required this.onFilterCustomsReleaseChanged,
+    this.filterAcidReq = 'All',
+    required this.onFilterAcidReqChanged,
+    this.onSavePreset,
+    this.onResetPreset,
     required this.onExportCsv,
     required this.onExportPdf,
     required this.onCopyTsv,
@@ -119,6 +131,26 @@ class DynamicReportFilterToolbar extends StatelessWidget {
                     size: AppButtonSize.small,
                     onPressed: onCustomizeColumns,
                   ),
+                  if (templateMode == ReportTemplateMode.custom) ...[
+                    const SizedBox(width: 8),
+                    if (onSavePreset != null)
+                      AppButton(
+                        label: l.dynSaveCustomPresetBtn,
+                        icon: Icons.save_outlined,
+                        variant: AppButtonVariant.secondary,
+                        size: AppButtonSize.small,
+                        onPressed: onSavePreset,
+                      ),
+                    const SizedBox(width: 6),
+                    if (onResetPreset != null)
+                      AppButton(
+                        label: l.dynResetColumnsBtn,
+                        icon: Icons.restart_alt,
+                        variant: AppButtonVariant.secondary,
+                        size: AppButtonSize.small,
+                        onPressed: onResetPreset,
+                      ),
+                  ],
 
                   const Spacer(),
 
@@ -203,7 +235,7 @@ class DynamicReportFilterToolbar extends StatelessWidget {
 
                   // Filter Priority
                   SizedBox(
-                    width: 160,
+                    width: 150,
                     child: SearchableDropdownField<String>(
                       value: filterPriority,
                       labelText: l.dynFilterPriorityLabel,
@@ -215,6 +247,42 @@ class DynamicReportFilterToolbar extends StatelessWidget {
                       ],
                       onChanged: (v) {
                         if (v != null) onFilterPriorityChanged(v);
+                      },
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+
+                  // Filter Customs Release
+                  SizedBox(
+                    width: 140,
+                    child: SearchableDropdownField<String>(
+                      value: filterCustomsRelease,
+                      labelText: l.dynFilterReleaseStatusLabel,
+                      items: [
+                        SearchableDropdownItem(value: 'All', label: l.dynFilterReleaseStatusAll),
+                        SearchableDropdownItem(value: 'Released', label: l.dynFilterReleaseStatusReleased),
+                        SearchableDropdownItem(value: 'Pending', label: l.dynFilterReleaseStatusPending),
+                      ],
+                      onChanged: (v) {
+                        if (v != null) onFilterCustomsReleaseChanged(v);
+                      },
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+
+                  // Filter ACID / Postal Exemption
+                  SizedBox(
+                    width: 140,
+                    child: SearchableDropdownField<String>(
+                      value: filterAcidReq,
+                      labelText: l.dynFilterAcidReqLabel,
+                      items: [
+                        SearchableDropdownItem(value: 'All', label: l.dynFilterAcidReqAll),
+                        SearchableDropdownItem(value: 'Mandatory', label: l.dynFilterAcidReqMandatory),
+                        SearchableDropdownItem(value: 'Exempt', label: l.dynFilterAcidReqExempt),
+                      ],
+                      onChanged: (v) {
+                        if (v != null) onFilterAcidReqChanged(v);
                       },
                     ),
                   ),

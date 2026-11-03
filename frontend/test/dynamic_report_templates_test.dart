@@ -1,7 +1,10 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:frontend/core/localization/app_localizations_ar.dart';
 import 'package:frontend/core/localization/app_localizations_en.dart';
+import 'package:frontend/features/dynamic_reporting/models/dynamic_report_models.dart';
 import 'package:frontend/features/dynamic_reporting/screens/dynamic_report_builder_screen.dart';
+import 'package:frontend/features/dynamic_reporting/widgets/builder/dynamic_report_builder_constants.dart';
+import 'package:frontend/features/dynamic_reporting/widgets/builder/dynamic_report_cell_resolver.dart';
 import 'package:frontend/features/import_files/models/import_file_model.dart';
 
 void main() {
@@ -120,8 +123,8 @@ void main() {
       expect(ar.dynColEcoArrivalWarehouse, equals('Arrival Warehouse'));
       expect(ar.dynColEcoSara, equals('المسئول عن المشروع'));
       expect(ar.dynColEcoMaro, equals('مالك المشروع'));
-      expect(en.dynColEcoSara, equals('المسئول عن المشروع'));
-      expect(en.dynColEcoMaro, equals('مالك المشروع'));
+      expect(en.dynColEcoSara, equals('Project Lead'));
+      expect(en.dynColEcoMaro, equals('Project Owner'));
       expect(ar.dynColEcoSara.toLowerCase(), isNot(contains('sara')));
       expect(ar.dynColEcoMaro.toLowerCase(), isNot(contains('maro')));
       expect(en.dynColEcoSara.toLowerCase(), isNot(contains('sara')));
@@ -137,15 +140,18 @@ void main() {
       expect(ar.dynColScasExFactory, equals('EX Factory'));
       expect(ar.dynColScasOrderToOrigin, equals('Order to Origin for Pick Up'));
       expect(ar.dynColScasPickUpDate, equals('Pick Up Date from Gind'));
-      expect(ar.dynColScasDeparturePort, equals('Departure Date from Port (ETD)'));
-      expect(ar.dynColScasArrivalAlexPort, equals('Arrival Date to Alex Port (ETA)'));
+      expect(ar.dynColScasDeparturePort, equals('تاريخ الإبحار الفعلي من ميناء الشحن'));
+      expect(en.dynColScasDeparturePort, equals('Departure Date from Port (ETD)'));
+      expect(ar.dynColScasArrivalAlexPort, equals('تاريخ الوصول المتوقع لميناء الإسكندرية'));
+      expect(en.dynColScasArrivalAlexPort, equals('Arrival Date to Alex Port (ETA)'));
       expect(ar.dynColScasOrigInvoice, equals('Original Commercial Invoice'));
       expect(ar.dynColScasOrigPackingList, equals('Original Packing List'));
       expect(ar.dynColScasOrigCoo, equals('Original Certificate of Origin'));
       expect(ar.dynColScasOrigBl, equals('Original Bill of Lading'));
       expect(ar.dynColScasOrigInsurance, equals('Original Insurance Certificate'));
       expect(ar.dynColScasInsertNafeza, equals('Insert on Nafeza'));
-      expect(ar.dynColScasBankForm4, equals('Bank Name (Form 4)'));
+      expect(ar.dynColScasBankForm4, equals('اسم البنك ونموذج 4'));
+      expect(en.dynColScasBankForm4, equals('Bank Name (Form 4)'));
       expect(ar.dynColScasDeclare3A, equals('Declare to 3A'));
       expect(ar.dynColScasMaterialReceived, equals('Material Received'));
     });
@@ -363,6 +369,174 @@ void main() {
       expect(scasFiltered.map((f) => f.importFileCode), isNot(contains('ECO-001')));
       expect(scasFiltered.map((f) => f.importFileCode), isNot(contains('PRJ-002')));
       expect(scasFiltered.map((f) => f.importFileCode), isNot(contains('OTH-005')));
+    });
+
+    test('All 16 Categories and new dimensions are localized in Arabic and English', () {
+      expect(ar.dynCatCourierAir, isNotEmpty);
+      expect(en.dynCatCourierAir, isNotEmpty);
+      expect(ar.dynCatContainersDemurrage, isNotEmpty);
+      expect(en.dynCatContainersDemurrage, isNotEmpty);
+      expect(ar.dynCatCustomsReleaseDuties, isNotEmpty);
+      expect(en.dynCatCustomsReleaseDuties, isNotEmpty);
+      expect(ar.dynCatInlandHaulage, isNotEmpty);
+      expect(en.dynCatInlandHaulage, isNotEmpty);
+      expect(ar.dynCatLandedCostSettlement, isNotEmpty);
+      expect(en.dynCatLandedCostSettlement, isNotEmpty);
+      expect(ar.dynCatCargoXDigitalDocs, isNotEmpty);
+      expect(en.dynCatCargoXDigitalDocs, isNotEmpty);
+      expect(ar.dynCatPartialShipments, isNotEmpty);
+      expect(en.dynCatPartialShipments, isNotEmpty);
+      expect(ar.dynCatHoldsNotes, isNotEmpty);
+      expect(en.dynCatHoldsNotes, isNotEmpty);
+
+      expect(ar.dynColCourierOperator, equals('مشغل البريد السريع'));
+      expect(en.dynColCourierOperator, equals('Courier Operator'));
+      expect(ar.dynColInlandCarrierName, equals('اسم شركة النقل والمقاول'));
+      expect(en.dynColInlandCarrierName, equals('Inland Carrier Name'));
+      expect(ar.dynColActualLandedCostTotalEgp, equals('إجمالي التكلفة الاستيرادية المحققة'));
+      expect(en.dynColActualLandedCostTotalEgp, equals('Actual Landed Cost EGP'));
+    });
+
+    test('Master Column Catalog contains newly introduced domain fields and categories', () {
+      final catalog = DynamicReportBuilderConstants.buildMasterColumnCatalog();
+      expect(catalog.length, greaterThanOrEqualTo(90));
+
+      final courierCols = catalog.where((c) => c.categoryId == 'courier_air').toList();
+      expect(courierCols.map((c) => c.id), containsAll([
+        'courierOperator',
+        'courierTrackingNo',
+        'shipmentSubMode',
+        'chargeableDivisor',
+        'acidRequirement',
+        'acidExemptionReason',
+      ]));
+
+      final demurrageCols = catalog.where((c) => c.categoryId == 'containers_demurrage').toList();
+      expect(demurrageCols.map((c) => c.id), containsAll([
+        'blNumber',
+        'bookingNo',
+        'vesselName',
+        'deliveryOrderNo',
+        'deliveryOrderExpiryDate',
+        'emptyContainersReturnedAt',
+        'emptyContainersReturnStatus',
+        'emptyContainersEirNumbers',
+        'emptyContainersDepotName',
+      ]));
+
+      final inlandCols = catalog.where((c) => c.categoryId == 'inland_haulage').toList();
+      expect(inlandCols.map((c) => c.id), containsAll([
+        'inlandTransportStatus',
+        'inlandCarrierName',
+        'inlandTruckPlateNo',
+        'inlandDriverName',
+        'inlandDriverPhone',
+        'inlandTransportCostEgp',
+        'inlandDepartureDate',
+        'inlandActualArrivalDate',
+      ]));
+
+      final landedCostCols = catalog.where((c) => c.categoryId == 'landed_cost_settlement').toList();
+      expect(landedCostCols.map((c) => c.id), containsAll([
+        'totalClearanceExpensesEgp',
+        'actualLandedCostTotalEgp',
+        'actualLandedCostMarkupFactor',
+        'actualLandedCostVarianceEgp',
+        'actualLandedCostVariancePct',
+        'financialSettlementStatus',
+      ]));
+    });
+
+    test('DynamicReportCellResolver.filterFiles filters by Customs Release, ACID requirement, and Courier/BL tracking', () {
+      final fileReleased = ImportFileModel(
+        importFileId: 10,
+        importFileCode: 'REL-010',
+        companyName: 'Alfa Corp',
+        supplierName: 'Sup 1',
+        currentModule: 'Shipping',
+        currentStage: 'Customs',
+        progressPercent: 80,
+        nextAction: 'Done',
+        status: 'Active',
+        owner: 'User',
+        createdAt: '2026-09-01',
+        updatedAt: '2026-09-06',
+        shipmentMode: 'Sea FCL',
+        isCustomsReleased: true,
+        acidRequirement: 'MANDATORY',
+        blNumber: 'BL-998877',
+      );
+
+      final filePendingCourier = ImportFileModel(
+        importFileId: 11,
+        importFileCode: 'COU-011',
+        companyName: 'Beta LLC',
+        supplierName: 'Sup 2',
+        currentModule: 'Shipping',
+        currentStage: 'Customs',
+        progressPercent: 40,
+        nextAction: 'Pending',
+        status: 'Active',
+        owner: 'User',
+        createdAt: '2026-09-01',
+        updatedAt: '2026-09-06',
+        shipmentMode: 'Courier',
+        isCustomsReleased: false,
+        acidRequirement: 'EXEMPT_POSTAL',
+        courierTrackingNo: 'DHL-123456789',
+      );
+
+      final List<ImportFileModel> testList = [fileReleased, filePendingCourier];
+
+      // Test Customs Release filter
+      final releasedOnly = DynamicReportCellResolver.filterFiles(
+        files: testList,
+        templateMode: ReportTemplateMode.custom,
+        filterMode: 'All',
+        filterPriority: 'All',
+        filterStatus: 'All',
+        searchQuery: '',
+        filterCustomsRelease: 'Released',
+      );
+      expect(releasedOnly.length, equals(1));
+      expect(releasedOnly.first.importFileCode, equals('REL-010'));
+
+      // Test ACID postal exemption filter
+      final exemptOnly = DynamicReportCellResolver.filterFiles(
+        files: testList,
+        templateMode: ReportTemplateMode.custom,
+        filterMode: 'All',
+        filterPriority: 'All',
+        filterStatus: 'All',
+        searchQuery: '',
+        filterAcidReq: 'Exempt',
+      );
+      expect(exemptOnly.length, equals(1));
+      expect(exemptOnly.first.importFileCode, equals('COU-011'));
+
+      // Test search query for courier tracking
+      final searchCourier = DynamicReportCellResolver.filterFiles(
+        files: testList,
+        templateMode: ReportTemplateMode.custom,
+        filterMode: 'All',
+        filterPriority: 'All',
+        filterStatus: 'All',
+        searchQuery: 'DHL-123456789',
+      );
+      expect(searchCourier.length, equals(1));
+      expect(searchCourier.first.importFileCode, equals('COU-011'));
+
+      // Test search query for BL number
+      final searchBl = DynamicReportCellResolver.filterFiles(
+        files: testList,
+        templateMode: ReportTemplateMode.custom,
+        filterMode: 'All',
+        filterPriority: 'All',
+        filterStatus: 'All',
+        searchQuery: 'BL-998877',
+      );
+      expect(searchBl.length, equals(1));
+      expect(searchBl.first.importFileCode, equals('REL-010'));
     });
   });
 }

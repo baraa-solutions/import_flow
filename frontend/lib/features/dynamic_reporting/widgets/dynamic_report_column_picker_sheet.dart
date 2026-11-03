@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/widgets.dart';
 import '../models/dynamic_report_models.dart';
 
 class DynamicReportColumnPickerSheet extends StatefulWidget {
@@ -56,6 +57,14 @@ class _DynamicReportColumnPickerSheetState extends State<DynamicReportColumnPick
     'packages_cbm',
     'customs_nafeza',
     'banking_swift',
+    'courier_air',
+    'containers_demurrage',
+    'customs_release_duties',
+    'inland_haulage',
+    'landed_cost_settlement',
+    'cargox_digital_docs',
+    'partial_shipments',
+    'holds_notes',
     'eco_radar',
     'scas_tracker',
   ];
@@ -106,8 +115,11 @@ class _DynamicReportColumnPickerSheetState extends State<DynamicReportColumnPick
                   ),
                 ),
                 const SizedBox(width: 10),
-                OutlinedButton.icon(
-                  style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12)),
+                AppButton(
+                  label: l.dynSelectAll,
+                  icon: Icons.select_all,
+                  variant: AppButtonVariant.secondary,
+                  size: AppButtonSize.small,
                   onPressed: () {
                     setState(() {
                       for (var col in widget.masterColumns) {
@@ -116,12 +128,13 @@ class _DynamicReportColumnPickerSheetState extends State<DynamicReportColumnPick
                     });
                     widget.onStateChanged();
                   },
-                  icon: const Icon(Icons.select_all, size: 18),
-                  label: Text(l.dynSelectAll),
                 ),
                 const SizedBox(width: 8),
-                OutlinedButton.icon(
-                  style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12)),
+                AppButton(
+                  label: l.dynDeselectAll,
+                  icon: Icons.deselect,
+                  variant: AppButtonVariant.secondary,
+                  size: AppButtonSize.small,
                   onPressed: () {
                     setState(() {
                       for (var col in widget.masterColumns) {
@@ -130,8 +143,6 @@ class _DynamicReportColumnPickerSheetState extends State<DynamicReportColumnPick
                     });
                     widget.onStateChanged();
                   },
-                  icon: const Icon(Icons.deselect, size: 18),
-                  label: Text(l.dynDeselectAll),
                 ),
               ],
             ),
@@ -225,14 +236,18 @@ class _DynamicReportColumnPickerSheetState extends State<DynamicReportColumnPick
               ),
             ),
             const SizedBox(height: 10),
-            ElevatedButton.icon(
-              style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt, minimumSize: const Size.fromHeight(48)),
-              onPressed: () {
-                widget.onApply();
-                Navigator.pop(context);
-              },
-              icon: const Icon(Icons.check, color: Colors.white),
-              label: Text(l.dynApplyColumnsBtn, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15)),
+            SizedBox(
+              width: double.infinity,
+              child: AppButton(
+                label: l.dynApplyColumnsBtn,
+                icon: Icons.check,
+                variant: AppButtonVariant.primary,
+                size: AppButtonSize.medium,
+                onPressed: () {
+                  widget.onApply();
+                  Navigator.pop(context);
+                },
+              ),
             ),
           ],
         ),

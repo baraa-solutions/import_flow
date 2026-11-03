@@ -137,6 +137,72 @@ class DynamicReportBuilderConstants {
       DynamicReportColumn(id: 'ecoSwiftAmount', categoryId: 'scas_tracker', isVisible: false),
       DynamicReportColumn(id: 'ecoShippingCompany', categoryId: 'scas_tracker', isVisible: false),
       DynamicReportColumn(id: 'ecoAcid', categoryId: 'scas_tracker', isVisible: false),
+
+      // Express Courier & Air Cargo
+      DynamicReportColumn(id: 'courierOperator', categoryId: 'courier_air', isVisible: false),
+      DynamicReportColumn(id: 'courierTrackingNo', categoryId: 'courier_air', isVisible: false),
+      DynamicReportColumn(id: 'shipmentSubMode', categoryId: 'courier_air', isVisible: false),
+      DynamicReportColumn(id: 'chargeableDivisor', categoryId: 'courier_air', isVisible: false),
+      DynamicReportColumn(id: 'acidRequirement', categoryId: 'courier_air', isVisible: false),
+      DynamicReportColumn(id: 'acidExemptionReason', categoryId: 'courier_air', isVisible: false),
+
+      // Container Lifecycle & Demurrage
+      DynamicReportColumn(id: 'blNumber', categoryId: 'containers_demurrage', isVisible: false),
+      DynamicReportColumn(id: 'bookingNo', categoryId: 'containers_demurrage', isVisible: false),
+      DynamicReportColumn(id: 'vesselName', categoryId: 'containers_demurrage', isVisible: false),
+      DynamicReportColumn(id: 'deliveryOrderNo', categoryId: 'containers_demurrage', isVisible: false),
+      DynamicReportColumn(id: 'deliveryOrderExpiryDate', categoryId: 'containers_demurrage', isVisible: false),
+      DynamicReportColumn(id: 'emptyContainersReturnedAt', categoryId: 'containers_demurrage', isVisible: false),
+      DynamicReportColumn(id: 'emptyContainersReturnStatus', categoryId: 'containers_demurrage', isVisible: false),
+      DynamicReportColumn(id: 'emptyContainersEirNumbers', categoryId: 'containers_demurrage', isVisible: false),
+      DynamicReportColumn(id: 'emptyContainersDepotName', categoryId: 'containers_demurrage', isVisible: false),
+
+      // Customs Release & Duties
+      DynamicReportColumn(id: 'customsReleasePermitNo', categoryId: 'customs_release_duties', isVisible: false),
+      DynamicReportColumn(id: 'customsReleaseType', categoryId: 'customs_release_duties', isVisible: false),
+      DynamicReportColumn(id: 'customsReleaseOfficer', categoryId: 'customs_release_duties', isVisible: false),
+      DynamicReportColumn(id: 'customsGatePassNo', categoryId: 'customs_release_duties', isVisible: false),
+      DynamicReportColumn(id: 'customsDutyPaidAmount', categoryId: 'customs_release_duties', isVisible: false),
+      DynamicReportColumn(id: 'customsDutyReceiptNo', categoryId: 'customs_release_duties', isVisible: false),
+      DynamicReportColumn(id: 'customsDutySadadNo', categoryId: 'customs_release_duties', isVisible: false),
+      DynamicReportColumn(id: 'customsDutyPaymentDate', categoryId: 'customs_release_duties', isVisible: false),
+      DynamicReportColumn(id: 'customsBrokerDelegationNo', categoryId: 'customs_release_duties', isVisible: false),
+
+      // Inland Haulage & Warehouse Transport
+      DynamicReportColumn(id: 'inlandTransportStatus', categoryId: 'inland_haulage', isVisible: false),
+      DynamicReportColumn(id: 'inlandCarrierName', categoryId: 'inland_haulage', isVisible: false),
+      DynamicReportColumn(id: 'inlandTruckPlateNo', categoryId: 'inland_haulage', isVisible: false),
+      DynamicReportColumn(id: 'inlandDriverName', categoryId: 'inland_haulage', isVisible: false),
+      DynamicReportColumn(id: 'inlandDriverPhone', categoryId: 'inland_haulage', isVisible: false),
+      DynamicReportColumn(id: 'inlandTransportCostEgp', categoryId: 'inland_haulage', isVisible: false),
+      DynamicReportColumn(id: 'inlandDepartureDate', categoryId: 'inland_haulage', isVisible: false),
+      DynamicReportColumn(id: 'inlandActualArrivalDate', categoryId: 'inland_haulage', isVisible: false),
+
+      // Actual Landed Cost & Settlement
+      DynamicReportColumn(id: 'totalClearanceExpensesEgp', categoryId: 'landed_cost_settlement', isVisible: false),
+      DynamicReportColumn(id: 'actualLandedCostTotalEgp', categoryId: 'landed_cost_settlement', isVisible: false),
+      DynamicReportColumn(id: 'actualLandedCostMarkupFactor', categoryId: 'landed_cost_settlement', isVisible: false),
+      DynamicReportColumn(id: 'actualLandedCostVarianceEgp', categoryId: 'landed_cost_settlement', isVisible: false),
+      DynamicReportColumn(id: 'actualLandedCostVariancePct', categoryId: 'landed_cost_settlement', isVisible: false),
+      DynamicReportColumn(id: 'financialSettlementStatus', categoryId: 'landed_cost_settlement', isVisible: false),
+
+      // CargoX & Digital Documents Courier
+      DynamicReportColumn(id: 'cargoxEnvelopeCode', categoryId: 'cargox_digital_docs', isVisible: false),
+      DynamicReportColumn(id: 'cargoxEnvelopeStatus', categoryId: 'cargox_digital_docs', isVisible: false),
+      DynamicReportColumn(id: 'cargoxTransferredAt', categoryId: 'cargox_digital_docs', isVisible: false),
+      DynamicReportColumn(id: 'originalDocumentsCourierNo', categoryId: 'cargox_digital_docs', isVisible: false),
+      DynamicReportColumn(id: 'originalDocumentsStatus', categoryId: 'cargox_digital_docs', isVisible: false),
+      DynamicReportColumn(id: 'originalDocumentsReceivedAt', categoryId: 'cargox_digital_docs', isVisible: false),
+
+      // Partial Shipments & Hierarchy
+      DynamicReportColumn(id: 'isPartialShipment', categoryId: 'partial_shipments', isVisible: false),
+      DynamicReportColumn(id: 'parentFileCode', categoryId: 'partial_shipments', isVisible: false),
+
+      // Operational Notes & Hold Status
+      DynamicReportColumn(id: 'holdReason', categoryId: 'holds_notes', isVisible: false),
+      DynamicReportColumn(id: 'holdDate', categoryId: 'holds_notes', isVisible: false),
+      DynamicReportColumn(id: 'hsCode', categoryId: 'holds_notes', isVisible: false),
+      DynamicReportColumn(id: 'productCategory', categoryId: 'holds_notes', isVisible: false),
     ];
   }
 
@@ -160,6 +226,22 @@ class DynamicReportBuilderConstants {
         return l.dynCatScasTracking;
       case 'eco_radar':
         return l.dynCatEcoTracking;
+      case 'courier_air':
+        return l.dynCatCourierAir;
+      case 'containers_demurrage':
+        return l.dynCatContainersDemurrage;
+      case 'customs_release_duties':
+        return l.dynCatCustomsReleaseDuties;
+      case 'inland_haulage':
+        return l.dynCatInlandHaulage;
+      case 'landed_cost_settlement':
+        return l.dynCatLandedCostSettlement;
+      case 'cargox_digital_docs':
+        return l.dynCatCargoXDigitalDocs;
+      case 'partial_shipments':
+        return l.dynCatPartialShipments;
+      case 'holds_notes':
+        return l.dynCatHoldsNotes;
       default:
         return catId;
     }
@@ -313,6 +395,106 @@ class DynamicReportBuilderConstants {
         return l.dynColScasDeclare3A;
       case 'scasMaterialReceived':
         return l.dynColScasMaterialReceived;
+      case 'courierOperator':
+        return l.dynColCourierOperator;
+      case 'courierTrackingNo':
+        return l.dynColCourierTrackingNo;
+      case 'shipmentSubMode':
+        return l.dynColShipmentSubMode;
+      case 'chargeableDivisor':
+        return l.dynColChargeableDivisor;
+      case 'acidRequirement':
+        return l.dynColAcidRequirement;
+      case 'acidExemptionReason':
+        return l.dynColAcidExemptionReason;
+      case 'blNumber':
+        return l.dynColBlNumber;
+      case 'bookingNo':
+        return l.dynColBookingNo;
+      case 'vesselName':
+        return l.dynColVesselName;
+      case 'deliveryOrderNo':
+        return l.dynColDeliveryOrderNo;
+      case 'deliveryOrderExpiryDate':
+        return l.dynColDeliveryOrderExpiryDate;
+      case 'emptyContainersReturnedAt':
+        return l.dynColEmptyContainersReturnedAt;
+      case 'emptyContainersReturnStatus':
+        return l.dynColEmptyContainersReturnStatus;
+      case 'emptyContainersEirNumbers':
+        return l.dynColEmptyContainersEirNumbers;
+      case 'emptyContainersDepotName':
+        return l.dynColEmptyContainersDepotName;
+      case 'customsReleasePermitNo':
+        return l.dynColCustomsReleasePermitNo;
+      case 'customsReleaseType':
+        return l.dynColCustomsReleaseType;
+      case 'customsReleaseOfficer':
+        return l.dynColCustomsReleaseOfficer;
+      case 'customsGatePassNo':
+        return l.dynColCustomsGatePassNo;
+      case 'customsDutyPaidAmount':
+        return l.dynColCustomsDutyPaidAmount;
+      case 'customsDutyReceiptNo':
+        return l.dynColCustomsDutyReceiptNo;
+      case 'customsDutySadadNo':
+        return l.dynColCustomsDutySadadNo;
+      case 'customsDutyPaymentDate':
+        return l.dynColCustomsDutyPaymentDate;
+      case 'customsBrokerDelegationNo':
+        return l.dynColCustomsBrokerDelegationNo;
+      case 'inlandTransportStatus':
+        return l.dynColInlandTransportStatus;
+      case 'inlandCarrierName':
+        return l.dynColInlandCarrierName;
+      case 'inlandTruckPlateNo':
+        return l.dynColInlandTruckPlateNo;
+      case 'inlandDriverName':
+        return l.dynColInlandDriverName;
+      case 'inlandDriverPhone':
+        return l.dynColInlandDriverPhone;
+      case 'inlandTransportCostEgp':
+        return l.dynColInlandTransportCostEgp;
+      case 'inlandDepartureDate':
+        return l.dynColInlandDepartureDate;
+      case 'inlandActualArrivalDate':
+        return l.dynColInlandActualArrivalDate;
+      case 'totalClearanceExpensesEgp':
+        return l.dynColTotalClearanceExpensesEgp;
+      case 'actualLandedCostTotalEgp':
+        return l.dynColActualLandedCostTotalEgp;
+      case 'actualLandedCostMarkupFactor':
+        return l.dynColActualLandedCostMarkupFactor;
+      case 'actualLandedCostVarianceEgp':
+        return l.dynColActualLandedCostVarianceEgp;
+      case 'actualLandedCostVariancePct':
+        return l.dynColActualLandedCostVariancePct;
+      case 'financialSettlementStatus':
+        return l.dynColFinancialSettlementStatus;
+      case 'cargoxEnvelopeCode':
+        return l.dynColCargoxEnvelopeCode;
+      case 'cargoxEnvelopeStatus':
+        return l.dynColCargoxEnvelopeStatus;
+      case 'cargoxTransferredAt':
+        return l.dynColCargoxTransferredAt;
+      case 'originalDocumentsCourierNo':
+        return l.dynColOriginalDocumentsCourierNo;
+      case 'originalDocumentsStatus':
+        return l.dynColOriginalDocumentsStatus;
+      case 'originalDocumentsReceivedAt':
+        return l.dynColOriginalDocumentsReceivedAt;
+      case 'isPartialShipment':
+        return l.dynColIsPartialShipment;
+      case 'parentFileCode':
+        return l.dynColParentFileCode;
+      case 'holdReason':
+        return l.dynColHoldReason;
+      case 'holdDate':
+        return l.dynColHoldDate;
+      case 'hsCode':
+        return l.dynColHsCode;
+      case 'productCategory':
+        return l.dynColProductCategory;
       default:
         return colId;
     }

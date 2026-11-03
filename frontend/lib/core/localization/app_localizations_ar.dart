@@ -8832,6 +8832,154 @@ class AppLocalizationsAr extends AppLocalizations {
   String get dynCellInClearancePort => 'قيد التخليص بالميناء';
   @override
   String dynRecordsCount(int count) => '$count سجل';
+  @override
+  String get dynCatCourierAir => 'الطرود البريدية والشحن الجوي السريع';
+  @override
+  String get dynCatContainersDemurrage => 'إدارة الحاويات وغرامات التأخير والأرضيات';
+  @override
+  String get dynCatCustomsReleaseDuties => 'الإفراج الجمركي النهائي والرسوم والضرائب';
+  @override
+  String get dynCatInlandHaulage => 'النقل الداخلي والشاحنات وتوصيل المستودع';
+  @override
+  String get dynCatLandedCostSettlement => 'التكلفة الاستيرادية الفعلية والتسوية المالية';
+  @override
+  String get dynCatCargoXDigitalDocs => 'منصة نافذة الرقمية والمستندات الأصلية';
+  @override
+  String get dynCatPartialShipments => 'الشحنات الجزئية والتفرع';
+  @override
+  String get dynCatHoldsNotes => 'ملاحظات التشغيل وأسباب تعليق الشحنة';
+  @override
+  String get dynColCourierOperator => 'مشغل البريد السريع';
+  @override
+  String get dynColCourierTrackingNo => 'رقم بوليصة تتبع البريد السريع';
+  @override
+  String get dynColShipmentSubMode => 'نمط الشحن الفرعي';
+  @override
+  String get dynColChargeableDivisor => 'معامل الحجم القاسم';
+  @override
+  String get dynColAcidRequirement => 'موقف القيد الجمركي المسبق';
+  @override
+  String get dynColAcidExemptionReason => 'سبب الإعفاء البريدي الجمركي';
+  @override
+  String get dynColBlNumber => 'رقم بوليصة الشحن';
+  @override
+  String get dynColBookingNo => 'رقم الحجز الملاحي';
+  @override
+  String get dynColVesselName => 'اسم السفينة أو الباخرة';
+  @override
+  String get dynColDeliveryOrderNo => 'رقم إذن التسليم الملاحي';
+  @override
+  String get dynColDeliveryOrderExpiryDate => 'تاريخ صلاحية إذن التسليم';
+  @override
+  String get dynColEmptyContainersReturnedAt => 'تاريخ إرجاع الحاويات الفارغة';
+  @override
+  String get dynColEmptyContainersReturnStatus => 'حالة إرجاع الحاويات الفارغة';
+  @override
+  String get dynColEmptyContainersEirNumbers => 'أرقام إيصالات تبادل الحاويات';
+  @override
+  String get dynColEmptyContainersDepotName => 'مستودع إرجاع الحاويات';
+  @override
+  String get dynColCustomsReleasePermitNo => 'رقم تصريح الإفراج الجمركي';
+  @override
+  String get dynColCustomsReleaseType => 'نوع الإفراج الجمركي';
+  @override
+  String get dynColCustomsReleaseOfficer => 'مأمور التعريفة والمثمن الجمركي';
+  @override
+  String get dynColCustomsGatePassNo => 'رقم إذن تصريح البوابة';
+  @override
+  String get dynColCustomsDutyPaidAmount => 'مبلغ الرسوم الجمركية المدفوعة';
+  @override
+  String get dynColCustomsDutyReceiptNo => 'رقم إيصال سداد الجمارك';
+  @override
+  String get dynColCustomsDutySadadNo => 'رقم سداد الجمركي الإلكتروني';
+  @override
+  String get dynColCustomsDutyPaymentDate => 'تاريخ سداد الرسوم الجمركية';
+  @override
+  String get dynColCustomsBrokerDelegationNo => 'رقم التفويض الجمركي للمخلص';
+  @override
+  String get dynColInlandTransportStatus => 'حالة النقل الداخلي';
+  @override
+  String get dynColInlandCarrierName => 'اسم شركة النقل والمقاول';
+  @override
+  String get dynColInlandTruckPlateNo => 'رقم لوحة الشاحنة';
+  @override
+  String get dynColInlandDriverName => 'اسم السائق';
+  @override
+  String get dynColInlandDriverPhone => 'رقم هاتف السائق';
+  @override
+  String get dynColInlandTransportCostEgp => 'تكلفة النقل الداخلي بالجنيه';
+  @override
+  String get dynColInlandDepartureDate => 'تاريخ الخروج والتحرك من الميناء';
+  @override
+  String get dynColInlandActualArrivalDate => 'تاريخ الوصول الفعلي للمستودع';
+  @override
+  String get dynColTotalClearanceExpensesEgp => 'إجمالي مصاريف التخليص الجمركي';
+  @override
+  String get dynColActualLandedCostTotalEgp => 'إجمالي التكلفة الاستيرادية المحققة';
+  @override
+  String get dynColActualLandedCostMarkupFactor => 'معامل التحميل الفعلي';
+  @override
+  String get dynColActualLandedCostVarianceEgp => 'فرق الانحراف المالي بالجنيه';
+  @override
+  String get dynColActualLandedCostVariancePct => 'نسبة انحراف التكلفة الفعلية %';
+  @override
+  String get dynColFinancialSettlementStatus => 'حالة التسوية المالية';
+  @override
+  String get dynColCargoxEnvelopeCode => 'كود مظروف كارجو إكس';
+  @override
+  String get dynColCargoxEnvelopeStatus => 'حالة مظروف كارجو إكس';
+  @override
+  String get dynColCargoxTransferredAt => 'تاريخ نقل كارجو إكس';
+  @override
+  String get dynColOriginalDocumentsCourierNo => 'رقم بوليصة البريد السريع للمستندات';
+  @override
+  String get dynColOriginalDocumentsStatus => 'حالة المستندات الأصلية';
+  @override
+  String get dynColOriginalDocumentsReceivedAt => 'تاريخ استلام المستندات الأصلية';
+  @override
+  String get dynColIsPartialShipment => 'شحنة جزئية';
+  @override
+  String get dynColParentFileCode => 'كود الشحنة الأم';
+  @override
+  String get dynColHoldReason => 'سبب تعليق الشحنة';
+  @override
+  String get dynColHoldDate => 'تاريخ تعليق الشحنة';
+  @override
+  String get dynColHsCode => 'بند التعريفة الجمركية';
+  @override
+  String get dynColProductCategory => 'تصنيف البضاعة';
+  @override
+  String get dynFilterReleaseStatusLabel => 'الإفراج الجمركي';
+  @override
+  String get dynFilterReleaseStatusAll => 'الكل';
+  @override
+  String get dynFilterReleaseStatusReleased => 'مفرج عنه';
+  @override
+  String get dynFilterReleaseStatusPending => 'قيد التخليص';
+  @override
+  String get dynFilterAcidReqLabel => 'القيد الجمركي';
+  @override
+  String get dynFilterAcidReqAll => 'كافة الشحنات';
+  @override
+  String get dynFilterAcidReqMandatory => 'قيد إلزامي';
+  @override
+  String get dynFilterAcidReqExempt => 'إعفاء بريدي';
+  @override
+  String get dynSaveCustomPresetBtn => 'حفظ القالب المخصص';
+  @override
+  String get dynResetColumnsBtn => 'استعادة الافتراضي';
+  @override
+  String get dynPresetSavedToast => 'تم حفظ القالب المخصص بنجاح';
+  @override
+  String get dynPresetResetToast => 'تمت استعادة الأعمدة الافتراضية';
+  @override
+  String get dynFilterAll => 'الكل';
+  @override
+  String get dynStatusHeld => 'معلقة';
+  @override
+  String get dynYes => 'نعم';
+  @override
+  String get dynNo => 'لا';
 
   // ── Screen 68: Comprehensive Import File Report ───────────────────────────
   @override

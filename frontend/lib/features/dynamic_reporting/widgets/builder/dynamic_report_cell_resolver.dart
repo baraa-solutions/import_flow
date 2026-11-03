@@ -174,6 +174,9 @@ class DynamicReportCellResolver {
             ? '${file.requiredEta} ${file.portOfDischarge ?? ""}'.trim()
             : (file.portOfDischarge ?? '-');
       case 'ecoArrivalWarehouse':
+        if (file.inlandActualArrivalDate != null && file.inlandActualArrivalDate!.isNotEmpty) {
+          return file.inlandActualArrivalDate!;
+        }
         return file.customsReleasedAt ?? (file.updatedAt.length >= 10 ? file.updatedAt.substring(0, 10) : '-');
       case 'ecoSara':
         if (file.owner.isNotEmpty && file.owner != file.companyName) {
@@ -198,7 +201,10 @@ class DynamicReportCellResolver {
       case 'ecoReadyToPickUp':
         return file.cargoReadyDate ?? '-';
       case 'ecoLatestUpdate':
-        return file.currentStage;
+        if (file.holdReason != null && file.holdReason!.isNotEmpty) {
+          return '${l.dynStatusHeld}: ${file.holdReason}';
+        }
+        return DisplayNameResolver.resolveStepName(file.currentStage, isArabic: isAr);
       case 'ecoSwiftDate':
         return file.swiftNo != null ? (file.form4ReceivedDate ?? '-') : '-';
       case 'ecoSwiftAmount':
@@ -211,6 +217,137 @@ class DynamicReportCellResolver {
         return file.selectedScenario ?? file.shipmentMode;
       case 'ecoAcid':
         return file.acidNumber != null ? file.acidNumber! : '-';
+
+      // Express Courier & Air Cargo
+      case 'courierOperator':
+        return file.courierOperator ?? '-';
+      case 'courierTrackingNo':
+        return file.courierTrackingNo ?? '-';
+      case 'shipmentSubMode':
+        return file.shipmentSubMode ?? file.shipmentMode;
+      case 'chargeableDivisor':
+        return file.chargeableDivisor != null ? '${file.chargeableDivisor}' : '-';
+      case 'acidRequirement':
+        return file.isAcidExempt ? l.dynFilterAcidReqExempt : l.dynFilterAcidReqMandatory;
+      case 'acidExemptionReason':
+        return file.acidExemptionReason ?? '-';
+
+      // Container Lifecycle & Demurrage
+      case 'blNumber':
+        return file.blNumber ?? '-';
+      case 'bookingNo':
+        return file.bookingNo ?? '-';
+      case 'vesselName':
+        return file.vesselName ?? '-';
+      case 'deliveryOrderNo':
+        return file.deliveryOrderNo ?? '-';
+      case 'deliveryOrderExpiryDate':
+        return file.deliveryOrderExpiryDate ?? '-';
+      case 'emptyContainersReturnedAt':
+        return file.emptyContainersReturnedAt ?? '-';
+      case 'emptyContainersReturnStatus':
+        return file.emptyContainersReturnStatus ?? '-';
+      case 'emptyContainersEirNumbers':
+        return file.emptyContainersEirNumbers ?? '-';
+      case 'emptyContainersDepotName':
+        return file.emptyContainersDepotName ?? '-';
+
+      // Customs Release & Duties
+      case 'customsReleasePermitNo':
+        return file.customsReleasePermitNo ?? '-';
+      case 'customsReleaseType':
+        return file.customsReleaseType ?? '-';
+      case 'customsReleaseOfficer':
+        return file.customsReleaseOfficer ?? '-';
+      case 'customsGatePassNo':
+        return file.customsGatePassNo ?? '-';
+      case 'customsDutyPaidAmount':
+        return file.customsDutyPaidAmount > 0
+            ? 'EGP ${file.customsDutyPaidAmount.toStringAsFixed(2)}'
+            : '-';
+      case 'customsDutyReceiptNo':
+        return file.customsDutyReceiptNo ?? '-';
+      case 'customsDutySadadNo':
+        return file.customsDutySadadNo ?? '-';
+      case 'customsDutyPaymentDate':
+        return file.customsDutyPaymentDate ?? '-';
+      case 'customsBrokerDelegationNo':
+        return file.customsBrokerDelegationNo ?? '-';
+
+      // Inland Haulage & Warehouse Transport
+      case 'inlandTransportStatus':
+        return file.inlandTransportStatus.isNotEmpty ? file.inlandTransportStatus : '-';
+      case 'inlandCarrierName':
+        return file.inlandCarrierName ?? '-';
+      case 'inlandTruckPlateNo':
+        return file.inlandTruckPlateNo ?? '-';
+      case 'inlandDriverName':
+        return file.inlandDriverName ?? '-';
+      case 'inlandDriverPhone':
+        return file.inlandDriverPhone ?? '-';
+      case 'inlandTransportCostEgp':
+        return file.inlandTransportCostEgp > 0
+            ? 'EGP ${file.inlandTransportCostEgp.toStringAsFixed(2)}'
+            : '-';
+      case 'inlandDepartureDate':
+        return file.inlandDepartureDate ?? '-';
+      case 'inlandActualArrivalDate':
+        return file.inlandActualArrivalDate ?? '-';
+
+      // Actual Landed Cost & Settlement
+      case 'totalClearanceExpensesEgp':
+        return file.totalClearanceExpensesEgp > 0
+            ? 'EGP ${file.totalClearanceExpensesEgp.toStringAsFixed(2)}'
+            : '-';
+      case 'actualLandedCostTotalEgp':
+        return file.actualLandedCostTotalEgp > 0
+            ? 'EGP ${file.actualLandedCostTotalEgp.toStringAsFixed(2)}'
+            : '-';
+      case 'actualLandedCostMarkupFactor':
+        return file.actualLandedCostMarkupFactor > 0
+            ? file.actualLandedCostMarkupFactor.toStringAsFixed(4)
+            : '-';
+      case 'actualLandedCostVarianceEgp':
+        return file.actualLandedCostVarianceEgp != 0
+            ? 'EGP ${file.actualLandedCostVarianceEgp.toStringAsFixed(2)}'
+            : '-';
+      case 'actualLandedCostVariancePct':
+        return file.actualLandedCostVariancePct != 0
+            ? '${file.actualLandedCostVariancePct.toStringAsFixed(2)}%'
+            : '-';
+      case 'financialSettlementStatus':
+        return file.financialSettlementStatus ?? '-';
+
+      // CargoX & Digital Documents Courier
+      case 'cargoxEnvelopeCode':
+        return file.cargoxEnvelopeCode ?? '-';
+      case 'cargoxEnvelopeStatus':
+        return file.cargoxEnvelopeStatus ?? '-';
+      case 'cargoxTransferredAt':
+        return file.cargoxTransferredAt ?? '-';
+      case 'originalDocumentsCourierNo':
+        return file.originalDocumentsCourierNo ?? '-';
+      case 'originalDocumentsStatus':
+        return file.originalDocumentsStatus ?? '-';
+      case 'originalDocumentsReceivedAt':
+        return file.originalDocumentsReceivedAt ?? '-';
+
+      // Partial Shipments & Hierarchy
+      case 'isPartialShipment':
+        return file.isPartialShipment ? l.dynYes : l.dynNo;
+      case 'parentFileCode':
+        return file.parentFileCode ??
+            (file.parentImportFileId != null ? 'ID: ${file.parentImportFileId}' : '-');
+
+      // Operational Notes & Hold Status
+      case 'holdReason':
+        return file.holdReason ?? '-';
+      case 'holdDate':
+        return file.holdDate ?? '-';
+      case 'hsCode':
+        return file.hsCode ?? '-';
+      case 'productCategory':
+        return file.productCategory ?? '-';
 
       // ECO Radar / Document & Milestone Specific
       case 'scasProjectFileAcid':
@@ -238,7 +375,7 @@ class DynamicReportCellResolver {
       case 'scasPickUpDate':
         return file.cargoReadyDate ?? file.fileOpeningDate ?? '-';
       case 'scasDeparturePort':
-        return file.fileOpeningDate ?? '-';
+        return file.cargoReadyDate ?? file.fileOpeningDate ?? '-';
       case 'scasArrivalAlexPort':
         return file.requiredEta ?? '-';
       case 'scasOrigInvoice':
@@ -254,6 +391,9 @@ class DynamicReportCellResolver {
             ? '${l.dynStatusReceived}\n${l.dynCellOriginOk}'
             : l.dynStatusReceived;
       case 'scasOrigBl':
+        if (file.blNumber != null && file.blNumber!.trim().isNotEmpty) {
+          return '${l.dynStatusReceived}\n${file.blNumber!.trim()}';
+        }
         return file.selectedScenario != null && file.selectedScenario!.isNotEmpty
             ? '${l.dynStatusReceived}\n${file.selectedScenario}'
             : '${l.dynStatusReceived} ${l.dynCellExpressBl}';
@@ -273,6 +413,9 @@ class DynamicReportCellResolver {
             ? '${l.dynStatusDone}\n${isAr ? "رقم" : "No"}: ${file.form46No}'
             : l.dynCellPending46;
       case 'scasMaterialReceived':
+        if (file.inlandActualArrivalDate != null && file.inlandActualArrivalDate!.isNotEmpty) {
+          return '${l.dynCellDeliveredWarehouse}\n${file.inlandActualArrivalDate}';
+        }
         return file.isCustomsReleased
             ? '${l.dynCellDeliveredWarehouse}\n(${file.customsReleasedAt ?? l.dynCustomsReleased})'
             : (file.status == 'Under Clearance' ? l.dynCellInClearancePort : file.status);
@@ -312,11 +455,21 @@ class DynamicReportCellResolver {
     required String filterPriority,
     required String filterStatus,
     required String searchQuery,
+    String filterCustomsRelease = 'All',
+    String filterAcidReq = 'All',
   }) {
     return files.where((f) {
       if (filterMode != 'All' && f.shipmentMode != filterMode) return false;
       if (filterPriority != 'All' && f.priority != filterPriority) return false;
       if (filterStatus != 'All' && f.status != filterStatus) return false;
+
+      // Filter by Customs Release
+      if (filterCustomsRelease == 'Released' && !f.isCustomsReleased) return false;
+      if (filterCustomsRelease == 'Pending' && f.isCustomsReleased) return false;
+
+      // Filter by ACID / Postal Exemption
+      if (filterAcidReq == 'Mandatory' && f.isAcidExempt) return false;
+      if (filterAcidReq == 'Exempt' && !f.isAcidExempt) return false;
 
       // Filter by Template Mode
       if (templateMode == ReportTemplateMode.eco) {
@@ -368,7 +521,20 @@ class DynamicReportCellResolver {
         final matchProj = f.projectNames?.toLowerCase().contains(q) ?? false;
         final matchAcid = f.acidNumber?.toLowerCase().contains(q) ?? false;
         final matchBroker = f.brokerName?.toLowerCase().contains(q) ?? false;
-        if (!matchCode && !matchComp && !matchSup && !matchProj && !matchAcid && !matchBroker) {
+        final matchCourier = f.courierTrackingNo?.toLowerCase().contains(q) ?? false;
+        final matchBl = f.blNumber?.toLowerCase().contains(q) ?? false;
+        final matchDo = f.deliveryOrderNo?.toLowerCase().contains(q) ?? false;
+        final matchCargox = f.cargoxEnvelopeCode?.toLowerCase().contains(q) ?? false;
+        if (!matchCode &&
+            !matchComp &&
+            !matchSup &&
+            !matchProj &&
+            !matchAcid &&
+            !matchBroker &&
+            !matchCourier &&
+            !matchBl &&
+            !matchDo &&
+            !matchCargox) {
           return false;
         }
       }
