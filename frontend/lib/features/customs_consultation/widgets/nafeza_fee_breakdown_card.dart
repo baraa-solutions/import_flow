@@ -99,9 +99,12 @@ class NafezaFeeBreakdownCard extends StatelessWidget {
                     children: [
                       const Icon(Icons.receipt_long, color: AppTheme.cobalt, size: 20),
                       const SizedBox(width: 8),
-                      Text(
-                        l.nafezaDeclarationBreakdown,
-                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.cobalt),
+                      Flexible(
+                        child: Text(
+                          l.nafezaDeclarationBreakdown,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.cobalt),
+                        ),
                       ),
                       const SizedBox(width: 8),
                       Text(
@@ -237,9 +240,12 @@ class NafezaFeeBreakdownCard extends StatelessWidget {
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              Text(
-                                '${l.nafezaCollectionPrefix} ${group.groupName}',
-                                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
+                              Flexible(
+                                child: Text(
+                                  '${l.nafezaCollectionPrefix} ${group.groupName}',
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal),
+                                ),
                               ),
                               Text(
                                 '${group.totalAmount.toStringAsFixed(2)} $egpLabel',

@@ -95,6 +95,8 @@ class ConsultationCalcCoordinator {
   bool isSaving = false;
   bool isDirty = false;
   bool hasCustomTitle = false;
+  // Set while the default title is written programmatically: that is not a user edit.
+  bool _suppressDirty = false;
 
   ConsultationCalcCoordinator({
     required this.ref,
@@ -144,7 +146,16 @@ class ConsultationCalcCoordinator {
   }
 
   void _markDirty() {
-    if (!isDirty) _setDirty(true);
+    if (!isDirty && !_suppressDirty) _setDirty(true);
+  }
+
+  void _setDefaultTitle(String title) {
+    _suppressDirty = true;
+    try {
+      titleController.text = title;
+    } finally {
+      _suppressDirty = false;
+    }
   }
 
   void refreshProviders() {
@@ -185,9 +196,9 @@ class ConsultationCalcCoordinator {
   void didChangeDependencies(BuildContext context) {
     if (!hasCustomTitle && editingConsultationId == null) {
       final l = context.l10n;
-      titleController.text = isTaxReviewMode
+      _setDefaultTitle(isTaxReviewMode
           ? l.defaultTaxReviewSessionTitle
-          : l.defaultCustomsConsultationTitle;
+          : l.defaultCustomsConsultationTitle);
     }
   }
 
@@ -197,9 +208,9 @@ class ConsultationCalcCoordinator {
         !hasCustomTitle &&
         editingConsultationId == null) {
       final l = context.l10n;
-      titleController.text = newTaxReviewMode
+      _setDefaultTitle(newTaxReviewMode
           ? l.defaultTaxReviewSessionTitle
-          : l.defaultCustomsConsultationTitle;
+          : l.defaultCustomsConsultationTitle);
     }
   }
 
@@ -586,9 +597,9 @@ class ConsultationCalcCoordinator {
     setState(() {
       editingConsultationId = null;
       editingConsultationCode = null;
-      titleController.text = isTaxReviewMode
+      _setDefaultTitle(isTaxReviewMode
           ? l.defaultTaxReviewSessionTitle
-          : l.defaultCustomsConsultationTitle;
+          : l.defaultCustomsConsultationTitle);
       selectedBrokerId = null;
       selectedBrokerName = '';
       brokerContactPerson = null;
@@ -1157,6 +1168,14 @@ class ConsultationCalcCoordinator {
                     status: 'Pending',
                   );
                   setState(() => checklist.insert(index + 1, cloned));
+                  final ctx = getContext();
+                  ScaffoldMessenger.of(ctx).showSnackBar(
+                    SnackBar(
+                      content: Text(ctx.l10n.checklistItemClonedSuccess),
+                      backgroundColor: AppTheme.wcagCobalt,
+                      duration: const Duration(seconds: 2),
+                    ),
+                  );
                 },
                 onDeleteItem: (index) =>
                     setState(() => checklist.removeAt(index)),

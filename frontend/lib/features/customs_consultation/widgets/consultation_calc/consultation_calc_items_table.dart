@@ -59,25 +59,30 @@ class ConsultationCalcItemsTable extends StatelessWidget {
                       const Icon(Icons.table_chart,
                           color: AppTheme.cobalt, size: 20),
                       const SizedBox(width: 8),
-                      Text(
-                        l.tariffDetailsTableTitle(
-                          calcLines.length,
-                          groupByHsCode
-                              ? l.groupedHsCodeItems
-                              : l.detailedItems,
-                        ),
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.bold,
-                          color: isDark
-                              ? AppTheme.darkTextPrimary
-                              : AppTheme.charcoal,
+                      Flexible(
+                        child: Text(
+                          l.tariffDetailsTableTitle(
+                            calcLines.length,
+                            groupByHsCode
+                                ? l.groupedHsCodeItems
+                                : l.detailedItems,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                            color: isDark
+                                ? AppTheme.darkTextPrimary
+                                : AppTheme.charcoal,
+                          ),
                         ),
                       ),
                     ],
                   ),
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    crossAxisAlignment: WrapCrossAlignment.center,
                     children: [
                       AppButton(
                         label: l.syncHsRequirementsToChecklist,
@@ -86,7 +91,6 @@ class ConsultationCalcItemsTable extends StatelessWidget {
                         size: AppButtonSize.small,
                         onPressed: onSyncHsRequirementsToChecklist,
                       ),
-                      const SizedBox(width: 8),
                       FilterChip(
                         selected: groupByHsCode,
                         label: Text(
