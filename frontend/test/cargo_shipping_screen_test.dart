@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:dio/dio.dart';
+import 'package:frontend/core/localization/app_localizations_ar.dart';
 import 'package:frontend/features/cargo_shipping/screens/cargo_shipping_screen.dart';
 import 'package:frontend/features/cargo_shipping/providers/cargo_shipping_provider.dart';
 import 'package:frontend/features/cargo_shipping/models/cargo_shipping_model.dart';
@@ -284,8 +285,8 @@ void main() {
     await tester.tap(find.textContaining('ECO ASSOCIATES').last, warnIfMissed: false);
     await tester.pumpAndSettle();
 
-    // Find and tap Smart Simulation button
-    final smartSimBtn = find.textContaining('Smart Simulation');
+    // Find and tap Smart Simulation button (pure Arabic label - anti-stacking)
+    final smartSimBtn = find.textContaining(const AppLocalizationsAr().cshSmartSimBtn);
     expect(smartSimBtn, findsOneWidget);
     await tester.tap(smartSimBtn);
     await tester.pumpAndSettle();

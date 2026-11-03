@@ -222,11 +222,11 @@ void main() {
       // Title
       expect(find.text('إضافة صنف مرجعي جديد للكتالوج'), findsOneWidget);
 
-      // CustomTextFields
-      expect(find.text('كود الصنف الداخلي (Item SKU)'), findsOneWidget);
-      expect(find.text('الوصف العربي المعتمد (Description AR)'), findsOneWidget);
-      expect(find.text('الوصف الإنجليزي (Description EN)'), findsOneWidget);
-      expect(find.text('الحجم للوحدة (CBM)'), findsOneWidget);
+      // CustomTextFields (pure Arabic labels - anti-stacking, no English in parentheses)
+      expect(find.text('كود الصنف الداخلي'), findsOneWidget);
+      expect(find.text('الوصف العربي المعتمد'), findsOneWidget);
+      expect(find.text('الوصف الإنجليزي'), findsOneWidget);
+      expect(find.text('الحجم للوحدة (م³)'), findsOneWidget);
 
       // SearchableDropdownFields for Tariff, UOM, and Package Type
       expect(find.byType(SearchableDropdownField<int>), findsOneWidget);

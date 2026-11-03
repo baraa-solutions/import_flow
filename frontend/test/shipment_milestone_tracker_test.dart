@@ -148,12 +148,12 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.textContaining('بوابة المعرفة والإنذار التشغيلي (Knowledge Gate)'), findsOneWidget);
+      expect(find.text('بوابة المعرفة والإنذار التشغيلي'), findsOneWidget);
       expect(find.textContaining('ميناء الوصول يجب أن يكون الإسكندرية حصراً'), findsOneWidget);
       expect(find.textContaining('شهادة المنشأ'), findsWidgets);
 
       // Tap acknowledge button
-      final ackBtn = find.text('إقرار واطلاع قبل المتابعة (Acknowledge)');
+      final ackBtn = find.text('إقرار واطلاع قبل المتابعة');
       expect(ackBtn, findsOneWidget);
       await tester.tap(ackBtn);
       await tester.pumpAndSettle();
