@@ -96,47 +96,48 @@ def normalize_cargox_weight_unit(val: Optional[str]) -> str:
 
 def normalize_cargox_country_code(val: Optional[str]) -> str:
     """
-    Normalizes any country string (e.g. 'CN - الصين (China)', 'China', 'cn', 'DE - ألمانيا')
-    to a clean 2-letter uppercase ISO Country Code expected by CargoX Excel dropdowns (e.g. 'CN').
+    Normalizes a country string (e.g. 'CN - الصين (China)', 'China (CN)', 'China', 'cn')
+    to the 2-letter uppercase ISO code expected by CargoX Excel dropdowns (e.g. 'CN').
+
+    Never invents a country of origin: an empty value stays empty and an unrecognised
+    value is returned as-is (uppercased) so the CargoX dropdown validation flags it
+    for correction instead of silently declaring the wrong origin.
     """
     if not val:
-        return "CN"
+        return ""
     raw = str(val).strip()
     if not raw:
-        return "CN"
-    # Format 'CN - ...'
-    if " - " in raw:
-        p = raw.split(" - ")[0].strip()
-        if len(p) == 2 and p.isalpha():
-            return p.upper()
-    # Format 'CN (...)'
-    if "(" in raw and raw[:2].isalpha():
-        p = raw[:2].strip()
-        return p.upper()
-    # Direct 2-letter code
+        return ""
+    # Direct 2-letter code: 'CN', 'cn'
     if len(raw) == 2 and raw.isalpha():
         return raw.upper()
+    # Leading code: 'CN - China', 'CN (China)', 'CN-China'
+    leading = re.match(r"^([A-Za-z]{2})\s*(?:-|\()", raw)
+    if leading:
+        return leading.group(1).upper()
+    # Trailing code in parentheses: 'China (CN)'
+    trailing = re.search(r"\(\s*([A-Za-z]{2})\s*\)\s*$", raw)
+    if trailing:
+        return trailing.group(1).upper()
     lower = raw.lower()
-    mapping = {
-        "china": "CN", "صين": "CN", "prc": "CN",
-        "germany": "DE", "ألمانيا": "DE",
-        "italy": "IT", "إيطاليا": "IT",
-        "turkey": "TR", "تركيا": "TR",
+    name_to_code = {
+        "china": "CN", "الصين": "CN", "prc": "CN",
+        "germany": "DE", "ألمانيا": "DE", "المانيا": "DE",
+        "italy": "IT", "إيطاليا": "IT", "ايطاليا": "IT",
+        "turkey": "TR", "turkiye": "TR", "تركيا": "TR",
         "egypt": "EG", "مصر": "EG",
-        "united states": "US", "usa": "US", "أمريكا": "US",
+        "united states": "US", "usa": "US", "أمريكا": "US", "امريكا": "US",
         "united kingdom": "GB", "uk": "GB", "بريطانيا": "GB",
         "france": "FR", "فرنسا": "FR",
-        "spain": "ES", "إسبانيا": "ES",
-        "india": "IN", "هند": "IN",
-        "japan": "JP", "يابان": "JP",
-        "korea": "KR", "كوريا": "KR",
+        "spain": "ES", "إسبانيا": "ES", "اسبانيا": "ES",
+        "india": "IN", "الهند": "IN",
+        "japan": "JP", "اليابان": "JP",
+        "korea": "KR", "south korea": "KR", "كوريا": "KR",
     }
-    for k, v in mapping.items():
-        if k in lower:
-            return v
-    if len(raw) >= 2 and raw[:2].isalpha() and (len(raw) == 2 or not raw[2].isalpha()):
-        return raw[:2].upper()
-    return "CN"
+    for name, code in name_to_code.items():
+        if re.search(rf"(?<!\w){re.escape(name)}(?!\w)", lower):
+            return code
+    return raw.upper()
 
 
 # ─────────────────────────────────────────────────────────────────────────────

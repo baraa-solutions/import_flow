@@ -997,7 +997,20 @@ def test_normalize_cargox_country_code_iso2():
     assert normalize_cargox_country_code("China") == "CN"
     assert normalize_cargox_country_code("الصين") == "CN"
     assert normalize_cargox_country_code("Italy") == "IT"
-    assert normalize_cargox_country_code("") == "CN"
+    assert normalize_cargox_country_code("China (CN)") == "CN"
+    assert normalize_cargox_country_code("Germany (DE)") == "DE"
+
+
+def test_normalize_cargox_country_code_never_invents_origin():
+    """An empty or unrecognised origin must not be silently declared as China."""
+    from modules.cargox.excel_invoice_service import normalize_cargox_country_code
+
+    assert normalize_cargox_country_code("") == ""
+    assert normalize_cargox_country_code(None) == ""
+    assert normalize_cargox_country_code("Vietnam") == "VIETNAM"
+    assert normalize_cargox_country_code("Netherlands") == "NETHERLANDS"
+    assert normalize_cargox_country_code("Ukraine") == "UKRAINE"
+    assert normalize_cargox_country_code("Indonesia") == "INDONESIA"
 
 
 def test_build_system_snapshot_preserves_actual_po_weights(test_db):
