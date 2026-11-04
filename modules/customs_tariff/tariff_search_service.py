@@ -55,6 +55,13 @@ def create_tariff_service(db: Session, data: CustomsTariffCreate) -> CustomsTari
     db.refresh(tariff)
     versions = repository.get_all_tariff_versions_by_hs_code(db, tariff.hs_code)
     tariff.total_versions = len(versions)
+    if getattr(tariff, "has_anti_dumping_risk", False):
+        from modules.experience_guide.service import ExperienceGuideService
+        ExperienceGuideService(db).sync_anti_dumping_guide_entry(
+            tariff.hs_code,
+            tariff.hs_description,
+            tariff.anti_dumping_notes,
+        )
     return tariff
 
 

@@ -288,17 +288,30 @@ def estimate_customs_duty_service(
     import_fee_amount = _round(cif * (import_fee_rate / Decimal("100")))
     customs_service_fee_amount = _round(cif * (svc_fee_rate / Decimal("100")))
 
-    # Unified VAT Base equation: CIF Base + Actual Import Duty Amount
-    vat_base = cif + import_duty_amount
+    # Anti-Dumping & Safeguard Measures (رسوم الإغراق والتدابير الوقائية)
+    has_dumping = bool(getattr(tariff, "has_anti_dumping_risk", False))
+    dumping_notes = getattr(tariff, "anti_dumping_notes", None)
+    dumping_rate = getattr(request, "anti_dumping_duty_rate", Decimal("0.00")) or Decimal("0.00")
+    dumping_amount = _round(cif * (dumping_rate / Decimal("100"))) if dumping_rate > Decimal("0.00") else Decimal("0.00")
+
+    # Unified VAT Base equation: CIF Base + Actual Import Duty Amount + Anti-Dumping Duty Amount
+    vat_base = cif + import_duty_amount + dumping_amount
     vat_amount = _round(vat_base * (vat_rate / Decimal("100")))
 
     total_taxes = (
         import_duty_amount
+        + dumping_amount
         + vat_amount
         + schedule_tax_amount
         + development_fee_amount
         + import_fee_amount
         + customs_service_fee_amount
+    )
+
+    special_deposit_account = (
+        "حساب وزارة الاستثمار والتجارة الخارجية (رسم إغراق وتدابير وقائية — غ6555)"
+        if has_dumping
+        else None
     )
 
     return CustomsDutyBreakdown(
@@ -330,6 +343,11 @@ def estimate_customs_duty_service(
         requires_inspection=tariff.requires_inspection,
         requires_acid=tariff.requires_acid,
         regulatory_authority=tariff.regulatory_authority,
+        has_anti_dumping_risk=has_dumping,
+        anti_dumping_notes=dumping_notes,
+        anti_dumping_duty_rate=dumping_rate,
+        anti_dumping_duty_amount=dumping_amount,
+        special_deposit_account=special_deposit_account,
     )
 
 
@@ -420,6 +438,8 @@ def estimate_multi_item_customs_duty_service(
     total_development_fee_egp = Decimal("0.00")
     total_import_fee_egp = Decimal("0.00")
     total_inspection_fees_egp = Decimal("0.00")
+    total_anti_dumping_duty_egp = Decimal("0.00")
+    any_dumping_risk = False
 
     for idx, line in enumerate(request.lines):
         # Strict Tariff Lookup — FAIL LOUDLY if HS Code is not in DB on date (Issue #1)
@@ -511,14 +531,23 @@ def estimate_multi_item_customs_duty_service(
         development_fee_line_egp = _round(cif_line_egp * (dev_rate / Decimal("100")))
         import_fee_line_egp = _round(cif_line_egp * (imp_fee_rate / Decimal("100")))
 
-        # Unified VAT Base Equation: CIF Line EGP + Actual Import Duty EGP (Issue #4)
+        # Anti-Dumping for Line
+        line_has_dumping = bool(getattr(tariff, "has_anti_dumping_risk", False))
+        line_dumping_notes = getattr(tariff, "anti_dumping_notes", None)
+        line_dumping_rate = getattr(line, "anti_dumping_duty_rate", Decimal("0.00")) or Decimal("0.00")
+        line_dumping_egp = _round(cif_line_egp * (line_dumping_rate / Decimal("100"))) if line_dumping_rate > Decimal("0.00") else Decimal("0.00")
+        if line_has_dumping:
+            any_dumping_risk = True
+
+        # Unified VAT Base Equation: CIF Line EGP + Actual Import Duty EGP + Anti-Dumping Duty (Issue #4)
         vat_taxable_base_egp, _ = apply_exemption(cif_line_egp, exemption_info, "vat")
-        vat_base_egp = vat_taxable_base_egp + duty_line_egp
+        vat_base_egp = vat_taxable_base_egp + duty_line_egp + line_dumping_egp
         vat_line_egp = _round(vat_base_egp * (vat_rate / Decimal("100")))
 
         inspection_fee_line_egp = _round(line.inspection_fee_egp)
 
         total_duty_egp += duty_line_egp
+        total_anti_dumping_duty_egp += line_dumping_egp
         total_schedule_tax_egp += schedule_tax_line_egp
         total_vat_egp += vat_line_egp
         total_customs_service_fee_egp += customs_service_fee_line_egp
@@ -556,6 +585,10 @@ def estimate_multi_item_customs_duty_service(
                 customs_service_fee_rate=svc_fee_rate,
                 customs_service_fee_egp=customs_service_fee_line_egp,
                 inspection_fee_egp=inspection_fee_line_egp,
+                has_anti_dumping_risk=line_has_dumping,
+                anti_dumping_notes=line_dumping_notes,
+                anti_dumping_duty_rate=line_dumping_rate,
+                anti_dumping_duty_amount=line_dumping_egp,
                 insurance_source=insurance_source,
                 freight_source=freight_source,
                 exemption_code_applied=exemption_code_to_apply if exemption_info else None,
@@ -597,6 +630,7 @@ def estimate_multi_item_customs_duty_service(
 
     items_taxes_total_egp = (
         total_duty_egp
+        + total_anti_dumping_duty_egp
         + total_schedule_tax_egp
         + total_customs_service_fee_egp
         + total_vat_egp
@@ -634,6 +668,13 @@ def estimate_multi_item_customs_duty_service(
         total_inspection_fees_egp=total_inspection_fees_egp,
         items_taxes_total_egp=items_taxes_total_egp,
         grand_total_payable_egp=grand_total_payable_egp,
+        total_anti_dumping_duty_egp=total_anti_dumping_duty_egp,
+        has_anti_dumping_risk=any_dumping_risk,
+        anti_dumping_deposit_notice=(
+            "يراعى إيداع حصيلة رسم الإغراق والتدابير الوقائية لحساب وزارة الاستثمار والتجارة الخارجية (غ6555)"
+            if any_dumping_risk
+            else None
+        ),
         fee_codes_breakdown=fee_codes_result,
     )
 

@@ -66,6 +66,8 @@ class CustomsTariff(Base):
     """الجهات الرقابية المسؤولة (NTRA, GOEIC, MOH, etc.)"""
 
     prior_approval_note = Column(Text, nullable=True)
+    has_anti_dumping_risk = Column(Boolean, default=False, nullable=False, index=True)
+    anti_dumping_notes = Column(Text, nullable=True)
     """ملاحظات وشروط الموافقة المسبقة (ملحق 8 وتعديلاته)"""
 
     # ==================================================

@@ -49,6 +49,11 @@ class ImportRequirementAssessment(Base):
     permit_status = Column(String(50), nullable=False, default="Not Required")  # Not Required, Applied, Approved, Rejected
     permit_notes = Column(Text, nullable=True)
     
+    # Anti-Dumping & Safeguard Risk (محور فحص مكافحة الإغراق والتدابير الوقائية)
+    has_anti_dumping_risk = Column(Boolean, nullable=False, default=False)
+    anti_dumping_notes = Column(Text, nullable=True)
+    anti_dumping_status = Column(String(50), nullable=False, default="Not Applicable")
+    
     # Decree 43 / White List (المحور 1: قرار 43 وتسجيل المصانع)
     supplier_id = Column(Integer, ForeignKey("suppliers.supplier_id"), nullable=True)
     supplier_name = Column(String(200), nullable=True)

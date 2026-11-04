@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 from fastapi import HTTPException, status
 from datetime import datetime, timezone
 
-from modules.experience_guide.model import GuideEntry
+from modules.experience_guide.model import GuideEntry, GuideEntryScope
 from modules.experience_guide.schemas import (
     GuideEntryCreate,
     GuideEntryUpdate,
@@ -173,6 +173,76 @@ class ExperienceGuideService:
             return "Q4 / ذروة الشحن السنوي"
         else:
             return "Q1 / بداية الربع الأول"
+
+    def sync_anti_dumping_guide_entry(
+        self,
+        hs_code: str,
+        hs_description: str,
+        anti_dumping_notes: Optional[str] = None,
+    ) -> GuideEntry:
+        """
+        Ensures an active CRITICAL Experience Guide Entry exists for any HS Code subject
+        to Anti-Dumping duties & Safeguard measures (غ6555 / غ6904).
+        Powers both the Shipment Smart Reference Card Critical Alert and ExperienceGuideAlertBanner.
+        """
+        clean_hs = hs_code.replace(".", "").strip()
+        existing = (
+            self.db.query(GuideEntry)
+            .join(GuideEntryScope)
+            .filter(
+                GuideEntryScope.scope_type == "hs_code",
+                GuideEntryScope.scope_value == clean_hs,
+                GuideEntry.severity == "critical",
+                GuideEntry.is_active == True,
+            )
+            .first()
+        )
+        if existing:
+            return existing
+
+        desc_snippet = hs_description[:60] if hs_description else "الصنف"
+        content_text = (
+            f"تحذير تشغيلي حرج يمنع استكمال الإجراءات حتى الإقرار والاطلاع: هذا البند الجمركي خاضع لاشتراطات رسوم الإغراق والتدابير الوقائية. "
+            f"يراعى إيداع حصيلة رسم الإغراق والتدابير الوقائية لحساب وزارة الاستثمار والتجارة الخارجية (غ6555). "
+            f"مطلوب شهادة منشأ أصلية مصدقة ومرفقة قبل الشحن وفاتورة مصنع تفصيلية واستيفاء شرط الشحن المباشر من بلد المنشأ (ق4122) "
+            f"لتفادي التحفظ الجمركي أو فرض غرامات ورسوم إغراق باهظة."
+        )
+        if anti_dumping_notes:
+            content_text += f"\nاشتراطات نافذة:\n{anti_dumping_notes}"
+
+        category_title = "السجاد والأرضيات" if ("سجاد" in hs_description or "أرضيات" in hs_description) else desc_snippet
+
+        entry = GuideEntry(
+            title=f"صنف {category_title} — اشتراطات ورسوم إغراق وتدابير وقائية",
+            content=content_text,
+            entry_type="alert",
+            severity="critical",
+            department="Logistics",
+            created_by="System Seed (Logistics)",
+            status="ACTIVE",
+            source_type="HUMAN_AUTHORED",
+            is_active=True,
+        )
+        self.db.add(entry)
+        self.db.flush()
+
+        scope_hs = GuideEntryScope(
+            guide_entry_id=entry.entry_id,
+            scope_type="hs_code",
+            scope_value=clean_hs,
+        )
+        self.db.add(scope_hs)
+
+        if "سجاد" in hs_description or "أرضيات" in hs_description:
+            self.db.add(GuideEntryScope(
+                guide_entry_id=entry.entry_id,
+                scope_type="product_category",
+                scope_value="سجاد وأغطية أرضيات",
+            ))
+
+        self.db.commit()
+        self.db.refresh(entry)
+        return entry
 
     def generate_smart_reference_card(self, import_file_id: int) -> SmartReferenceCardResponse:
         """
@@ -357,6 +427,22 @@ class ExperienceGuideService:
         }
 
         # 4. Multi-dimensional Matching
+        from modules.customs_tariff.model import CustomsTariff
+        for h_code in (shipment_hs_codes or [primary_hs]):
+            if not h_code:
+                continue
+            clean_h = h_code.replace(".", "").strip()
+            tariff_rec = self.db.query(CustomsTariff).filter(
+                CustomsTariff.hs_code == clean_h,
+                CustomsTariff.is_active == True,
+            ).first()
+            if tariff_rec and getattr(tariff_rec, "has_anti_dumping_risk", False):
+                self.sync_anti_dumping_guide_entry(
+                    hs_code=clean_h,
+                    hs_description=tariff_rec.hs_description,
+                    anti_dumping_notes=tariff_rec.anti_dumping_notes,
+                )
+
         match_req = GuideMatchRequest(
             hs_code=primary_hs,
             hs_codes=shipment_hs_codes or [primary_hs],

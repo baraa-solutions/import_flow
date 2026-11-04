@@ -37,6 +37,8 @@ class CustomsTariffCreate(BaseModel):
     requires_acid: bool = Field(default=True, description="يتطلب ACID")
     regulatory_authority: Optional[str] = Field(None, max_length=500, description="الجهات الرقابية")
     prior_approval_note: Optional[str] = Field(None, description="ملاحظات وشروط الموافقة المسبقة")
+    has_anti_dumping_risk: bool = Field(default=False, description="خاضع لاشتراطات رسوم الإغراق والتدابير الوقائية")
+    anti_dumping_notes: Optional[str] = Field(None, description="ملاحظات وتفاصيل رسوم الإغراق والحساب الخاص")
 
     # Effective dates
     effective_from: date = Field(default_factory=date.today, description="تاريخ بداية السريان")
@@ -86,6 +88,8 @@ class CustomsTariffUpdate(BaseModel):
     requires_acid: Optional[bool] = None
     regulatory_authority: Optional[str] = Field(None, max_length=500)
     prior_approval_note: Optional[str] = None
+    has_anti_dumping_risk: Optional[bool] = None
+    anti_dumping_notes: Optional[str] = None
 
     effective_from: Optional[date] = None
     effective_to: Optional[date] = None
@@ -127,6 +131,8 @@ class CustomsTariffResponse(BaseModel):
     requires_acid: bool
     regulatory_authority: Optional[str]
     prior_approval_note: Optional[str]
+    has_anti_dumping_risk: bool = False
+    anti_dumping_notes: Optional[str] = None
 
     effective_from: date
     effective_to: Optional[date]
@@ -353,6 +359,7 @@ class CustomsDutyEstimateRequest(BaseModel):
     packaging_egp: Decimal = Field(default=Decimal("0.00"), ge=0, description="قيمة التعبئة والتغليف بالجنيه")
     origin_country: Optional[str] = Field(None, description="بلد المنشأ (رمز ISO e.g. IT, TR, CN)")
     estimate_date: Optional[date] = Field(None, description="تاريخ التقدير — None يعني اليوم")
+    anti_dumping_duty_rate: Optional[Decimal] = Field(default=Decimal("0.00"), ge=0, description="نسبة رسم الإغراق المقدرة إن وجدت %")
 
 
 class CustomsDutyBreakdown(BaseModel):
@@ -413,6 +420,13 @@ class CustomsDutyBreakdown(BaseModel):
     requires_acid: bool
     regulatory_authority: Optional[str]
 
+    # رسوم الإغراق والتدابير الوقائية
+    has_anti_dumping_risk: bool = False
+    anti_dumping_notes: Optional[str] = None
+    anti_dumping_duty_rate: Optional[Decimal] = Decimal("0.00")
+    anti_dumping_duty_amount: Optional[Decimal] = Decimal("0.00")
+    special_deposit_account: Optional[str] = None
+
     model_config = ConfigDict(from_attributes=True)
 
 
@@ -433,6 +447,7 @@ class MultiItemCustomsEstimateLine(BaseModel):
     value_without_payment_fc: Decimal = Field(default=Decimal("0.00"), ge=0, description="قيمة بدون دفع إن وجدت")
     inspection_fee_egp: Decimal = Field(default=Decimal("0.00"), ge=0, description="رسوم فحص أجر خدمات مخصص للصنف إن وجد")
     is_exemption_conditions_met: Optional[bool] = Field(None, description="هل تم استيفاء وتطبيق شروط الإعفاء الجمركي للبند (اتفاقية شراكة / تصنيع / شهادة منشأ مستوفاة)")
+    anti_dumping_duty_rate: Optional[Decimal] = Field(default=Decimal("0.00"), ge=0, description="نسبة رسم الإغراق المقدرة إن وجدت %")
 
     @model_validator(mode="after")
     def validate_exempted_and_unpaid(self) -> "MultiItemCustomsEstimateLine":
@@ -504,6 +519,12 @@ class MultiItemCustomsLineBreakdown(BaseModel):
 
     inspection_fee_egp: Decimal
 
+    # رسوم الإغراق
+    has_anti_dumping_risk: bool = False
+    anti_dumping_notes: Optional[str] = None
+    anti_dumping_duty_rate: Decimal = Decimal("0.00")
+    anti_dumping_duty_amount: Decimal = Decimal("0.00")
+
     # Audit Trail Flags
     insurance_source: str = Field("actual", description="مصدر حساب التأمين: actual أو deemed")
     freight_source: str = Field("actual", description="مصدر حساب النولون: actual أو deemed")
@@ -547,6 +568,10 @@ class MultiItemCustomsBreakdown(BaseModel):
     total_development_fee_egp: Decimal = Decimal("0.00")
     total_import_fee_egp: Decimal = Decimal("0.00")
     total_inspection_fees_egp: Decimal
+
+    total_anti_dumping_duty_egp: Decimal = Decimal("0.00")
+    has_anti_dumping_risk: bool = False
+    anti_dumping_deposit_notice: Optional[str] = None
 
     items_taxes_total_egp: Decimal
     grand_total_payable_egp: Decimal

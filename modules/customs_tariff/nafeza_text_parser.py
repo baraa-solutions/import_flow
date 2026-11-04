@@ -62,7 +62,7 @@ def parse_nafeza_tariff_text(raw_text: str) -> Tuple[CustomsTariffCreate, List[P
     text = raw_text.strip()
 
     # 1. Extract HS Code
-    hs_code_match = re.search(r"رقم\s*البند\s*:\s*([\d\.\s]+)", text)
+    hs_code_match = re.search(r"(?:رقم\s*البند|رمز\s*النظام\s*ال[مُ]?نسق|HS\s*Code)[\s:\n]*([\d\.\s]+)", text)
     if not hs_code_match:
         # Fallback regex for raw numbers
         hs_code_match = re.search(r"\b(\d{8,10})\b", text)
@@ -73,26 +73,28 @@ def parse_nafeza_tariff_text(raw_text: str) -> Tuple[CustomsTariffCreate, List[P
 
     # 2. Extract Description
     hs_desc = "بند جمركي"
-    desc_match = re.search(r"نص\s*البند\s*:\s*(.*?)(?=\n\s*الضرائب|\n\s*المستندات|$)", text, re.DOTALL)
+    desc_match = re.search(r"(?:نص\s*البند|الوصف|Description)[\s:\n]*(.*?)(?=\n\s*(?:الضرائب|Taxes|المستندات)|$)", text, re.DOTALL | re.IGNORECASE)
     if desc_match:
-        hs_desc = desc_match.group(1).strip()
-        hs_desc = re.sub(r"\s+", " ", hs_desc)
+        raw_d = desc_match.group(1).strip()
+        if raw_d:
+            hs_desc = re.sub(r"\s+", " ", raw_d)
 
     # 3. Extract Base Duty Rate ("النظام الأساسي" or generic)
     customs_duty_rate = Decimal("0.00")
-    duty_match = re.search(r"ضريبة\s*الوارد\s*\(\s*النظام\s*الاساسي\s*\)\s*:\s*([\d\.]+)\s*%", text)
+    duty_match = re.search(r"ضريبة\s*الوارد\s*\(\s*النظام\s*الاساسي\s*\)[\s:\n]*([\d\.]+)\s*%", text)
     if duty_match:
         customs_duty_rate = Decimal(duty_match.group(1))
     else:
-        generic_duty = re.search(r"ضريبة\s*الوارد\s*:\s*([\d\.]+)\s*%", text)
-        if generic_duty:
-            customs_duty_rate = Decimal(generic_duty.group(1))
+        all_duties = re.findall(r"ضريبة\s*الوارد(?:\s*\([^)]+\))?[\s:\n]*([\d\.]+)\s*%", text)
+        if all_duties:
+            rates = [Decimal(r) for r in all_duties]
+            customs_duty_rate = max(rates)
 
     # 4. Extract VAT Rate
     vat_rate = Decimal("14.00")
-    vat_match = re.search(r"ضريبة\s*قيمه\s*مضافه\s*:\s*([\d\.]+)\s*%|ضريبة\s*القيمة\s*المضافة\s*:\s*([\d\.]+)\s*%", text)
+    vat_match = re.search(r"(?:ضريبة\s*قيمه\s*مضافه|ضريبة\s*القيمة\s*المضافة|ض\.ق\.م|VAT)[\s:\n]*([\d\.]+)\s*%", text, re.IGNORECASE)
     if vat_match:
-        vat_rate = Decimal(vat_match.group(1) or vat_match.group(2))
+        vat_rate = Decimal(vat_match.group(1))
 
     # 5. Extract Schedule Tax Rate (ضريبة الجدول)
     schedule_tax_rate = Decimal("0.00")
@@ -137,7 +139,10 @@ def parse_nafeza_tariff_text(raw_text: str) -> Tuple[CustomsTariffCreate, List[P
     requires_acid = True
     regulatory_authorities: List[str] = []
 
-    doc_section_match = re.search(r"المستندات\s*والأعمال\s*:(.*)", text, re.DOTALL)
+    has_anti_dumping_risk = False
+    anti_dumping_notes_list: List[str] = []
+    dumping_keywords = ["إغراق", "اغراق", "رسم الإغراق", "رسوم الإغراق", "تدابير وقائية", "التدابير الوقائية", "مكافحة الدعم", "رسوم تعويضية"]
+    doc_section_match = re.search(r"(?:المستندات\s*والأعمال|الاشتراطات\s*والمستندات|المستندات)[\s:\n]*(.*)", text, re.DOTALL)
     doc_lines: List[str] = []
     if doc_section_match:
         raw_doc_lines = doc_section_match.group(1).splitlines()
@@ -148,7 +153,7 @@ def parse_nafeza_tariff_text(raw_text: str) -> Tuple[CustomsTariffCreate, List[P
                 if current_block:
                     doc_lines.append(" ".join(current_block))
                     current_block = []
-            elif line_str.startswith("ر") or line_str.startswith("ق"):
+            elif line_str.startswith("ر") or line_str.startswith("ق") or line_str.startswith("غ"):
                 if current_block:
                     doc_lines.append(" ".join(current_block))
                     current_block = []
@@ -159,6 +164,11 @@ def parse_nafeza_tariff_text(raw_text: str) -> Tuple[CustomsTariffCreate, List[P
             doc_lines.append(" ".join(current_block))
 
     for dline_str in doc_lines:
+        # Check Anti-Dumping & Safeguards (غ... or dumping keywords)
+        if dline_str.startswith("غ") or any(kw in dline_str for kw in dumping_keywords):
+            has_anti_dumping_risk = True
+            anti_dumping_notes_list.append(dline_str)
+
         # Check if this is a regulatory decision / restriction (ق...)
         if dline_str.startswith("ق") or "لايصرح" in dline_str or "لايفرج" in dline_str or "يشترط" in dline_str or "لا يتم استيراد" in dline_str:
             prior_approvals_list.append(dline_str)
@@ -173,12 +183,13 @@ def parse_nafeza_tariff_text(raw_text: str) -> Tuple[CustomsTariffCreate, List[P
 
     prior_approval_note = "\n\n".join(prior_approvals_list) if prior_approvals_list else None
     regulatory_authority = " / ".join(regulatory_authorities) if regulatory_authorities else ("الهيئة العامة للرقابة على الصادرات والواردات (GOEIC)" if requires_inspection else None)
+    anti_dumping_notes = "\n".join(anti_dumping_notes_list) if anti_dumping_notes_list else None
 
     # Construct CustomsTariffCreate
     tariff = CustomsTariffCreate(
         hs_code=hs_code,
         hs_description=hs_desc,
-        customs_category="MACHINERY_EQUIPMENT" if "آلات" in hs_desc or "أجهزة" in hs_desc or "تكييف" in hs_desc else "GENERAL_GOODS",
+        customs_category="CARPETS_TEXTILES" if ("سجاد" in hs_desc or "أرضيات" in hs_desc or "أنسجة" in hs_desc) else ("MACHINERY_EQUIPMENT" if ("آلات" in hs_desc or "أجهزة" in hs_desc or "تكييف" in hs_desc) else "GENERAL_GOODS"),
         customs_duty_rate=customs_duty_rate,
         vat_rate=vat_rate,
         schedule_tax_rate=schedule_tax_rate,
@@ -190,6 +201,8 @@ def parse_nafeza_tariff_text(raw_text: str) -> Tuple[CustomsTariffCreate, List[P
         requires_acid=requires_acid,
         regulatory_authority=regulatory_authority,
         prior_approval_note=prior_approval_note,
+        has_anti_dumping_risk=has_anti_dumping_risk,
+        anti_dumping_notes=anti_dumping_notes,
         source_url="https://www.nafeza.gov.eg/ar/tariff/details/" + hs_code,
     )
 
