@@ -176,9 +176,25 @@ def _run_alembic(engine: Engine, fn, target: str) -> None:
     # A plain connection (no engine.begin()): Alembic then owns the transactions and, with
     # transaction_per_migration=True in env.py, commits each revision together with its
     # alembic_version update. A failing revision leaves the DB at the last successful one.
+    #
+    # SQLite FOREIGN KEY note: batch_alter_table (render_as_batch=True in env.py) creates a
+    # new table, copies data, then DROPs the old one.  With PRAGMA foreign_keys=ON the DROP
+    # fails whenever another table references the rebuilt table (IntegrityError: FOREIGN KEY
+    # constraint failed).  We disable FK enforcement for the whole migration run and restore
+    # it afterwards.  This is safe: Alembic never inserts FK-violating rows; it only
+    # restructures the schema.  The pragma is a per-connection flag, so it does not affect
+    # any other concurrent connections.
+    is_sqlite = engine.dialect.name == "sqlite"
     with engine.connect() as conn:
-        fn(build_alembic_config(conn), target)
-        conn.commit()
+        if is_sqlite:
+            conn.exec_driver_sql("PRAGMA foreign_keys = OFF;")
+        try:
+            fn(build_alembic_config(conn), target)
+            conn.commit()
+        finally:
+            if is_sqlite:
+                conn.exec_driver_sql("PRAGMA foreign_keys = ON;")
+                conn.commit()
 
 
 def upgrade_to_head(engine: Engine) -> str:
