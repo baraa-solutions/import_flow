@@ -121,7 +121,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
   FlutterWindow window(project);
   Win32Window::Point origin(10, 10);
   Win32Window::Size size(1366, 768);
-  if (!window.Create(L"Sorour Logistics ERP (v2.4.0)", origin, size)) {
+  if (!window.Create(L"Sorour Logistics ERP (v2.5.0)", origin, size)) {
     return EXIT_FAILURE;
   }
   window.SetQuitOnClose(true);
