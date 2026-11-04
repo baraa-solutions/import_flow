@@ -151,7 +151,7 @@ def test_standard_invoice_excel_generation_and_parsing(test_db):
     assert snapshot.acid_number == "7595528271020210010"
     assert snapshot.seller_tax_id == "LT300591314"
     assert snapshot.buyer_tax_id == "123456789"
-    assert len(snapshot.items) == 1
+    assert len(snapshot.items) == 2, "Distinct price items must remain on separate lines (Customs compliance)"
     assert snapshot.subtotal == 5000.0
     assert snapshot.total_amount == 5000.0
 
@@ -166,9 +166,13 @@ def test_standard_invoice_excel_generation_and_parsing(test_db):
     assert parsed.buyer_tax_id == "123456789"
     assert parsed.currency_code == "EUR"
     assert parsed.incoterm == "EXW"
-    assert len(parsed.items) == 1
+    assert len(parsed.items) == 2
     assert parsed.items[0].hs_code == "940310"
-    assert parsed.items[0].quantity == 30.0
+    assert parsed.items[0].quantity == 10.0
+    assert parsed.items[0].unit_price == 300.0
+    assert parsed.items[1].hs_code == "940310"
+    assert parsed.items[1].quantity == 20.0
+    assert parsed.items[1].unit_price == 100.0
     assert parsed.subtotal == 5000.0
 
 
@@ -255,7 +259,7 @@ def test_standard_invoice_api_endpoints(test_db):
     assert res_parse.status_code == 200
     parsed_json = res_parse.json()
     assert parsed_json["acid_number"] == "7595528271020210010"
-    assert len(parsed_json["items"]) == 1
+    assert len(parsed_json["items"]) == 2
 
     # Test Compare Endpoint
     res_comp = client.post(
@@ -913,4 +917,182 @@ def test_cargox_po_invoice_date_qty_unit_and_main_description_extraction(test_db
     assert ws["H13"].value == "Acoustic Panels"  # Description
     assert ws["J13"].value == "PCS"  # Qty Unit
 
+
+def test_cgx_customs_guard_acoustic_panels_real_case():
+    """
+    CGX-CUSTOMS-COMPLIANCE: حالة الألواح الصوتية الحقيقية (YH-625 و YH-808)
+    نفس بند التعريفة الجمركية HS Code (5602290000) ولكن بسعرين مختلفين:
+      - YH-625: 400 PCS × $17.30 (ألواح 9mm)
+      - YH-808: 1400 PCS × $23.50 (ألواح 12mm)
+
+    المتطلبات الجمركية المصرية:
+      1. الافتراضي في ExtractionRequest هو by_price_group لضمان الامتثال الجمركي
+      2. عند التجميع المجمع (all_consolidated) بـ by_price_group:
+         - لا يتم عمل متوسط سعر وهمي ($22.12 المرفوض جمركياً)
+         - يتم إخراج سطرين منفصلين: كل صنف بسعره الحقيقي ومواصفاته
+    """
+    from modules.cargox.service import CargoXExtractionEngine
+    from modules.cargox.schemas import ExtractionRequest
+
+    # 1. التحقق من أن القيمة الافتراضية للطلب هي by_price_group لحماية الجمارك
+    default_req = ExtractionRequest()
+    assert default_req.grouping_mode == "by_price_group", "الافتراضي يجب أن يكون by_price_group للامتثال الجمركي"
+
+    raw_items = [
+        {
+            "item_code": "YH-625",
+            "hs_code": "5602290000",
+            "description": "Acoustic Panel 9mm — Felt Board",
+            "quantity": 400.0,
+            "qty_unit": "PCS",
+            "unit_price": 17.30,
+            "country_of_origin": "CN",
+            "gross_weight_kg": 480.0,
+            "net_weight_kg": 440.0,
+        },
+        {
+            "item_code": "YH-808",
+            "hs_code": "5602290000",
+            "description": "Acoustic Panel 12mm — Heavy Felt Board",
+            "quantity": 1400.0,
+            "qty_unit": "PCS",
+            "unit_price": 23.50,
+            "country_of_origin": "CN",
+            "gross_weight_kg": 2800.0,
+            "net_weight_kg": 2580.0,
+        },
+    ]
+
+    # استخراج بنمط التجميع الجمركي المعتمد (by_price_group)
+    items = CargoXExtractionEngine._group_items(raw_items, "by_price_group", "all_consolidated")
+
+    # يجب أن ينتج سطرين منفصلين وليس سطراً مدمجاً بسعر متوسط
+    assert len(items) == 2, f"يجب إخراج سطرين منفصلين ولكن تم استخراج {len(items)}"
+
+    # التحقق من دقة الأسعار الحقيقية
+    prices = {round(i.unit_price, 4) for i in items}
+    assert 17.30 in prices, "السعر الحقيقي للبند YH-625 ($17.30) يجب أن يظهر كما هو"
+    assert 23.50 in prices, "السعر الحقيقي للبند YH-808 ($23.50) يجب أن يظهر كما هو"
+
+    # التحقق من عدم وجود المتوسط الموزون المرفوض جمركياً ($22.1222)
+    WRONG_WEIGHTED_AVG = round((400 * 17.30 + 1400 * 23.50) / 1800, 4)
+    for i in items:
+        assert abs(i.unit_price - WRONG_WEIGHTED_AVG) > 0.01, "المتوسط الموزون غير مقبول جمركياً!"
+
+    # التحقق من الكميات
+    qtys = {round(i.quantity, 2) for i in items}
+    assert 400.0 in qtys
+    assert 1400.0 in qtys
+
+def test_normalize_cargox_country_code_iso2():
+    """Verify country of origin normalization to clean 2-letter uppercase ISO code."""
+    from modules.cargox.excel_invoice_service import normalize_cargox_country_code
+
+    assert normalize_cargox_country_code("CN - الصين (China)") == "CN"
+    assert normalize_cargox_country_code("CN - China") == "CN"
+    assert normalize_cargox_country_code("CN (China)") == "CN"
+    assert normalize_cargox_country_code("DE - ألمانيا") == "DE"
+    assert normalize_cargox_country_code("CN") == "CN"
+    assert normalize_cargox_country_code("cn") == "CN"
+    assert normalize_cargox_country_code("China") == "CN"
+    assert normalize_cargox_country_code("الصين") == "CN"
+    assert normalize_cargox_country_code("Italy") == "IT"
+    assert normalize_cargox_country_code("China (CN)") == "CN"
+    assert normalize_cargox_country_code("Germany (DE)") == "DE"
+
+
+def test_normalize_cargox_country_code_never_invents_origin():
+    """An empty or unrecognised origin must not be silently declared as China."""
+    from modules.cargox.excel_invoice_service import normalize_cargox_country_code
+
+    assert normalize_cargox_country_code("") == ""
+    assert normalize_cargox_country_code(None) == ""
+    assert normalize_cargox_country_code("Vietnam") == "VIETNAM"
+    assert normalize_cargox_country_code("Netherlands") == "NETHERLANDS"
+    assert normalize_cargox_country_code("Ukraine") == "UKRAINE"
+    assert normalize_cargox_country_code("Indonesia") == "INDONESIA"
+
+
+def test_build_system_snapshot_preserves_actual_po_weights(test_db):
+    """
+    Verify that when PO line items specify explicit gross and net weights,
+    build_system_snapshot does NOT overwrite them with naive quantity-based proration!
+    """
+    snapshot = CargoXStandardInvoiceService.build_system_snapshot(test_db, 1)
+    # Item 1: DSK-001 (10 pcs) was seeded with gross_weight_kg=250.0, net_weight_kg=220.0
+    item1 = next(it for it in snapshot.items if it.product_code == "DSK-001")
+    assert item1.gross_weight_kg == 250.0, "Actual line gross weight must be preserved"
+    assert item1.net_weight_kg == 220.0, "Actual line net weight must be preserved"
+
+    # Item 2: CHR-002 (20 pcs) was seeded with gross_weight_kg=200.0, net_weight_kg=180.0
+    item2 = next(it for it in snapshot.items if it.product_code == "CHR-002")
+    assert item2.gross_weight_kg == 200.0, "Actual line gross weight must be preserved"
+    assert item2.net_weight_kg == 180.0, "Actual line net weight must be preserved"
+
+
+def test_discrepancy_matrix_matches_split_price_groups_real_case(test_db):
+    """
+    Verify that comparing system snapshot against a supplier invoice with
+    multiple price groups under the same HS code (YH-625 @ 17.30 and YH-808 @ 23.50)
+    pairs items accurately and produces 0 false discrepancies!
+    """
+    # Build supplier payload with 2 lines sharing HS 5602290000 but different prices
+    from modules.cargox.schemas import StandardInvoicePayload, StandardInvoiceLineItem
+    from modules.cargox.excel_invoice_service import compare_standard_invoice_data
+
+    sys_payload = StandardInvoicePayload(
+        acid_number="5281534391025810014",
+        seller_name="Suzhou Yuheng Textile Co.,Ltd",
+        currency_code="USD",
+        items=[
+            StandardInvoiceLineItem(
+                index=1,
+                product_code="YH-625",
+                hs_code="5602290000",
+                description="Acoustic Panels 9mm",
+                quantity=400.0,
+                qty_unit="PCS",
+                unit_price=17.30,
+                gross_weight_kg=2480.0,
+                net_weight_kg=2400.0,
+                weight_unit="KGM",
+                country_of_origin="CN",
+                total_amount=6920.0,
+            ),
+            StandardInvoiceLineItem(
+                index=2,
+                product_code="YH-808",
+                hs_code="5602290000",
+                description="Acoustic Panels 12mm",
+                quantity=1400.0,
+                qty_unit="PCS",
+                unit_price=23.50,
+                gross_weight_kg=10360.0,
+                net_weight_kg=10080.0,
+                weight_unit="KGM",
+                country_of_origin="CN",
+                total_amount=32900.0,
+            ),
+        ],
+        subtotal=39820.0,
+        total_amount=39820.0,
+    )
+
+    # Supplier data matching exactly
+    sup_payload = sys_payload.model_copy(deep=True)
+
+    result = compare_standard_invoice_data(
+        import_file_id=5,
+        import_file_code="IMP-2026-0005",
+        system_snapshot=sys_payload,
+        supplier_data=sup_payload,
+    )
+
+    assert result.has_discrepancies is False
+    assert result.has_critical_mismatch is False
+    assert result.total_discrepancies_count == 0
+    assert len(result.line_item_comparisons) == 2
+    for row in result.line_item_comparisons:
+        assert row.status == "MATCH"
+        assert row.notes == "Perfect Match"
 

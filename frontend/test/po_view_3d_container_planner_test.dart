@@ -237,8 +237,8 @@ void main() {
       // Verify Stacking simulation mode chips exist
       expect(find.byType(ChoiceChip), findsWidgets);
 
-      // Verify Dual View selector exists
-      expect(find.textContaining('Both Views'), findsWidgets);
+      // Verify Dual View selector exists (pure Arabic label, no stacked English)
+      expect(find.textContaining('العرضان معاً'), findsWidgets);
 
       // Verify Grouped items table is rendered
       expect(find.textContaining('YH-625'), findsWidgets);

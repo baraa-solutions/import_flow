@@ -31,61 +31,81 @@ class CooSheetHelpers {
     if (input.isEmpty) return 'Acoustic Panels';
     var text = input.replaceAll(RegExp(r'\s*\([^\)]*\)'), '');
     text = text.replaceAll(RegExp(r'\b[A-Za-z]{1,4}-\d{2,6}\b'), '');
-    text = text.replaceAll(RegExp(r'\b\d{1,4}[xX*]\d{1,4}([xX*]\d{1,4})?\s*(mm|cm|m)?\b', caseSensitive: false), '');
-    text = text.replaceAll(RegExp(r'\b\d{1,3}\s*(mm|cm|m)\b', caseSensitive: false), '');
-    text = text.replaceAll(RegExp(r'-\s*-+'), '-');
-    text = text.replaceAll(RegExp(r'\s*-\s*$'), '');
-    text = text.replaceAll(RegExp(r'^\s*-\s*'), '');
-    text = text.replaceAll(RegExp(r'[^\S\r\n]+'), ' ').trim();
+    text = text.replaceAll(RegExp(r'\b(PET|PVC|PU|PE|MDF|HDF|PP|ABS)\s+', caseSensitive: false), '');
+    text = text.replaceAll(RegExp(r'\bN\s*/\s*M\b', caseSensitive: false), '');
+    text = text.replaceAll(RegExp(r'ACID:[^\n]*', caseSensitive: false), '');
+    text = text.replaceAll(RegExp(r'[\*\#]'), '');
+    text = text.replaceAll(RegExp(r'^[\s,./\-_:|]+'), '');
+    text = text.replaceAll(RegExp(r'[\s,./\-_:|]+$'), '');
+    text = text.replaceAll(RegExp(r'\s{2,}'), ' ').trim();
 
-    final lines = text.split('\n').map((l) => l.trim()).where((l) => l.isNotEmpty).toList();
-    if (lines.isEmpty) return 'Acoustic Panels';
-    final first = lines.first;
-    if (first.length > 50) {
-      final commaIdx = first.indexOf(',');
-      if (commaIdx > 5 && commaIdx < 50) {
-        return first.substring(0, commaIdx).trim();
-      }
-      return first.substring(0, 50).trim();
+    if (text.contains(' / ') || text.contains(',')) {
+      final parts = text
+          .split(RegExp(r'\s*[/,]\s*'))
+          .map((p) => p.replaceAll(RegExp(r'^[\s,./\-_:|]+'), '').replaceAll(RegExp(r'[\s,./\-_:|]+$'), '').trim())
+          .where((p) => p.isNotEmpty && p.length > 1)
+          .toSet()
+          .toList();
+      text = parts.join(' / ');
     }
-    return first;
+
+    text = text.replaceAll(RegExp(r'^[\s,./\-_:|]+'), '');
+    text = text.replaceAll(RegExp(r'[\s,./\-_:|]+$'), '').trim();
+
+    if (text.isEmpty || text.toUpperCase() == 'COMMERCIAL CARGO' || text.contains('CN - China')) {
+      text = 'Acoustic Panels';
+    }
+    return text;
   }
 
   static String formatCooHsCode(String input, {bool isChina = true}) {
-    if (input.isEmpty) return input;
+    if (input.trim().isEmpty) return '';
+    if (!isChina) return input;
+
+    if (input.contains(',') || input.contains('\n') || input.contains(' / ')) {
+      final delimiter = input.contains('\n') ? '\n' : (input.contains(' / ') ? ' / ' : ', ');
+      final items = input
+          .split(RegExp(r'[,/\n]+'))
+          .map((s) => formatCooHsCode(s.trim(), isChina: true))
+          .where((s) => s.isNotEmpty)
+          .toSet()
+          .toList();
+      return items.join(delimiter);
+    }
+
     final digits = input.replaceAll(RegExp(r'[^0-9]'), '');
-    if (digits.length >= 6) {
-      final main6 = digits.substring(0, 6);
-      return '${main6.substring(0, 4)}.${main6.substring(4, 6)}';
+    if (digits.length >= 4) {
+      return '${digits.substring(0, 2)}.${digits.substring(2, 4)}';
+    } else if (digits.length >= 2) {
+      return digits;
     }
     return input;
   }
 
   static String getPackageTypePlural(dynamic count, String? packageType) {
-    final int cnt = (count is num) ? count.toInt() : (int.tryParse(count.toString()) ?? 1);
-    final rawType = (packageType ?? 'Carton').trim();
-    final lower = rawType.toLowerCase();
-    String base;
-    if (lower.contains('carton') || lower.contains('ctn')) {
-      base = 'CARTON';
-    } else if (lower.contains('pallet') || lower.contains('plt')) {
-      base = 'PALLET';
-    } else if (lower.contains('box') || lower.contains('crate')) {
-      base = 'BOX';
-    } else if (lower.contains('bag')) {
-      base = 'BAG';
-    } else if (lower.contains('roll')) {
-      base = 'ROLL';
-    } else if (lower.contains('drum')) {
-      base = 'DRUM';
+    final int pkgCnt = (count is num) ? count.toInt() : (int.tryParse(count.toString()) ?? 1);
+    final rawType = (packageType ?? 'CARTON').trim().toUpperCase();
+    if (rawType.contains('PALLET')) {
+      return pkgCnt > 1 ? 'PALLETS' : 'PALLET';
+    } else if (rawType.contains('CONTAINER')) {
+      return pkgCnt > 1 ? 'CONTAINERS' : 'CONTAINER';
+    } else if (rawType.contains('BOX')) {
+      return pkgCnt > 1 ? 'BOXES' : 'BOX';
+    } else if (rawType.contains('PACKAGE') || rawType.contains('PKG')) {
+      return pkgCnt > 1 ? 'PACKAGES' : 'PACKAGE';
+    } else if (rawType.contains('DRUM')) {
+      return pkgCnt > 1 ? 'DRUMS' : 'DRUM';
+    } else if (rawType.contains('BAG')) {
+      return pkgCnt > 1 ? 'BAGS' : 'BAG';
+    } else if (rawType.contains('ROLL')) {
+      return pkgCnt > 1 ? 'ROLLS' : 'ROLL';
+    } else if (rawType.contains('CRATE')) {
+      return pkgCnt > 1 ? 'CRATES' : 'CRATE';
+    } else if (rawType.contains('CTN')) {
+      return pkgCnt > 1 ? 'CTNS' : 'CTN';
     } else {
-      base = rawType.toUpperCase();
+      return pkgCnt > 1 ? 'CARTONS' : 'CARTON';
     }
-    if (cnt > 1) {
-      if (base == 'BOX') return 'BOXES';
-      if (!base.endsWith('S')) return '${base}S';
-    }
-    return base;
   }
 
   static String formatCooQuantityBox({
@@ -96,17 +116,21 @@ class CooSheetHelpers {
     required dynamic grossWeightKg,
     bool isChina = true,
   }) {
-    final double qtyVal = (quantity is num) ? quantity.toDouble() : (double.tryParse(quantity.toString()) ?? 0.0);
+    final double qVal = (quantity is num) ? quantity.toDouble() : (double.tryParse(quantity.toString()) ?? 0.0);
     String qtyStr;
-    if (qtyVal % 1 == 0) {
-      qtyStr = qtyVal.toInt().toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]},');
+    if (qVal % 1 == 0) {
+      qtyStr = qVal.toInt().toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]},');
     } else {
-      qtyStr = qtyVal.toStringAsFixed(2);
+      qtyStr = qVal.toStringAsFixed(2).replaceAll(RegExp(r'\.?0+$'), '');
     }
 
-    var cleanUnit = (unit ?? 'PCS').toUpperCase().trim();
-    if (cleanUnit == 'PC' || cleanUnit == 'PIECE' || cleanUnit == 'PIECES' || cleanUnit == 'PCS') {
+    var cleanUnit = (unit ?? 'PCS').trim().toUpperCase();
+    if (cleanUnit == 'PIECE' || cleanUnit == 'PIECES' || cleanUnit == 'PC' || cleanUnit == 'PCS.') {
       cleanUnit = 'PCS';
+    } else if (cleanUnit == 'SET' || cleanUnit == 'SETS') {
+      cleanUnit = qVal != 1 ? 'SETS' : 'SET';
+    } else if (cleanUnit == 'ROLL' || cleanUnit == 'ROLLS') {
+      cleanUnit = qVal != 1 ? 'ROLLS' : 'ROLL';
     } else if (cleanUnit == 'M2' || cleanUnit == 'SQM' || cleanUnit == 'SQ.M') {
       cleanUnit = 'SQM';
     } else if (cleanUnit == 'KG' || cleanUnit == 'KGS' || cleanUnit == 'KILOGRAM') {
@@ -115,6 +139,7 @@ class CooSheetHelpers {
 
     final int pkgCnt = (packagesCount is num) ? packagesCount.toInt() : (int.tryParse(packagesCount.toString()) ?? 1);
     final String pkgWord = getPackageTypePlural(pkgCnt, packageType);
+
     final line1 = '$qtyStr $cleanUnit / $pkgCnt $pkgWord';
 
     final double gwVal = (grossWeightKg is num) ? grossWeightKg.toDouble() : (double.tryParse(grossWeightKg.toString()) ?? 0.0);

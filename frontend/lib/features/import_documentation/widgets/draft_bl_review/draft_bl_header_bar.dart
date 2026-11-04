@@ -146,6 +146,7 @@ class DraftBlHeaderBar extends StatelessWidget {
                       ),
                       if (onSearchAndClone != null)
                         AppButton(
+                          key: const Key('stage1SearchAndCloneBtn'),
                           label: l.searchAndCloneDraftBlBtn,
                           icon: Icons.copy_all,
                           variant: AppButtonVariant.secondary,
@@ -206,28 +207,30 @@ class DraftBlHeaderBar extends StatelessWidget {
           child: Icon(icon, color: AppTheme.cobalt, size: 16),
         ),
         const SizedBox(width: 8),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 11,
-                color: AppTheme.textSecondaryOf(context),
-                fontWeight: FontWeight.w600,
+        Flexible(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 11,
+                  color: AppTheme.textSecondaryOf(context),
+                  fontWeight: FontWeight.w600,
+                ),
               ),
-            ),
-            const SizedBox(height: 2),
-            CopyableText(
-              value,
-              style: TextStyle(
-                fontSize: 12.5,
-                fontWeight: FontWeight.bold,
-                color: AppTheme.textPrimaryOf(context),
+              const SizedBox(height: 2),
+              CopyableText(
+                value,
+                style: TextStyle(
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.bold,
+                  color: AppTheme.textPrimaryOf(context),
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ],
     );

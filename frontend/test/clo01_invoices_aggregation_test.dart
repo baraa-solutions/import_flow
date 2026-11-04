@@ -310,7 +310,7 @@ void main() {
       await tester.pumpAndSettle();
 
       // Check header title
-      expect(find.textContaining('CLO-01: Multi-Party Invoices Aggregation'), findsOneWidget);
+      expect(find.text('تجميع وتسوية الفواتير الختامية للملف (CLO-01)'), findsOneWidget);
       expect(find.textContaining('IMP-2026-0101'), findsWidgets);
 
       // Check KPI Metric Strip

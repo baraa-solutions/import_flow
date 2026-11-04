@@ -128,9 +128,7 @@ class POFormCommercialTab extends StatelessWidget {
                     unitPrice: 0,
                   ),
                 )),
-            onItemCloned: (idx) => dialog.updateState(
-              () => dialog.dialogItems.insert(idx + 1, dialog.dialogItems[idx].copyWith(clearId: true)),
-            ),
+            onItemCloned: dialog.cloneLineItem,
             onItemRemoved: (idx) => dialog.updateState(() => dialog.dialogItems.removeAt(idx)),
             onOpenDutyCalculator: () {
               final extracted = dialog.dialogItems

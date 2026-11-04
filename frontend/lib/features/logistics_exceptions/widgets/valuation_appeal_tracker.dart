@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../../../core/widgets/app_status_badge.dart';
 import '../../../core/widgets/buttons/app_button.dart';
 import '../../../core/widgets/copyable_data_helper.dart';
@@ -72,14 +73,15 @@ class ValuationAppealTracker extends ConsumerWidget {
                       decoration: const InputDecoration(labelText: 'مبلغ النزاع الجمركي بالجنيه'),
                     ),
                     const SizedBox(height: 12),
-                    DropdownButtonFormField<String>(
-                      initialValue: appealStatus,
+                    SearchableDropdownField<String>(
+                      labelText: 'مرحلة الاستئناف والتظلم',
+                      value: appealStatus,
                       decoration: const InputDecoration(labelText: 'مرحلة الاستئناف والتظلم'),
                       items: const [
-                        DropdownMenuItem(value: 'PENDING_APPEAL', child: Text('جاري إعداد مذكرة التظلم')),
-                        DropdownMenuItem(value: 'COMMITTEE_HEARING', child: Text('منظور أمام لجنة فض النزاعات الجمركية')),
-                        DropdownMenuItem(value: 'APPEAL_ACCEPTED', child: Text('تم قبول التظلم وتخفيض القيمة')),
-                        DropdownMenuItem(value: 'APPEAL_REJECTED', child: Text('تم تأييد قرار التثمين')),
+                        SearchableDropdownItem(value: 'PENDING_APPEAL', label: 'جاري إعداد مذكرة التظلم'),
+                        SearchableDropdownItem(value: 'COMMITTEE_HEARING', label: 'منظور أمام لجنة فض النزاعات الجمركية'),
+                        SearchableDropdownItem(value: 'APPEAL_ACCEPTED', label: 'تم قبول التظلم وتخفيض القيمة'),
+                        SearchableDropdownItem(value: 'APPEAL_REJECTED', label: 'تم تأييد قرار التثمين'),
                       ],
                       onChanged: (v) => setDialogState(() => appealStatus = v ?? 'PENDING_APPEAL'),
                     ),

@@ -19,7 +19,7 @@ void showUpdateSnackBar(BuildContext context, String message, {bool isError = fa
   final messenger = ScaffoldMessenger.maybeOf(context);
   if (messenger == null) return;
   messenger.showSnackBar(
-    AppTheme.snackBar(context, message, severity: AppSeverity.danger),
+    AppTheme.snackBar(context, message, severity: isError ? AppSeverity.danger : AppSeverity.success),
   );
 }
 

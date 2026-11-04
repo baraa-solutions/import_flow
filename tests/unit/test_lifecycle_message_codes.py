@@ -48,6 +48,7 @@ def db():
             company_name="Al-Ahram Industrial",
             supplier_name="Global Steel Italy",
             status="Draft",
+            acid_number="1234567890123456789",  # STEP_05 ACID stage gate needs a valid 19-digit ACID
             is_active=True,
         )
     )

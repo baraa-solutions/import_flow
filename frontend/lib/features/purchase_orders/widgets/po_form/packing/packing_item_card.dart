@@ -175,10 +175,7 @@ class PackingItemCard extends StatelessWidget {
                 IconButton(
                   icon: const Icon(Icons.copy_rounded, color: AppTheme.cobalt, size: 20),
                   tooltip: isArabic ? 'استنساخ الطرد' : 'Clone Package',
-                  onPressed: () => dialog.updateState(() {
-                    final orig = dialog.dialogPackingItems[idx];
-                    dialog.dialogPackingItems.insert(idx + 1, orig.copyWith(clearId: true));
-                  }),
+                  onPressed: () => dialog.clonePackingItem(idx),
                 ),
                 IconButton(
                   icon: const Icon(Icons.remove_circle_outline, color: AppTheme.crimson, size: 20),

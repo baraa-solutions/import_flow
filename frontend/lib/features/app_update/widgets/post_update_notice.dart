@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../models/update_models.dart';
 import '../providers/app_update_providers.dart';
+import 'update_rollback_dialog.dart';
 
 /// Invisible listener placed on the home screen: reads `GET /last-result` on
 /// mount and shows, once per result, "updated to vX" (success) or the failure
@@ -47,16 +48,33 @@ class _PostUpdateNoticeState extends ConsumerState<PostUpdateNotice> {
     if (result.result == UpdateResultKind.success) {
       messenger.showSnackBar(AppTheme.snackBar(context, isRollback
             ? l.updateRollbackSucceeded(result.toVersion ?? '')
-            : l.updateSucceeded(result.toVersion ?? ''), severity: AppSeverity.success));
+            : l.updateSucceeded(result.toVersion ?? ''), severity: AppSeverity.success,
+            duration: const Duration(seconds: 6)));
       return;
     }
     if (isRollback) {
       // A failed rollback never offers another rollback.
       final detail = result.detail;
-      messenger.showSnackBar(AppTheme.snackBar(context, detail == null ? l.updateRollbackFailed : '${l.updateRollbackFailed}: $detail', severity: AppSeverity.danger));
+      messenger.showSnackBar(AppTheme.snackBar(context, detail == null ? l.updateRollbackFailed : '${l.updateRollbackFailed}: $detail', severity: AppSeverity.danger,
+          duration: const Duration(seconds: 12)));
       return;
     }
-    messenger.showSnackBar(AppTheme.snackBar(context, '${l.updateFailed}. ${l.updateFailedRollbackHint}', severity: AppSeverity.danger));
+    final canRollback = ref.read(canInstallUpdatesProvider);
+    messenger.showSnackBar(AppTheme.snackBar(
+      context,
+      '${l.updateFailed}. ${l.updateFailedRollbackHint}',
+      severity: AppSeverity.danger,
+      duration: const Duration(seconds: 12),
+      action: canRollback
+          ? SnackBarAction(
+              label: l.updateRollback,
+              textColor: AppTheme.cloudWhite,
+              onPressed: () {
+                if (mounted) showUpdateRollbackDialog(context);
+              },
+            )
+          : null,
+    ));
   }
 
   @override

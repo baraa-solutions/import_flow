@@ -44,16 +44,9 @@ class PoFormSubmitter {
     final l = context.l10n;
     final isAr = l.isArabic;
 
-    if (!formKey.currentState!.validate()) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        AppTheme.snackBar(
-          context,
-          isAr ? 'الرجاء استكمال الحقول الإلزامية المطلوبة' : 'Please fill all required fields',
-          severity: AppSeverity.danger,
-        ),
-      );
-      return false;
-    }
+    // Validate every field first so all inline errors show, but report missing master data
+    // (project / company / supplier / incoterm / currency / payment terms) before field errors.
+    final fieldsValid = formKey.currentState!.validate();
 
     if (projectId == null ||
         companyId == null ||
@@ -67,6 +60,17 @@ class PoFormSubmitter {
           isAr
               ? 'الرجاء التأكد من اختيار المشروع والشركة والمورد وشروط الشحن والعملة وطريقة الدفع'
               : 'Please select project, company, supplier, incoterm, currency, and payment terms',
+          severity: AppSeverity.danger,
+        ),
+      );
+      return false;
+    }
+
+    if (!fieldsValid) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        AppTheme.snackBar(
+          context,
+          isAr ? 'الرجاء استكمال الحقول الإلزامية المطلوبة' : 'Please fill all required fields',
           severity: AppSeverity.danger,
         ),
       );

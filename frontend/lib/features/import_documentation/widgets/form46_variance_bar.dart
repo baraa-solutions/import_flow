@@ -128,11 +128,13 @@ class Form46VarianceBar extends StatelessWidget {
               children: [
                 const Icon(Icons.compare_arrows_rounded, size: 20, color: AppTheme.cobalt),
                 const SizedBox(width: 8),
-                Text(
-                  l.form46VarianceBarTitle,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 14,
+                Flexible(
+                  child: Text(
+                    l.form46VarianceBarTitle,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                    ),
                   ),
                 ),
               ],

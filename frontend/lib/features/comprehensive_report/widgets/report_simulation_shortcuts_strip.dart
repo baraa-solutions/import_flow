@@ -131,7 +131,7 @@ class ReportSimulationShortcutsStrip extends StatelessWidget {
                 final action = item['action'] as VoidCallback;
 
                 return Padding(
-                  padding: const EdgeInsets.only(left: 8),
+                  padding: const EdgeInsetsDirectional.only(start: 8),
                   child: Tooltip(
                     message: tooltip,
                     child: InkWell(

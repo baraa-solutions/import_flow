@@ -130,9 +130,13 @@ class RadarDataTable extends StatelessWidget {
                         const SizedBox(width: 4),
                         const Icon(Icons.open_in_new, size: 11, color: AppTheme.cobalt),
                         const SizedBox(width: 4),
-                        Text(
-                          '${item.shipmentMode} | ${item.incotermCode}',
-                          style: TextStyle(fontSize: 11.0, color: Colors.grey.shade600),
+                        Flexible(
+                          child: Text(
+                            '${item.shipmentMode} | ${item.incotermCode}',
+                            style: TextStyle(fontSize: 11.0, color: Colors.grey.shade600),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
                         ),
                       ],
                     ),
@@ -168,12 +172,16 @@ class RadarDataTable extends StatelessWidget {
                     children: [
                       const Icon(Icons.directions_boat_outlined, size: 12, color: AppTheme.cobalt),
                       const SizedBox(width: 4),
-                      Text(
-                        '${item.carrierName ?? l10n.colCarrierUnderPrep} (${item.vesselName ?? "-"})',
-                        style: TextStyle(
-                          fontSize: 11.0,
-                          fontWeight: FontWeight.bold,
-                          color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
+                      Flexible(
+                        child: Text(
+                          '${item.carrierName ?? l10n.colCarrierUnderPrep} (${item.vesselName ?? "-"})',
+                          style: TextStyle(
+                            fontSize: 11.0,
+                            fontWeight: FontWeight.bold,
+                            color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
                     ],
@@ -182,6 +190,8 @@ class RadarDataTable extends StatelessWidget {
                   Text(
                     '${l10n.colBillOfLadingPrefix}: ${item.blNumber ?? l10n.colCarrierUnderPrep} | ${item.polName ?? "-"} → ${item.podName ?? "-"}',
                     style: TextStyle(fontSize: 11.0, color: Colors.grey.shade600),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ],
               );
@@ -210,12 +220,16 @@ class RadarDataTable extends StatelessWidget {
                         children: [
                           const Icon(Icons.sailing, size: 11, color: AppTheme.cobalt),
                           const SizedBox(width: 4),
-                          Text(
-                            l10n.daysRemainingToEta(item.etaCountdownDays),
-                            style: const TextStyle(
-                              fontSize: 11.0,
-                              fontWeight: FontWeight.bold,
-                              color: AppTheme.cobalt,
+                          Flexible(
+                            child: Text(
+                              l10n.daysRemainingToEta(item.etaCountdownDays),
+                              style: const TextStyle(
+                                fontSize: 11.0,
+                                fontWeight: FontWeight.bold,
+                                color: AppTheme.cobalt,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                             ),
                           ),
                         ],
@@ -234,12 +248,16 @@ class RadarDataTable extends StatelessWidget {
                         children: [
                           const Icon(Icons.anchor, size: 11, color: Color(0xFF8E44AD)),
                           const SizedBox(width: 4),
-                          Text(
-                            l10n.daysInPort(item.etaCountdownDays!.abs()),
-                            style: const TextStyle(
-                              fontSize: 11.0,
-                              fontWeight: FontWeight.bold,
-                              color: Color(0xFF8E44AD),
+                          Flexible(
+                            child: Text(
+                              l10n.daysInPort(item.etaCountdownDays!.abs()),
+                              style: const TextStyle(
+                                fontSize: 11.0,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF8E44AD),
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                             ),
                           ),
                         ],
@@ -282,7 +300,8 @@ class RadarDataTable extends StatelessWidget {
                 children: [
                   Row(
                     children: [
-                      Container(
+                      Flexible(
+                        child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                         decoration: BoxDecoration(
                           color: riskColor.withValues(alpha: 0.12),
@@ -300,6 +319,9 @@ class RadarDataTable extends StatelessWidget {
                             fontWeight: FontWeight.bold,
                             color: riskColor,
                           ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
                         ),
                       ),
                       const SizedBox(width: 4),
@@ -365,9 +387,13 @@ class RadarDataTable extends StatelessWidget {
                       children: [
                         Icon(Icons.biotech, size: 11, color: sampleColor),
                         const SizedBox(width: 3),
-                        Text(
-                          item.sampleTestStatus,
-                          style: TextStyle(fontSize: 11.0, fontWeight: FontWeight.bold, color: sampleColor),
+                        Flexible(
+                          child: Text(
+                            item.sampleTestStatus,
+                            style: TextStyle(fontSize: 11.0, fontWeight: FontWeight.bold, color: sampleColor),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
                         ),
                       ],
                     ),
@@ -441,7 +467,7 @@ class RadarDataTable extends StatelessWidget {
           EnterpriseColumn<LiveLogisticsTrackingItemModel>(
             id: 'quickActions',
             title: l10n.colQuickActions,
-            width: 180,
+            width: 250,
             isSortable: false,
             isSearchable: false,
             cellBuilder: (context, item, index) {

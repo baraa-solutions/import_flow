@@ -93,9 +93,9 @@ class ProjectsStatsBar extends StatelessWidget {
               .entries
               .map((e) => Expanded(
                     child: Padding(
-                      padding: EdgeInsets.only(
-                        left: e.key == 0 ? 0 : 4,
-                        right: e.key == cards.length - 1 ? 0 : 4,
+                      padding: EdgeInsetsDirectional.only(
+                        start: e.key == 0 ? 0 : 4,
+                        end: e.key == cards.length - 1 ? 0 : 4,
                       ),
                       child: e.value,
                     ),

@@ -24,8 +24,11 @@ class POFormActions extends StatelessWidget {
   Widget build(BuildContext context) {
     final l = context.l10n;
 
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.end,
+    // Wrap (not Row): on a phone-width dialog the buttons drop to a second line instead of overflowing.
+    return Wrap(
+      alignment: WrapAlignment.end,
+      spacing: 8,
+      runSpacing: 8,
       children: [
         AppButton(
           label: l.cancel,
@@ -33,7 +36,6 @@ class POFormActions extends StatelessWidget {
           size: AppButtonSize.small,
           onPressed: onCancel,
         ),
-        const SizedBox(width: 8),
         AppButton(
           label: l.previewPoReportBtn,
           icon: Icons.preview_rounded,
@@ -41,7 +43,6 @@ class POFormActions extends StatelessWidget {
           size: AppButtonSize.small,
           onPressed: onPreviewReport,
         ),
-        const SizedBox(width: 8),
         AppButton(
           label: isEdit ? l.savePoEditsBtn : l.savePurchaseOrderBtn,
           icon: Icons.save_rounded,

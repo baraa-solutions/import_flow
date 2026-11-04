@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:frontend/core/localization/app_localizations.dart';
 import 'package:frontend/core/network/api_client.dart';
+import 'package:frontend/core/widgets/page_header.dart';
 import 'package:frontend/features/freight_quotations/models/freight_quotation_model.dart';
 import 'package:frontend/features/freight_quotations/screens/freight_quotations_comparison_screen.dart';
 import 'package:frontend/features/freight_quotations/widgets/rfq_benchmark_dialog.dart';
@@ -257,9 +258,9 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      // App bar title
+      // App bar title (canonical PageHeader replaced the plain AppBar)
       expect(find.byType(FreightQuotationsComparisonScreen), findsOneWidget);
-      expect(find.byType(AppBar), findsOneWidget);
+      expect(find.byType(PageHeader), findsOneWidget);
 
       // Import File selection area
       expect(find.byType(SelectionArea), findsOneWidget);

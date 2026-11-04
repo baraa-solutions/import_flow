@@ -172,8 +172,11 @@ class _ImportFileFormGeneralTabState extends ConsumerState<ImportFileFormGeneral
               borderRadius: BorderRadius.circular(8),
               border: Border.all(color: isDark ? AppTheme.darkBorder : Colors.blue.shade200),
             ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            child: Wrap(
+              crossAxisAlignment: WrapCrossAlignment.center,
+              alignment: WrapAlignment.spaceBetween,
+              spacing: 8,
+              runSpacing: 4,
               children: [
                 Row(
                   mainAxisSize: MainAxisSize.min,
@@ -183,35 +186,6 @@ class _ImportFileFormGeneralTabState extends ConsumerState<ImportFileFormGeneral
                     Text(
                       '${l.invoicesCountAndNumbers} (${dialog.invoices.length} ${l.invoicesUnit} | ${dialog.packingLists.length} ${l.packingListsUnit})',
                       style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt),
-                    ),
-                  ],
-                ),
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    TextButton.icon(
-                      onPressed: () {
-                        dialog.setState(() {
-                          dialog.invoices.add(
-                            InvoiceItemModel(invoiceNo: 'PI-${890 + dialog.invoices.length}', amount: 12000, currency: 'USD'),
-                          );
-                        });
-                        dialog.markDirty();
-                      },
-                      icon: const Icon(Icons.add, size: 16),
-                      label: Text('+ ${l.poInvoiceLabel}'),
-                    ),
-                    TextButton.icon(
-                      onPressed: () {
-                        dialog.setState(() {
-                          dialog.packingLists.add(
-                            PackingListItemModel(plNo: 'PL-${890 + dialog.packingLists.length}', totalPackages: 30, cbm: 20),
-                          );
-                        });
-                        dialog.markDirty();
-                      },
-                      icon: const Icon(Icons.add, size: 16),
-                      label: Text('+ ${l.packingListsUnit}'),
                     ),
                   ],
                 ),

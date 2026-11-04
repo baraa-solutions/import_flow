@@ -332,6 +332,8 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> with Disp
                                                     showHeaderToolbar: false,
                                                     showPagination: false,
                                                     isScrollable: true,
+                                                    stickyHeader: true,
+                                                    verticalScrollbarOnLeft: true,
                                                     minWidth: tableTotalWidth,
                                                     headerHeight: density.headerHeight,
                                                     rowHeight: density.rowHeight + 14,

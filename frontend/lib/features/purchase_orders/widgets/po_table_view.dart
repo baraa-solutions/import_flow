@@ -82,11 +82,13 @@ class PoTableView extends ConsumerWidget {
             children: [
               if (po.poId != null) ...[
                 IconButton(
+                  visualDensity: VisualDensity.compact,
                   icon: const Icon(Icons.account_balance_wallet_outlined, color: AppTheme.cobalt, size: 20),
                   tooltip: l.poBalanceLedgerTooltip,
                   onPressed: () => onBalanceLedger(po),
                 ),
                 IconButton(
+                  visualDensity: VisualDensity.compact,
                   icon: const Icon(Icons.local_shipping_outlined, color: AppTheme.emerald, size: 20),
                   tooltip: l.poCreatePartialShipment,
                   onPressed: () => onPartialShipment(po),
@@ -124,6 +126,8 @@ class PoTableView extends ConsumerWidget {
                   onTap: () => onView(po),
                   child: LtrText(
                     po.displayName,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
                       fontWeight: FontWeight.bold,
                       color: AppTheme.cobalt,
@@ -136,6 +140,8 @@ class PoTableView extends ConsumerWidget {
                     padding: const EdgeInsets.only(top: 2),
                     child: LtrText(
                       po.poNumber,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                         fontSize: 11,
                         color: isDark ? AppTheme.darkTextSecondary : AppTheme.charcoal,

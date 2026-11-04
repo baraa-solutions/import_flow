@@ -261,7 +261,7 @@ class POFormItemsTab extends ConsumerWidget {
                         flex: 2,
                         child: SearchableDropdownField<String?>(
                           value: PoFormExtractor.normalizeCountryName(item.countryOfOrigin ?? selectedCountryOfOrigin),
-                          labelText: isArabic ? 'بلد المنشأ' : 'Country of Origin',
+                          labelText: isArabic ? 'بلد المنشأ للبند' : 'Item Country of Origin',
                           items: cachedCountryItems,
                           onChanged: (v) {
                             onItemUpdated(
@@ -290,7 +290,7 @@ class POFormItemsTab extends ConsumerWidget {
                       ),
                       IconButton(
                         icon: const Icon(Icons.copy_rounded, color: AppTheme.cobalt, size: 20),
-                        tooltip: isArabic ? 'تكرار البند' : 'Clone Line Item',
+                        tooltip: isArabic ? 'استنساخ البند' : 'Clone Line Item',
                         onPressed: () => onItemCloned(idx),
                       ),
                       if (items.length > 1)

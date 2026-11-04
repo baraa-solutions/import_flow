@@ -219,9 +219,9 @@ class _VisualContainerLoadPlannerDialogState
     return SelectionArea(
       child: AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        titlePadding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
+        titlePadding: const EdgeInsetsDirectional.fromSTEB(20, 16, 20, 12),
         contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-        actionsPadding: const EdgeInsets.fromLTRB(20, 8, 20, 14),
+        actionsPadding: const EdgeInsetsDirectional.fromSTEB(20, 8, 20, 14),
         title: LoadPlannerHeader(
           file: widget.file,
           fleetSummaryText: fleetSummaryText,

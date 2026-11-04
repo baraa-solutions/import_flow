@@ -136,7 +136,7 @@ void main() {
 
       // Verify Insurance specific header and fields
       expect(find.textContaining('بيانات ترخيص وتغطيات التأمين البحري'), findsOneWidget);
-      expect(find.byWidgetPredicate((w) => w is CustomTextField && w.label.contains('رقم ترخيص هيئة الرقابة المالية')), findsOneWidget);
+      expect(find.byWidgetPredicate((w) => w is CustomTextField && w.label.contains('رقم ترخيص الهيئة العامة للرقابة المالية')), findsOneWidget);
       expect(find.byWidgetPredicate((w) => w is CustomTextField && w.label.contains('أنواع التغطيات التأمينية المعتمدة')), findsOneWidget);
     });
   });

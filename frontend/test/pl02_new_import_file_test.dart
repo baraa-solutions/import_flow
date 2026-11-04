@@ -295,10 +295,14 @@ void main() {
       // 1. Verify Dialog Title for New File Creation
       expect(find.text('إضافة ملف استيراد شحنة جديد'), findsOneWidget);
 
-      // 2. Verify Presence of Core Master Data Dropdowns & Fields
+      // 2. Verify Presence of Core Master Data Dropdowns & Fields.
+      // The form is split into tabs: General (company/supplier), Shipping & Logistics
+      // (transport, incoterms, priority, stage, ports) and Customs & Compliance (broker).
       expect(find.text('الشركة المستوردة *'), findsOneWidget);
       expect(find.text('المورد الأجنبي *'), findsOneWidget);
-      expect(find.text('المخلص الجمركي'), findsOneWidget);
+
+      await tester.tap(find.descendant(of: find.byType(TabBar), matching: find.byIcon(Icons.local_shipping_outlined)));
+      await tester.pumpAndSettle();
       expect(find.text('وسيلة النقل / الشروط *'), findsOneWidget);
       expect(find.text('الشروط التجارية الدولية *'), findsOneWidget);
       expect(find.text('الأولوية *'), findsOneWidget);
@@ -310,6 +314,10 @@ void main() {
       expect(find.text('بيانات النقل وموانئ الشحن لطلب النولون'), findsOneWidget);
       expect(find.text('ميناء الشحن'), findsOneWidget);
       expect(find.text('ميناء الوصول والتفريغ'), findsOneWidget);
+
+      await tester.tap(find.descendant(of: find.byType(TabBar), matching: find.byIcon(Icons.gavel_outlined)));
+      await tester.pumpAndSettle();
+      expect(find.text('المخلص الجمركي'), findsOneWidget);
 
       // 5. Verify Save / Draft Action Buttons
       expect(find.text('حفظ مؤقت'), findsOneWidget);

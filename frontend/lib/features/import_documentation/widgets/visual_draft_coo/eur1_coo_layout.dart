@@ -133,7 +133,7 @@ class Eur1CooLayout extends StatelessWidget {
                       constraints: const BoxConstraints(minHeight: 90),
                       padding: const EdgeInsets.all(8),
                       decoration: const BoxDecoration(
-                        border: Border(right: BorderSide(color: AppTheme.textPrimary, width: 0.8), bottom: BorderSide(color: AppTheme.textPrimary, width: 0.8)),
+                        border: BorderDirectional(end: BorderSide(color: AppTheme.textPrimary, width: 0.8), bottom: BorderSide(color: AppTheme.textPrimary, width: 0.8)),
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,

@@ -38,12 +38,14 @@ class Declaration46VarianceReasonCard extends StatelessWidget {
                 size: 18,
               ),
               const SizedBox(width: 8),
-              Text(
-                l.form46VarianceReasonLabel,
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 13.5,
-                  color: over10 ? AppTheme.crimson : AppTheme.textPrimaryOf(context),
+              Flexible(
+                child: Text(
+                  l.form46VarianceReasonLabel,
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13.5,
+                    color: over10 ? AppTheme.crimson : AppTheme.textPrimaryOf(context),
+                  ),
                 ),
               ),
               if (over10) ...[

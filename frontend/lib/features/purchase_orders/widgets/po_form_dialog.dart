@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/localization/app_localizations.dart';
+import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/table_row_clone_helper.dart';
 import '../../../core/widgets/unsaved_changes_guard.dart';
 import '../../currencies/models/currency_model.dart';
 import '../../currencies/providers/currencies_provider.dart';
@@ -105,6 +107,7 @@ class POFormDialogState extends ConsumerState<POFormDialog> {
       ext: widget.initialExtractedFields,
       defaultCompanyId: widget.defaultCompanyId,
       defaultSupplierId: widget.defaultSupplierId,
+      tariffs: ref.read(customsTariffProvider).valueOrNull ?? [],
     );
 
     selectedOrderDate = init.orderDate;
@@ -149,6 +152,60 @@ class POFormDialogState extends ConsumerState<POFormDialog> {
 
   void updateState(VoidCallback fn) {
     if (mounted) setState(fn);
+  }
+
+  /// Duplicates a PI line item right below the original, marking the copy so it is
+  /// distinguishable, and confirms with a SnackBar.
+  void cloneLineItem(int index) {
+    if (index < 0 || index >= dialogItems.length) return;
+    final original = dialogItems[index];
+    const copySuffix = TableRowCloneHelper.copySuffix;
+    final duplicated = original.copyWith(
+      clearId: true,
+      itemCode: original.itemCode != null && original.itemCode!.trim().isNotEmpty
+          ? '${original.itemCode}${TableRowCloneHelper.copyCodeSuffix}'
+          : null,
+      mainDescription: original.mainDescription != null && original.mainDescription!.trim().isNotEmpty
+          ? '${original.mainDescription}$copySuffix'
+          : null,
+      descriptionAr: '${original.descriptionAr}$copySuffix',
+      descriptionEn: original.descriptionEn != null ? '${original.descriptionEn}$copySuffix' : null,
+    );
+    setState(() => dialogItems.insert(index + 1, duplicated));
+    _markDirty();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(context.l10n.poInvoiceLineItemClonedSuccessfully),
+        backgroundColor: AppTheme.emerald,
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
+
+  /// Duplicates a packing-list row right below the original and confirms with a SnackBar.
+  void clonePackingItem(int index) {
+    if (index < 0 || index >= dialogPackingItems.length) return;
+    final original = dialogPackingItems[index];
+    const copySuffix = TableRowCloneHelper.copySuffix;
+    final duplicated = original.copyWith(
+      clearId: true,
+      itemCode: '${original.itemCode}${TableRowCloneHelper.copyCodeSuffix}',
+      mainDescription: original.mainDescription != null && original.mainDescription!.trim().isNotEmpty
+          ? '${original.mainDescription}$copySuffix'
+          : null,
+      description: original.description != null && original.description!.trim().isNotEmpty
+          ? '${original.description}$copySuffix'
+          : null,
+    );
+    setState(() => dialogPackingItems.insert(index + 1, duplicated));
+    _markDirty();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(context.l10n.poPackingListItemClonedSuccessfully),
+        backgroundColor: AppTheme.emerald,
+        duration: const Duration(seconds: 2),
+      ),
+    );
   }
 
   Future<void> _performAutosave() async {

@@ -88,7 +88,7 @@ def test_api_cross_check():
     data = response.json()
     assert data["compliance_score"] >= 80.0
     assert "audit_matrix" in data
-    assert len(data["audit_matrix"]) == 10
+    assert len(data["audit_matrix"]) == 21
 
 
 

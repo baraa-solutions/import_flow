@@ -135,7 +135,7 @@ void main() {
 
       // Verify Sampling Section & Regulatory Bodies
       expect(find.text('تم سحب عينات للفحص والتحليل المعملي للجهات الرقابية'), findsOneWidget);
-      expect(find.textContaining('GOEIC'), findsWidgets);
+      expect(find.text('ثانياً: سحب العينات والرقابة على الصادرات والواردات'), findsOneWidget);
       expect(find.textContaining('حفظ واعتماد الكشف وسحب العينات (CL-01)'), findsOneWidget);
     });
 

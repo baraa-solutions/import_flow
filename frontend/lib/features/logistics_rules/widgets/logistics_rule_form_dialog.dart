@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../../../core/widgets/buttons/app_button.dart';
 import '../models/logistics_rule.dart';
 import '../providers/logistics_rules_provider.dart';
@@ -195,25 +196,19 @@ class _LogisticsRuleFormDialogState
                   Row(
                     children: [
                       Expanded(
-                        child: DropdownButtonFormField<String>(
-                          initialValue: _scopeType,
+                        child: SearchableDropdownField<String>(
+                          labelText: 'نطاق التطبيق',
+                          value: _scopeType,
                           decoration: const InputDecoration(
                             labelText: 'نطاق التطبيق',
                             border: OutlineInputBorder(),
                           ),
                           items: const [
-                            DropdownMenuItem(
-                                value: 'GLOBAL', child: Text('شامل (GLOBAL)')),
-                            DropdownMenuItem(
-                                value: 'SHIPPING_LINE',
-                                child: Text('توكيل ملاحي')),
-                            DropdownMenuItem(
-                                value: 'PORT', child: Text('ميناء')),
-                            DropdownMenuItem(
-                                value: 'COMMODITY', child: Text('بند سلعي')),
-                            DropdownMenuItem(
-                                value: 'CONTAINER_TYPE',
-                                child: Text('نوع حاوية')),
+                            SearchableDropdownItem(value: 'GLOBAL', label: 'شامل (GLOBAL)'),
+                            SearchableDropdownItem(value: 'SHIPPING_LINE', label: 'توكيل ملاحي'),
+                            SearchableDropdownItem(value: 'PORT', label: 'ميناء'),
+                            SearchableDropdownItem(value: 'COMMODITY', label: 'بند سلعي'),
+                            SearchableDropdownItem(value: 'CONTAINER_TYPE', label: 'نوع حاوية'),
                           ],
                           onChanged: (v) =>
                               setState(() => _scopeType = v ?? 'GLOBAL'),
@@ -221,28 +216,21 @@ class _LogisticsRuleFormDialogState
                       ),
                       const SizedBox(width: 12),
                       Expanded(
-                        child: DropdownButtonFormField<String>(
-                          initialValue: _valueUnit,
+                        child: SearchableDropdownField<String>(
+                          labelText: 'وحدة القياس',
+                          value: _valueUnit,
                           decoration: const InputDecoration(
                             labelText: 'وحدة القياس',
                             border: OutlineInputBorder(),
                           ),
                           items: const [
-                            DropdownMenuItem(
-                                value: 'DAYS', child: Text('أيام (DAYS)')),
-                            DropdownMenuItem(
-                                value: 'HOURS', child: Text('ساعات (HOURS)')),
-                            DropdownMenuItem(
-                                value: 'PERCENTAGE',
-                                child: Text('نسبة مئوية (%)')),
-                            DropdownMenuItem(
-                                value: 'KG', child: Text('كيلوجرام (KG)')),
-                            DropdownMenuItem(
-                                value: 'BOOLEAN', child: Text('نعم/لا (شرط)')),
-                            DropdownMenuItem(
-                                value: 'MONTHS', child: Text('شهور')),
-                            DropdownMenuItem(
-                                value: 'TEXT', child: Text('نص')),
+                            SearchableDropdownItem(value: 'DAYS', label: 'أيام (DAYS)'),
+                            SearchableDropdownItem(value: 'HOURS', label: 'ساعات (HOURS)'),
+                            SearchableDropdownItem(value: 'PERCENTAGE', label: 'نسبة مئوية (%)'),
+                            SearchableDropdownItem(value: 'KG', label: 'كيلوجرام (KG)'),
+                            SearchableDropdownItem(value: 'BOOLEAN', label: 'نعم/لا (شرط)'),
+                            SearchableDropdownItem(value: 'MONTHS', label: 'شهور'),
+                            SearchableDropdownItem(value: 'TEXT', label: 'نص'),
                           ],
                           onChanged: (v) =>
                               setState(() => _valueUnit = v ?? 'DAYS'),
@@ -251,20 +239,17 @@ class _LogisticsRuleFormDialogState
                     ],
                   ),
                   const SizedBox(height: 12),
-                  DropdownButtonFormField<String>(
-                    initialValue: _enforcementLevel,
+                  SearchableDropdownField<String>(
+                    labelText: 'مستوى الإلزام',
+                    value: _enforcementLevel,
                     decoration: const InputDecoration(
                       labelText: 'مستوى الإلزام',
                       border: OutlineInputBorder(),
                     ),
                     items: const [
-                      DropdownMenuItem(
-                          value: 'INFO', child: Text('معلوماتي فقط (INFO)')),
-                      DropdownMenuItem(
-                          value: 'WARNING', child: Text('تنبيه تحذيري (WARNING)')),
-                      DropdownMenuItem(
-                          value: 'BLOCKING',
-                          child: Text('حظر تشغيلي قاطع (BLOCKING)')),
+                      SearchableDropdownItem(value: 'INFO', label: 'معلوماتي فقط (INFO)'),
+                      SearchableDropdownItem(value: 'WARNING', label: 'تنبيه تحذيري (WARNING)'),
+                      SearchableDropdownItem(value: 'BLOCKING', label: 'حظر تشغيلي قاطع (BLOCKING)'),
                     ],
                     onChanged: (v) =>
                         setState(() => _enforcementLevel = v ?? 'WARNING'),

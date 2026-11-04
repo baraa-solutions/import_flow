@@ -160,18 +160,21 @@ class POFulfillmentProgressWidget extends StatelessWidget {
                           ),
                           if (poNumber != null && poNumber!.isNotEmpty) ...[
                             const SizedBox(width: 8),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                              decoration: BoxDecoration(
-                                color: (isDark ? AppTheme.darkBorder : AppTheme.border).withValues(alpha: 0.5),
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                              child: Text(
-                                poNumber!,
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w600,
-                                  color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary,
+                            Flexible(
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: (isDark ? AppTheme.darkBorder : AppTheme.border).withValues(alpha: 0.5),
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: Text(
+                                  poNumber!,
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                    color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
                                 ),
                               ),
                             ),
@@ -352,12 +355,15 @@ class _MetricTile extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.baseline,
             textBaseline: TextBaseline.alphabetic,
             children: [
-              Text(
-                value.toStringAsFixed(value % 1 == 0 ? 0 : 2),
-                style: TextStyle(
-                  fontSize: isCompact ? 13.5 : 15.5,
-                  fontWeight: FontWeight.bold,
-                  color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
+              Flexible(
+                child: Text(
+                  value.toStringAsFixed(value % 1 == 0 ? 0 : 2),
+                  style: TextStyle(
+                    fontSize: isCompact ? 13.5 : 15.5,
+                    fontWeight: FontWeight.bold,
+                    color: isDark ? AppTheme.darkTextPrimary : AppTheme.charcoal,
+                  ),
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
               const SizedBox(width: 4),

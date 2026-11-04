@@ -142,14 +142,10 @@ class _ShipmentMilestoneTrackerState extends State<ShipmentMilestoneTracker> {
     final f = widget.importFile;
     final cat = (f.productCategory ?? '').toLowerCase();
     final name = (f.displayName).toLowerCase();
-    final customNo = (f.customFileNumber ?? '').toLowerCase();
-    final code = f.importFileCode.toUpperCase();
     return cat.contains('acoustic') ||
         cat.contains('أكوستيك') ||
         name.contains('acoustic') ||
-        name.contains('أكوستيك') ||
-        customNo.contains('pet') ||
-        code == 'IMP-2026-0004';
+        name.contains('أكوستيك');
   }
 
   String _formatNumberWithCommas(num val) {
@@ -176,30 +172,24 @@ class _ShipmentMilestoneTrackerState extends State<ShipmentMilestoneTracker> {
     if (effectiveCbm <= 0 && widget.importFile.packingListsData.isNotEmpty) {
       effectiveCbm = widget.importFile.packingListsData.fold<double>(0.0, (s, p) => s + p.cbm);
     }
-    if (effectiveCbm <= 0 && (widget.importFile.importFileCode == 'IMP-2026-0004' || (widget.importFile.customFileNumber?.contains('PET') ?? false))) {
-      effectiveCbm = 66.39;
-    }
-    final displayCbm = effectiveCbm > 0 ? effectiveCbm.toStringAsFixed(2) : '66.39';
+    // No recorded volume shows a dash, never a placeholder figure.
+    final displayCbm = effectiveCbm > 0 ? '${effectiveCbm.toStringAsFixed(2)} m³' : '—';
 
     // 2. Gross Weight (KG)
     double effectiveWeight = widget.grossWeightKg ?? 0.0;
     if (effectiveWeight <= 0 && widget.importFile.packingListsData.isNotEmpty) {
       effectiveWeight = widget.importFile.packingListsData.fold<double>(0.0, (s, p) => s + p.grossWeightKg);
     }
-    if (effectiveWeight <= 0 && (widget.importFile.importFileCode == 'IMP-2026-0004' || (widget.importFile.customFileNumber?.contains('PET') ?? false))) {
-      effectiveWeight = 10510.0;
-    }
-    final displayWeight = effectiveWeight > 0 ? _formatNumberWithCommas(effectiveWeight.toInt()) : '10,510';
+    final weightText = _formatNumberWithCommas(effectiveWeight.toInt());
+    final displayWeight = effectiveWeight > 0 ? (isArabic ? '$weightText كجم' : '$weightText kg') : '—';
 
     // 3. Shipping Line
     String displayLine = widget.shippingLine ?? '';
     if (displayLine.trim().isEmpty) {
       displayLine = widget.importFile.selectedScenario ?? '';
     }
-    if (displayLine.contains('Wan Hai')) {
-      displayLine = 'Wan Hai';
-    } else if (displayLine.trim().isEmpty) {
-      displayLine = 'Wan Hai';
+    if (displayLine.trim().isEmpty) {
+      displayLine = '—';
     }
 
     return SelectionArea(
@@ -314,7 +304,7 @@ class _ShipmentMilestoneTrackerState extends State<ShipmentMilestoneTracker> {
                         ),
                       ),
                       Text(
-                        '$displayCbm m³',
+                        displayCbm,
                         style: TextStyle(
                           fontSize: 11.5,
                           fontWeight: FontWeight.bold,
@@ -338,7 +328,7 @@ class _ShipmentMilestoneTrackerState extends State<ShipmentMilestoneTracker> {
                         ),
                       ),
                       Text(
-                        isArabic ? '$displayWeight كجم' : '$displayWeight kg',
+                        displayWeight,
                         style: TextStyle(
                           fontSize: 11.5,
                           fontWeight: FontWeight.bold,

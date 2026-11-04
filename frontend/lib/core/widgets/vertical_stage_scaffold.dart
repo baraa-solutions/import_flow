@@ -516,14 +516,13 @@ class VerticalStageScaffold extends StatelessWidget {
   ),
 );
 
-    if (isDirty) {
-      return UnsavedChangesGuard(
-        isDirty: isDirty,
-        onSave: onSave,
-        onDiscard: onDiscard,
-        child: scaffold,
-      );
-    }
-    return scaffold;
+    // Always wrap: toggling the wrapper on the first edit would change the tree
+    // shape and remount the whole body, wiping the form state and scroll offset.
+    return UnsavedChangesGuard(
+      isDirty: isDirty,
+      onSave: onSave,
+      onDiscard: onDiscard,
+      child: scaffold,
+    );
   }
 }

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:frontend/core/localization/app_locales.dart';
 import 'package:frontend/features/vessel_tracking/models/vessel_tracking_model.dart';
 import 'package:frontend/features/vessel_tracking/providers/vessel_tracking_provider.dart';
 import 'package:frontend/features/vessel_tracking/screens/vessel_tracking_radar_screen.dart';
@@ -119,7 +120,11 @@ void main() {
           overrides: [
             vesselTrackingRadarProvider.overrideWith((ref) => _FakeRadarNotifier(dummyOverview)),
           ],
+          // The screen header/KPIs are now locale-aware: render the Arabic UI.
           child: const MaterialApp(
+            locale: AppLocales.arabic,
+            supportedLocales: AppLocales.supportedLocales,
+            localizationsDelegates: AppLocales.localizationsDelegates,
             home: VesselTrackingRadarScreen(),
           ),
         ),

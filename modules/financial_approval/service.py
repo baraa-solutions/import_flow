@@ -139,3 +139,22 @@ __all__ = [
     "MAX_SWIFT_FILE_BYTES",
     "MAX_SWIFT_FILE_MB",
 ]
+
+# Module-level constants re-exported so the facade keeps the pre-decomposition API.
+from .budget_variance_service import (  # noqa: F401
+    CODE_ATTEMPTS,
+    DEFAULT_VARIANCE_THRESHOLD,
+    L_BATCH,
+    L_BUDGET,
+    L_FILE,
+    L_PAYMENT,
+    SERVER_OWNED_PAYMENT_FIELDS,
+    T,
+    VARIANCE_MIN_DIFF_EGP,
+    VARIANCE_THRESHOLD_KEY,
+    _BUDGET_NOT_NULL_FIELDS,
+    _COST_FIELDS,
+)
+from .swift_reconciliation_service import (  # noqa: F401
+    _MANDATORY_SWIFT_FIELDS,
+)

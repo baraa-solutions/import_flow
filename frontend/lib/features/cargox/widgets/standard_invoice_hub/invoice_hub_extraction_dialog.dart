@@ -45,7 +45,7 @@ class InvoiceHubExtractionDialog extends ConsumerStatefulWidget {
 
 class _InvoiceHubExtractionDialogState extends ConsumerState<InvoiceHubExtractionDialog> {
   String _selectedMode = 'all_consolidated';
-  String _selectedGrouping = 'by_hs_code';
+  String _selectedGrouping = 'by_price_group';
   bool _isExtracting = false;
   bool _isDownloading = false;
   bool _isSavingCustomsTrack = false;

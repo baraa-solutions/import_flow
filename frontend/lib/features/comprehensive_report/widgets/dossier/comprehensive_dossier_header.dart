@@ -24,9 +24,8 @@ class ComprehensiveDossierHeader extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
       decoration: const BoxDecoration(
         color: AppTheme.flatCharcoal,
-        borderRadius: BorderRadius.only(
-          topLeft: Radius.circular(10),
-          topRight: Radius.circular(10),
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(10),
         ),
       ),
       child: Row(

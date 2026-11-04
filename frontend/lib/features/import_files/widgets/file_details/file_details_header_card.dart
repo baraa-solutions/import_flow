@@ -12,8 +12,6 @@ import '../../../experience_guide/models/guide_entry_model.dart';
 import '../../../experience_guide/widgets/experience_guide_alert_banner.dart';
 import '../shipment_milestone_tracker.dart';
 import '../../../../core/widgets/buttons/app_button.dart';
-import 'shipment_acid_status_badge.dart';
-import 'courier_tracking_action_button.dart';
 import 'file_details_action_handler.dart';
 
 /// 📌 Header card for Import File Details
@@ -47,12 +45,10 @@ class FileDetailsHeaderCard extends ConsumerWidget {
     final isDark = AppTheme.isDark(context);
     final isAr = ref.watch(localeProvider).languageCode == 'ar' || Localizations.localeOf(context).languageCode == 'ar';
 
-    final effectiveCbm = totalCbm > 0 ? totalCbm : (dossier?.totalCbm ?? 66.39);
-    final effectiveWeight = grossWeightKg > 0 ? grossWeightKg : (dossier?.grossWeightKg ?? 10510.0);
+    final effectiveCbm = totalCbm > 0 ? totalCbm : (dossier?.totalCbm ?? 0.0);
+    final effectiveWeight = grossWeightKg > 0 ? grossWeightKg : (dossier?.grossWeightKg ?? 0.0);
     final hasAcousticAlert = (guideMatchResult?.matchedEntries.any((e) => e.isCritical) == true) ||
-        (file.productCategory?.toLowerCase().contains('acoustic') == true ||
-            file.customFileNumber?.toLowerCase().contains('pet') == true ||
-            file.importFileCode == 'IMP-2026-0004');
+        file.productCategory?.toLowerCase().contains('acoustic') == true;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -77,14 +73,12 @@ class FileDetailsHeaderCard extends ConsumerWidget {
                         ),
                       ),
                       const SizedBox(width: 8),
+                      // ACID / courier badges live in the dialog's metadata bar
+                      // (full width) - repeating them here overflowed the title.
                       AppStatusBadge.fromStatus(
                         status: file.status,
                         size: AppStatusBadgeSize.small,
                       ),
-                      const SizedBox(width: 8),
-                      ShipmentAcidStatusBadge.fromImportFile(file, compact: true),
-                      const SizedBox(width: 8),
-                      CourierTrackingActionButton.fromImportFile(file, compact: true),
                     ],
                   ),
                   const SizedBox(height: 2),
@@ -218,7 +212,7 @@ class FileDetailsHeaderCard extends ConsumerWidget {
           importFile: file,
           totalCbm: effectiveCbm,
           grossWeightKg: effectiveWeight,
-          shippingLine: file.selectedScenario ?? 'Wan Hai',
+          shippingLine: file.selectedScenario,
           hasAcousticAlert: hasAcousticAlert,
         ),
 

@@ -36,7 +36,13 @@ class ConsultationMetricBadge extends StatelessWidget {
           Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(title, style: TextStyle(fontSize: 11, color: effectiveColor, fontWeight: FontWeight.bold)),
+              Flexible(
+                child: Text(
+                  title,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(fontSize: 11, color: effectiveColor, fontWeight: FontWeight.bold),
+                ),
+              ),
               if (onTap != null) ...[
                 const SizedBox(width: 4),
                 Icon(Icons.open_in_new, size: 12, color: effectiveColor),

@@ -58,9 +58,9 @@ enum InvoiceGroupingMode {
   String get descAr {
     switch (this) {
       case InvoiceGroupingMode.byHsCode:
-        return 'متوسط سعر موزون لكل بند تعريفة وهو الافتراضي جمركياً';
+        return 'سطر واحد لكل HS Code — إذا اختلفت الأسعار يُفعَّل التقسيم التلقائي تلقائياً';
       case InvoiceGroupingMode.byPriceGroup:
-        return 'فصل البنود ذات الأسعار المختلفة تحت نفس بند التعريفة';
+        return 'فصل البنود ذات الأسعار المختلفة تحت نفس بند التعريفة ✅ آمن جمركياً';
       case InvoiceGroupingMode.flat:
         return 'عرض كل سطر في الفاتورة مستقلاً كما ورد في الأصل';
     }
@@ -69,9 +69,9 @@ enum InvoiceGroupingMode {
   String get descEn {
     switch (this) {
       case InvoiceGroupingMode.byHsCode:
-        return 'Weighted average price per HS code (Customs default)';
+        return 'One line per HS code — auto-splits by price when prices differ (customs safe)';
       case InvoiceGroupingMode.byPriceGroup:
-        return 'Separate lines when items share HS code but differ in price';
+        return 'Separate lines when items share HS code but differ in price ✅ Customs compliant';
       case InvoiceGroupingMode.flat:
         return 'Keep every original line item exactly as issued';
     }
@@ -147,7 +147,7 @@ class InvoiceExportConfig {
   const InvoiceExportConfig({
     this.packaging = FilePackagingMode.singleFile,
     this.detail = ContentDetailMode.consolidated,
-    this.grouping = InvoiceGroupingMode.byHsCode,
+    this.grouping = InvoiceGroupingMode.byPriceGroup,
   });
 
   /// Maps independent dimensions to legacy backend API mode string.

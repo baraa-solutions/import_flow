@@ -128,12 +128,14 @@ class ConsultationCalcSummaryCard extends StatelessWidget {
                         ),
                       ),
                     ),
-                  AppButton(
-                    label: l.applyAndLinkFinancialEstimate,
-                    icon: Icons.done_all,
-                    variant: AppButtonVariant.success,
-                    size: AppButtonSize.small,
-                    onPressed: onApplyAndLinkFinancialEstimate,
+                  Flexible(
+                    child: AppButton(
+                      label: l.applyAndLinkFinancialEstimate,
+                      icon: Icons.done_all,
+                      variant: AppButtonVariant.success,
+                      size: AppButtonSize.small,
+                      onPressed: onApplyAndLinkFinancialEstimate,
+                    ),
                   ),
                 ],
               ),

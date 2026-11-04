@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/widgets/searchable_dropdown_field.dart';
 import '../../core/widgets/buttons/app_button.dart';
 import '../../core/widgets/vertical_stage_scaffold.dart';
 import 'customs_regimes_provider.dart';
@@ -63,14 +64,15 @@ class _CustomsRegimesScreenState extends ConsumerState<CustomsRegimesScreen> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  DropdownButtonFormField<String>(
-                    initialValue: guaranteeType,
+                  SearchableDropdownField<String>(
+                    labelText: 'نوع الضمان / الأمانة',
+                    value: guaranteeType,
                     decoration: const InputDecoration(labelText: 'نوع الضمان / الأمانة'),
                     items: const [
-                      DropdownMenuItem(value: 'LETTER_OF_GUARANTEE', child: Text('خطاب ضمان بنكي')),
-                      DropdownMenuItem(value: 'CASH_DEPOSIT', child: Text('أمانة نقدية معلقة')),
-                      DropdownMenuItem(value: 'INSURANCE_POLICY', child: Text('وثيقة تأمين')),
-                      DropdownMenuItem(value: 'PROMISSORY_NOTE', child: Text('سند لأمر')),
+                      SearchableDropdownItem(value: 'LETTER_OF_GUARANTEE', label: 'خطاب ضمان بنكي'),
+                      SearchableDropdownItem(value: 'CASH_DEPOSIT', label: 'أمانة نقدية معلقة'),
+                      SearchableDropdownItem(value: 'INSURANCE_POLICY', label: 'وثيقة تأمين'),
+                      SearchableDropdownItem(value: 'PROMISSORY_NOTE', label: 'سند لأمر'),
                     ],
                     onChanged: (v) => setDialogState(() => guaranteeType = v!),
                   ),

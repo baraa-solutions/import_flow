@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/localization/domain_enum_labels.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/paged_data_table/row_action.dart';
 import '../../../core/widgets/widgets.dart';
 import '../models/step_config_model.dart';
 import '../services/step_config_export_service.dart';
@@ -36,6 +37,8 @@ class StepConfigTableView extends StatelessWidget {
               storageKey: 'step_config_management_table',
               data: configs,
               rowHeight: 68,
+              // StepConfigFilterBar already provides search and the 4 export actions.
+              showHeaderToolbar: false,
               columns: [
                 EnterpriseColumn<StepConfigModel>(
                   id: 'actions',
@@ -43,27 +46,39 @@ class StepConfigTableView extends StatelessWidget {
                   width: 140,
                   isSortable: false,
                   isSearchable: false,
-                  cellBuilder: (context, cfg, index) => RowActionsPill(
-                    viewTooltip: l.stepConfigAuditTooltip,
-                    onView: () => onShowAudit(cfg),
-                    editTooltip: canManage ? l.stepConfigEditTooltip : null,
-                    onEdit: canManage ? () => onShowEdit(cfg) : null,
-                    cloneTooltip: l.stepConfigCopyRowTooltip,
-                    onClone: () {
-                      final rowSummary =
-                          StepConfigExportService.toRowSummary(cfg, l, isArabic: isAr);
-                      CopyHelper.copy(
-                        context,
-                        rowSummary,
-                        customMessage: l.stepConfigCopyRowSuccess,
-                      );
-                    },
+                  cellBuilder: (context, cfg, index) => RowActionsBar<StepConfigModel>(
+                    row: cfg,
+                    actions: [
+                      if (canManage)
+                        RowAction.edit(
+                          label: (_) => l.stepConfigEditTooltip,
+                          run: (row) => onShowEdit(row),
+                        ),
+                      RowAction.clone(
+                        label: (_) => l.stepConfigCopyRowTooltip,
+                        run: (row) {
+                          final rowSummary =
+                              StepConfigExportService.toRowSummary(row, l, isArabic: isAr);
+                          CopyHelper.copy(
+                            context,
+                            rowSummary,
+                            customMessage: l.stepConfigCopyRowSuccess,
+                          );
+                        },
+                      ),
+                      // Audit opens the change history, not a record view.
+                      RowAction.history(
+                        icon: Icons.history_rounded,
+                        label: (_) => l.stepConfigAuditTooltip,
+                        run: (row) => onShowAudit(row),
+                      ),
+                    ],
                   ),
                 ),
                 EnterpriseColumn<StepConfigModel>(
                   id: 'phaseCode',
                   title: l.stepConfigColPhaseCode,
-                  width: 150,
+                  width: 170,
                   exportValue: (cfg) => 'P${cfg.phaseId}-${cfg.stepCode}',
                   searchValue: (cfg) => 'P${cfg.phaseId} ${cfg.stepCode}',
                   cellBuilder: (context, cfg, index) {
@@ -155,7 +170,7 @@ class StepConfigTableView extends StatelessWidget {
                 EnterpriseColumn<StepConfigModel>(
                   id: 'skipPolicy',
                   title: l.stepConfigColSkipPolicy,
-                  width: 140,
+                  width: 220,
                   exportValue: (cfg) => cfg.isBlocked
                       ? l.stepConfigPolicyBlocked
                       : (cfg.isDualApproval
@@ -184,12 +199,15 @@ class StepConfigTableView extends StatelessWidget {
                           children: [
                             Icon(cfg.policyIcon, size: 14, color: cfg.policyColor),
                             const SizedBox(width: 6),
-                            Text(
-                              localizedPolicy,
-                              style: TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.bold,
-                                color: cfg.policyColor,
+                            Flexible(
+                              child: Text(
+                                localizedPolicy,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                  color: cfg.policyColor,
+                                ),
                               ),
                             ),
                           ],
@@ -234,7 +252,7 @@ class StepConfigTableView extends StatelessWidget {
                 EnterpriseColumn<StepConfigModel>(
                   id: 'pendingRef',
                   title: l.stepConfigColPendingRef,
-                  width: 140,
+                  width: 160,
                   exportValue: (cfg) => cfg.supportsPendingReference
                       ? l.stepConfigPendingRefAllowed
                       : l.stepConfigPendingRefBlocked,
@@ -260,16 +278,19 @@ class StepConfigTableView extends StatelessWidget {
                                 : Colors.grey,
                           ),
                           const SizedBox(width: 4),
-                          Text(
-                            localizedPendingRef,
-                            style: TextStyle(
-                              fontSize: 11,
-                              color: cfg.supportsPendingReference
-                                  ? const Color(0xFF27AE60)
-                                  : Colors.grey,
-                              fontWeight: cfg.supportsPendingReference
-                                  ? FontWeight.bold
-                                  : FontWeight.normal,
+                          Flexible(
+                            child: Text(
+                              localizedPendingRef,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: cfg.supportsPendingReference
+                                    ? const Color(0xFF27AE60)
+                                    : Colors.grey,
+                                fontWeight: cfg.supportsPendingReference
+                                    ? FontWeight.bold
+                                    : FontWeight.normal,
+                              ),
                             ),
                           ),
                         ],

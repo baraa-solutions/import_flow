@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../../../core/widgets/app_date_picker_field.dart';
 import '../../../core/widgets/buttons/app_button.dart';
 import '../../../core/widgets/custom_text_field.dart';
@@ -190,8 +191,9 @@ class _EmptyReturnFormState extends State<EmptyReturnForm> {
                 ),
                 const SizedBox(width: 12),
                 Expanded(
-                  child: DropdownButtonFormField<String>(
-                    initialValue: _conditionStatus,
+                  child: SearchableDropdownField<String>(
+                    labelText: isArabic ? 'حالة الحاوية عند الفحص' : 'Container Condition',
+                    value: _conditionStatus,
                     decoration: InputDecoration(
                       labelText: isArabic ? 'حالة الحاوية عند الفحص' : 'Container Condition',
                       prefixIcon: const Icon(Icons.fact_check_outlined, size: 18),
@@ -199,9 +201,9 @@ class _EmptyReturnFormState extends State<EmptyReturnForm> {
                       contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                     ),
                     items: [
-                      DropdownMenuItem(value: 'SOUND_CLEAN', child: Text(isArabic ? 'سليمة ونظيفة' : 'Sound and Clean')),
-                      DropdownMenuItem(value: 'DAMAGED', child: Text(isArabic ? 'بها تلفيات' : 'Damaged')),
-                      DropdownMenuItem(value: 'REQUIRES_WASHING', child: Text(isArabic ? 'تحتاج غسيل' : 'Requires Washing')),
+                      SearchableDropdownItem(value: 'SOUND_CLEAN', label: isArabic ? 'سليمة ونظيفة' : 'Sound and Clean'),
+                      SearchableDropdownItem(value: 'DAMAGED', label: isArabic ? 'بها تلفيات' : 'Damaged'),
+                      SearchableDropdownItem(value: 'REQUIRES_WASHING', label: isArabic ? 'تحتاج غسيل' : 'Requires Washing'),
                     ],
                     onChanged: (val) {
                       if (val != null) setState(() => _conditionStatus = val);

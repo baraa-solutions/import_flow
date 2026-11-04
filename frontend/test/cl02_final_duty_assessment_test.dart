@@ -146,7 +146,7 @@ void main() {
 
       // Verify Sections
       expect(find.text('بيانات المطالبة الجمركية بنظام نافذة MTS'), findsOneWidget);
-      expect(find.text('تفصيل بنود الرسوم والضرائب الجمركية (HS Code Duty Breakdown)'), findsOneWidget);
+      expect(find.text('تفصيل بنود الرسوم والضرائب الجمركية لبند التعريفة'), findsOneWidget);
       expect(find.text('مطابقة الرسوم الفعلية مع التقديرية'), findsOneWidget);
 
       // Verify Duty Item Labels
