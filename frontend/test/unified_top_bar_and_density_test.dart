@@ -120,8 +120,12 @@ void main() {
       await tester.tap(find.byType(WorldClockDropdownButton));
       await tester.pumpAndSettle();
 
-      // Verify all 7 countries appear in the popup menu
+      // Verify header contains title, date & week badge, and all 7 countries
       expect(find.text('التوقيت الدولي وساعات العمل'), findsOneWidget);
+      expect(find.byType(SystemDateWeekBadge), findsOneWidget);
+      expect(find.text('الخميس'), findsOneWidget);
+      expect(find.text('2026-09-10'), findsOneWidget);
+      expect(find.text('الأسبوع: W37'), findsOneWidget);
       expect(find.text('مصر'), findsOneWidget);
       expect(find.text('فرنسا وإيطاليا وإسبانيا'), findsOneWidget);
       expect(find.text('إنجلترا'), findsOneWidget);

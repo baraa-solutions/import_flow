@@ -318,12 +318,14 @@ class SystemDateWeekBadge extends StatelessWidget {
   final DateTime currentTime;
   final bool isDark;
   final bool? isArabic;
+  final bool fullWidth;
 
   const SystemDateWeekBadge({
     super.key,
     required this.currentTime,
     this.isDark = true,
     this.isArabic,
+    this.fullWidth = false,
   });
 
   @override
@@ -340,61 +342,75 @@ class SystemDateWeekBadge extends StatelessWidget {
     return Tooltip(
       message: tooltipMsg,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3.5),
+        width: fullWidth ? double.infinity : null,
+        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
         decoration: BoxDecoration(
-          color: isDark ? const Color(0xFF1E293B) : Colors.white,
+          color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF8FAFC),
           borderRadius: BorderRadius.circular(6),
           border: Border.all(
-            color: isDark ? const Color(0xFF334155) : Colors.grey.shade300,
-            width: 1,
+            color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0),
+            width: 0.8,
           ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.08),
+              color: Colors.black.withValues(alpha: 0.06),
               blurRadius: 3,
               offset: const Offset(0, 1),
             ),
           ],
         ),
         child: Row(
-          mainAxisSize: MainAxisSize.min,
+          mainAxisSize: fullWidth ? MainAxisSize.max : MainAxisSize.min,
+          mainAxisAlignment: fullWidth ? MainAxisAlignment.spaceBetween : MainAxisAlignment.start,
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            const Icon(
-              Icons.calendar_month_rounded,
-              color: AppTheme.cobalt,
-              size: 13.5,
-            ),
-            const SizedBox(width: 6),
-            Text(
-              dayName,
-              style: TextStyle(
-                color: isDark ? Colors.white : AppTheme.charcoal,
-                fontSize: 11,
-                fontWeight: FontWeight.bold,
+            Flexible(
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(
+                    Icons.calendar_month_rounded,
+                    color: AppTheme.cobalt,
+                    size: 13,
+                  ),
+                  const SizedBox(width: 5),
+                  Flexible(
+                    child: Text(
+                      dayName,
+                      style: TextStyle(
+                        color: isDark ? Colors.white : AppTheme.charcoal,
+                        fontSize: 10.5,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  const SizedBox(width: 5),
+                  Text(
+                    dateStr,
+                    style: TextStyle(
+                      fontFamily: 'monospace',
+                      color: isDark ? const Color(0xFFE2E8F0) : Colors.black87,
+                      fontSize: 10.5,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 0.2,
+                    ),
+                  ),
+                ],
               ),
             ),
-            const SizedBox(width: 6),
-            Text(
-              dateStr,
-              style: TextStyle(
-                fontFamily: 'monospace',
-                color: isDark ? const Color(0xFFE2E8F0) : Colors.black87,
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
-                letterSpacing: 0.3,
+            if (!fullWidth) ...[
+              const SizedBox(width: 6),
+              Container(
+                height: 12,
+                width: 1,
+                color: isDark ? Colors.white24 : Colors.black12,
               ),
-            ),
-            const SizedBox(width: 8),
-            Container(
-              height: 12,
-              width: 1,
-              color: isDark ? Colors.white24 : Colors.black12,
-            ),
-            const SizedBox(width: 8),
+              const SizedBox(width: 6),
+            ],
             // Week Badge
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 5.5, vertical: 1.5),
+              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
               decoration: BoxDecoration(
                 color: AppTheme.cobalt.withValues(alpha: 0.18),
                 borderRadius: BorderRadius.circular(4),
@@ -403,19 +419,14 @@ class SystemDateWeekBadge extends StatelessWidget {
                   width: 0.8,
                 ),
               ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    weekLabel,
-                    style: const TextStyle(
-                      fontFamily: 'monospace',
-                      color: Color(0xFF64B5F6),
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ],
+              child: Text(
+                weekLabel,
+                style: TextStyle(
+                  fontFamily: 'monospace',
+                  color: isDark ? const Color(0xFF64B5F6) : AppTheme.cobalt,
+                  fontSize: 9.5,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ),
           ],
@@ -781,6 +792,10 @@ class _WorldClockDropdownButtonState extends State<WorldClockDropdownButton> {
     final openLabel = isAr ? 'مفتوح' : 'Open';
     final closedLabel = isAr ? 'مغلق' : 'Closed';
     final hoursSub = isAr ? 'مواعيد العمل (08:00 - 17:00)' : 'Business Hours (08:00 - 17:00)';
+    final dayName = WorldTimezoneHelper.getDayName(activeTime, isArabic: isAr);
+    final dateStr = WorldTimezoneHelper.formatDate(activeTime);
+    final weekNum = WorldTimezoneHelper.getIsoWeekNumber(activeTime);
+    final weekLabel = isAr ? 'الأسبوع: W$weekNum' : 'Week: W$weekNum';
 
     return Theme(
       data: Theme.of(context).copyWith(
@@ -790,7 +805,7 @@ class _WorldClockDropdownButtonState extends State<WorldClockDropdownButton> {
         position: PopupMenuPosition.under,
         elevation: 6,
         padding: EdgeInsets.zero,
-        constraints: const BoxConstraints(minWidth: 320, maxWidth: 360),
+        constraints: const BoxConstraints(minWidth: 340, maxWidth: 380),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(8),
           side: BorderSide(
@@ -799,7 +814,9 @@ class _WorldClockDropdownButtonState extends State<WorldClockDropdownButton> {
           ),
         ),
         color: effectiveIsDark ? const Color(0xFF1E2631) : Colors.white,
-        tooltip: isAr ? 'ساعات الدول ومواعيد العمل الدولية' : 'World Clocks & Business Hours',
+        tooltip: isAr
+            ? '$activeCountryName $activeTimeStr • $dayName $dateStr • $weekLabel\nساعات الدول ومواعيد العمل الدولية'
+            : '$activeCountryName $activeTimeStr • $dayName $dateStr • $weekLabel\nWorld Clocks & Business Hours',
         onSelected: (key) {
           setState(() => _selectedCountryKey = key);
           widget.onCountryChanged?.call(key);
@@ -809,7 +826,7 @@ class _WorldClockDropdownButtonState extends State<WorldClockDropdownButton> {
             // Header Item
             PopupMenuItem<String>(
               enabled: false,
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
@@ -857,7 +874,15 @@ class _WorldClockDropdownButtonState extends State<WorldClockDropdownButton> {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: 6),
+                  // Date & Week Number Badge restored in popup header
+                  SystemDateWeekBadge(
+                    currentTime: activeTime,
+                    isDark: effectiveIsDark,
+                    isArabic: isAr,
+                    fullWidth: true,
+                  ),
+                  const SizedBox(height: 6),
                   Row(
                     children: [
                       Container(width: 6, height: 6, decoration: const BoxDecoration(shape: BoxShape.circle, color: AppTheme.emerald)),
