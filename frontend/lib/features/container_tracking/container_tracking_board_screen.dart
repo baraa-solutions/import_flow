@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/localization/api_error_text.dart';
+import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../../../core/widgets/buttons/app_button.dart';
+import '../../../core/widgets/import_file_scope_selector.dart';
 import '../../../core/widgets/metric_card.dart';
 import '../../../core/widgets/page_header.dart';
 import 'container_tracking_provider.dart';
@@ -13,30 +16,20 @@ import 'widgets/demurrage_per_container_card.dart';
 /// Container Tracking Board Screen (Type C Coordinator)
 /// Displays individual container lifecycle progression, milestone updates, and demurrage penalties.
 class ContainerTrackingBoardScreen extends ConsumerStatefulWidget {
-  final int shipmentId;
+  /// Import file to open on; null shows the file picker's empty state.
+  final int? shipmentId;
 
-  const ContainerTrackingBoardScreen({
-    super.key,
-    this.shipmentId = 1,
-  });
+  const ContainerTrackingBoardScreen({super.key, this.shipmentId});
 
   @override
-  ConsumerState<ContainerTrackingBoardScreen> createState() =>
-      _ContainerTrackingBoardScreenState();
+  ConsumerState<ContainerTrackingBoardScreen> createState() => _ContainerTrackingBoardScreenState();
 }
 
-class _ContainerTrackingBoardScreenState
-    extends ConsumerState<ContainerTrackingBoardScreen> {
+class _ContainerTrackingBoardScreenState extends ConsumerState<ContainerTrackingBoardScreen> {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   ContainerUnitData? _selectedContainerForDrawer;
 
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(containerShipmentIdProvider.notifier).state = widget.shipmentId;
-    });
-  }
+  late int? _fileId = widget.shipmentId;
 
   void _showDemurrageDialog(ContainerUnitData container) {
     showDialog(
@@ -88,18 +81,18 @@ class _ContainerTrackingBoardScreenState
               const SizedBox(height: 12),
               StatefulBuilder(
                 builder: (context, setFieldState) => SearchableDropdownField<String>(
-                labelText: 'نوع ومقاس الحاوية',
-                value: isoType,
-                items: const [
-                  SearchableDropdownItem(value: '20GP', label: 'حاوية 20 قدم عادية'),
-                  SearchableDropdownItem(value: '40GP', label: 'حاوية 40 قدم عادية'),
-                  SearchableDropdownItem(value: '40HC', label: 'حاوية 40 قدم عالية السقف'),
-                  SearchableDropdownItem(value: '45HC', label: 'حاوية 45 قدم عالية السقف'),
-                  SearchableDropdownItem(value: '20RF', label: 'حاوية 20 قدم مبردة'),
-                  SearchableDropdownItem(value: '40RF', label: 'حاوية 40 قدم مبردة'),
-                ],
-                onChanged: (v) => setFieldState(() => isoType = v ?? '40HC'),
-                decoration: const InputDecoration(labelText: 'نوع ومقاس الحاوية'),
+                  labelText: 'نوع ومقاس الحاوية',
+                  value: isoType,
+                  items: const [
+                    SearchableDropdownItem(value: '20GP', label: 'حاوية 20 قدم عادية'),
+                    SearchableDropdownItem(value: '40GP', label: 'حاوية 40 قدم عادية'),
+                    SearchableDropdownItem(value: '40HC', label: 'حاوية 40 قدم عالية السقف'),
+                    SearchableDropdownItem(value: '45HC', label: 'حاوية 45 قدم عالية السقف'),
+                    SearchableDropdownItem(value: '20RF', label: 'حاوية 20 قدم مبردة'),
+                    SearchableDropdownItem(value: '40RF', label: 'حاوية 40 قدم مبردة'),
+                  ],
+                  onChanged: (v) => setFieldState(() => isoType = v ?? '40HC'),
+                  decoration: const InputDecoration(labelText: 'نوع ومقاس الحاوية'),
                 ),
               ),
               const SizedBox(height: 12),
@@ -112,19 +105,17 @@ class _ContainerTrackingBoardScreenState
           ),
         ),
         actions: [
-          AppButton(
-            label: 'إلغاء',
-            variant: AppButtonVariant.secondary,
-            onPressed: () => Navigator.of(ctx).pop(),
-          ),
+          AppButton(label: 'إلغاء', variant: AppButtonVariant.secondary, onPressed: () => Navigator.of(ctx).pop()),
           AppButton(
             label: 'حفظ الحاوية',
             variant: AppButtonVariant.primary,
             onPressed: () async {
               if (numController.text.trim().isEmpty) return;
+              final fileId = _fileId;
+              if (fileId == null) return;
               Navigator.of(ctx).pop();
               final repo = ref.read(containerTrackingRepositoryProvider);
-              await repo.createContainer(widget.shipmentId, {
+              await repo.createContainer(fileId, {
                 'container_number': numController.text.trim().toUpperCase(),
                 'seal_number': sealController.text.trim(),
                 'iso_type': isoType,
@@ -142,7 +133,7 @@ class _ContainerTrackingBoardScreenState
 
   @override
   Widget build(BuildContext context) {
-    final listAsync = ref.watch(containerTrackingListProvider);
+    final fileId = _fileId;
 
     return SelectionArea(
       child: Scaffold(
@@ -158,14 +149,14 @@ class _ContainerTrackingBoardScreenState
               label: 'تحديث',
               icon: Icons.refresh,
               variant: AppButtonVariant.secondary,
-              onPressed: () => ref.invalidate(containerTrackingListProvider),
+              onPressed: fileId == null ? null : () => ref.invalidate(containerTrackingListProvider),
             ),
             const SizedBox(width: 8),
             AppButton(
               label: 'إضافة حاوية',
               icon: Icons.add,
               variant: AppButtonVariant.primary,
-              onPressed: _showAddContainerDialog,
+              onPressed: fileId == null ? null : _showAddContainerDialog,
             ),
             const SizedBox(width: 12),
           ],
@@ -184,7 +175,20 @@ class _ContainerTrackingBoardScreenState
                 ),
               )
             : null,
-        body: listAsync.when(
+        body: Column(
+          children: [
+            ImportFileScopeSelector(selectedImportFileId: fileId, onChanged: (id) => setState(() => _fileId = id)),
+            Expanded(child: fileId == null ? const ImportFileRequiredState() : _buildBoard(fileId)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBoard(int fileId) {
+    return ref
+        .watch(containerTrackingListProvider(fileId))
+        .when(
           loading: () => const Center(child: CircularProgressIndicator()),
           error: (err, _) => Center(
             child: Column(
@@ -192,7 +196,7 @@ class _ContainerTrackingBoardScreenState
               children: [
                 const Icon(Icons.error_outline, size: 48, color: AppTheme.crimson),
                 const SizedBox(height: 12),
-                Text('تعذر تحميل بيانات الحاويات: $err', style: const TextStyle(color: AppTheme.crimson)),
+                Text(ApiErrorText.of(context.l10n, err), style: const TextStyle(color: AppTheme.crimson)),
                 const SizedBox(height: 12),
                 AppButton(
                   label: 'إعادة المحاولة',
@@ -271,8 +275,6 @@ class _ContainerTrackingBoardScreenState
               ],
             );
           },
-        ),
-      ),
-    );
+        );
   }
 }

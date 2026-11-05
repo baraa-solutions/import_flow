@@ -2,9 +2,11 @@
 Repository for Split Shipments & Multi-PO Allocations
 """
 
-from typing import List, Optional, Tuple
-from sqlalchemy import func
+from typing import Dict, List, Optional, Tuple
+from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
+from modules.import_files.model import ImportFile
+from modules.purchase_orders.model import POLineItem, POShipmentAllocation, PurchaseOrder
 from modules.split_shipments.model import SplitShipmentAllocation
 
 
@@ -81,6 +83,51 @@ class SplitShipmentRepository:
             .all()
         )
         return [r[0] for r in rows]
+
+    def get_import_file(self, shipment_id: int) -> Optional[ImportFile]:
+        return (
+            self.db.query(ImportFile)
+            .filter(ImportFile.import_file_id == shipment_id)
+            .first()
+        )
+
+    def list_po_lines_for_shipment(
+        self, shipment_id: int, linked_po_ids: List[int]
+    ) -> List[Tuple[POLineItem, PurchaseOrder]]:
+        """PO lines of active POs linked to the import file (direct FK, the file's
+        po_ids list, or a PO shipment allocation on that file)."""
+        allocated_po_ids = self.db.query(POShipmentAllocation.po_id).filter(
+            POShipmentAllocation.import_file_id == shipment_id
+        )
+        link_filters = [
+            PurchaseOrder.import_file_id == shipment_id,
+            PurchaseOrder.po_id.in_(allocated_po_ids),
+        ]
+        if linked_po_ids:
+            link_filters.append(PurchaseOrder.po_id.in_(linked_po_ids))
+        return (
+            self.db.query(POLineItem, PurchaseOrder)
+            .join(PurchaseOrder, POLineItem.po_id == PurchaseOrder.po_id)
+            .filter(PurchaseOrder.is_active.is_(True), or_(*link_filters))
+            .order_by(PurchaseOrder.po_number.asc(), POLineItem.item_id.asc())
+            .all()
+        )
+
+    def get_allocated_quantity_by_po_item(self, shipment_id: int) -> Dict[int, float]:
+        rows = (
+            self.db.query(
+                SplitShipmentAllocation.po_item_id,
+                func.sum(SplitShipmentAllocation.allocated_quantity),
+            )
+            .filter(
+                SplitShipmentAllocation.shipment_id == shipment_id,
+                SplitShipmentAllocation.po_item_id.isnot(None),
+                SplitShipmentAllocation.is_deleted.is_(False),
+            )
+            .group_by(SplitShipmentAllocation.po_item_id)
+            .all()
+        )
+        return {po_item_id: float(total or 0.0) for po_item_id, total in rows}
 
     def create(self, allocation: SplitShipmentAllocation) -> SplitShipmentAllocation:
         self.db.add(allocation)
