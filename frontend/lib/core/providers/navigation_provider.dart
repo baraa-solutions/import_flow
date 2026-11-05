@@ -102,9 +102,12 @@ import '../../features/comprehensive_report/services/comprehensive_dossier_servi
 //  67 = StepConfigManagementScreen (Addendum: Section 10)
 //  70 = LogisticsInvoicesScreen
 //  71 = VesselTrackingRadarScreen
+//  72–87 = see kHomeScreenRegistry (expense catalog … vendor quality)
 // ============================================================
 
-const int _totalScreens = 72; // indices 0–71
+/// Number of screens in kHomeScreenRegistry (indices 0–87). selectNavigationIndex ignores any
+/// index at or above it, so it must grow with the registry; a unit test keeps the two equal.
+const int kTotalScreens = 88;
 
 
 final navigationIndexProvider = StateProvider<int>((ref) => 0);
@@ -209,12 +212,28 @@ _ScreenTabInfo _getScreenTabInfo(int index) {
     case 67: return const _ScreenTabInfo('إعدادات تصنيف المراحل', Icons.admin_panel_settings_rounded);
     case 70: return const _ScreenTabInfo('فواتير ومدفوعات الخدمات اللوجستية', Icons.receipt_long_outlined);
     case 71: return const _ScreenTabInfo('SOON - رادار تتبع السفن', Icons.radar_outlined);
+    case 72: return const _ScreenTabInfo('كتالوج المصروفات الجمركية القياسي', Icons.receipt_long_outlined);
+    case 73: return const _ScreenTabInfo('محرر ومولد الخطابات الرسمية المعتمدة', Icons.mark_email_read_outlined);
+    case 74: return const _ScreenTabInfo('الإفراج تحت التحفظ وتعهدات البضائع', Icons.shield_outlined);
+    case 75: return const _ScreenTabInfo('مركز الاستخراج والتدقيق الذكي للمستندات', Icons.document_scanner_outlined);
+    case 76: return const _ScreenTabInfo('كاتالوج الأصناف والسلع', Icons.category_outlined);
+    case 77: return const _ScreenTabInfo('رادار اتجاه الأسعار ومقارنة الصفقات', Icons.trending_up_outlined);
+    case 78: return const _ScreenTabInfo('مصفوفة المتطلبات الرقابية', Icons.rule_outlined);
+    case 79: return const _ScreenTabInfo('اعتمادات وتمويل الاستيراد وفروق العملة', Icons.account_balance_outlined);
+    case 80: return const _ScreenTabInfo('دورة حياة الحاويات الفردية وغرامات التأخير', Icons.inventory_2_outlined);
+    case 81: return const _ScreenTabInfo('تجزئة الشحنات وتوزيع بنود أوامر الشراء', Icons.call_split_outlined);
+    case 82: return const _ScreenTabInfo('عمليات الشحن متعدد الوسائط', Icons.flight_takeoff_outlined);
+    case 83: return const _ScreenTabInfo('النظم الجمركية المعلقة والمناطق الحرة', Icons.account_balance_wallet_outlined);
+    case 84: return const _ScreenTabInfo('الاتفاقيات التفضيلية وشهادات المنشأ', Icons.policy_outlined);
+    case 85: return const _ScreenTabInfo('استثناءات الشحن ونزاعات التثمين الجمركي', Icons.warning_amber_rounded);
+    case 86: return const _ScreenTabInfo('استرداد تأمينات الحاويات والضمانات البنكية', Icons.savings_outlined);
+    case 87: return const _ScreenTabInfo('فحص ما قبل الشحن وتقييم أداء الموردين', Icons.rate_review_outlined);
     default: return _ScreenTabInfo('شاشة $index', Icons.tab_outlined);
   }
 }
 
 void selectNavigationIndex(dynamic ref, int index, {String? tabTitle, IconData? tabIcon}) {
-  if (index < 0 || index >= _totalScreens) return;
+  if (index < 0 || index >= kTotalScreens) return;
 
   // 1. Update navigation state
   ref.read(navigationIndexProvider.notifier).state = index;
