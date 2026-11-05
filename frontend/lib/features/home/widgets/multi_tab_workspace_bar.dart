@@ -86,6 +86,18 @@ String getLocalizedTabTitle(BuildContext context, int routeIndex, String fallbac
     case 73: return isArabic ? 'محرر الخطابات الرسمية' : 'Formal Letters';
     case 74: return isArabic ? 'الإفراج تحت التحفظ' : 'Custody Release';
     case 75: return isArabic ? 'مركز الاستخراج الذكي' : 'Smart Upload Hub';
+    case 76: return isArabic ? 'كاتالوج الأصناف والسلع' : 'Master Items Catalog';
+    case 77: return isArabic ? 'رادار اتجاه الأسعار' : 'Item Price Trends';
+    case 78: return isArabic ? 'مصفوفة المتطلبات الرقابية' : 'Regulatory Matrix';
+    case 79: return isArabic ? 'الاعتمادات وتمويل الاستيراد' : 'Trade Finance & L/C';
+    case 80: return isArabic ? 'دورة حياة الحاويات والغرامات' : 'Container Lifecycle';
+    case 81: return isArabic ? 'تجزئة الشحنات' : 'Split Shipments';
+    case 82: return isArabic ? 'الشحن متعدد الوسائط' : 'Multimodal Freight';
+    case 83: return isArabic ? 'النظم الجمركية المعلقة' : 'Customs Special Regimes';
+    case 84: return isArabic ? 'الاتفاقيات التفضيلية' : 'Trade Agreements';
+    case 85: return isArabic ? 'استثناءات الشحن ونزاعات التثمين' : 'Logistics Exceptions';
+    case 86: return isArabic ? 'استرداد التأمينات والضمانات' : 'Deposits Recovery';
+    case 87: return isArabic ? 'فحص ما قبل الشحن وتقييم الموردين' : 'PSI & Vendor Rating';
     default: return fallbackTitle;
   }
 }
