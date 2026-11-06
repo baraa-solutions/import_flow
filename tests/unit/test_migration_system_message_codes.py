@@ -23,7 +23,7 @@ from utils import db_safety
 PREVIOUS = "c7d8e9f0a1b2"
 
 # The new head revision (stage notes & attachments)
-HEAD = "ee66aa77bb88"
+HEAD = "ff11aa22bb33"
 
 # This migration adds NO columns to existing tables — only creates new tables
 NEW_COLUMNS = {}
