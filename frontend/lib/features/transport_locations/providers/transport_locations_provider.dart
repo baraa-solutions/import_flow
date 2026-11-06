@@ -1,9 +1,42 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../core/constants/api_constants.dart';
-import '../models/transport_location_model.dart';
-import '../../../core/network/api_client.dart';
 
+import '../../../core/constants/api_constants.dart';
+import '../../../core/network/api_client.dart';
+import '../../../core/widgets/paged_data_table/list_query.dart';
+import '../../../core/widgets/paged_data_table/paged_list_notifier.dart';
+import '../models/transport_location_model.dart';
+
+/// Live Server-Paged provider for Transport Locations virtualization and server pagination
+final transportLocationsPagedProvider = StateNotifierProvider.autoDispose<
+    DefaultPagedListNotifier<TransportLocationModel>,
+    PagedListState<TransportLocationModel>>((ref) {
+  final dio = ref.watch(dioProvider);
+  final memoryLocations = ref.watch(transportLocationsProvider).asData?.value ?? <TransportLocationModel>[];
+
+  final PagedSource<TransportLocationModel> source = memoryLocations.isNotEmpty
+      ? ClientPagedSource<TransportLocationModel>.fromList(
+          memoryLocations,
+          searchMatcher: (loc, query) =>
+              loc.locationName.toLowerCase().contains(query.toLowerCase()) ||
+              loc.unLocode.toLowerCase().contains(query.toLowerCase()) ||
+              loc.city.toLowerCase().contains(query.toLowerCase()) ||
+              loc.country.toLowerCase().contains(query.toLowerCase()),
+        )
+      : ServerPagedSource<TransportLocationModel>(
+          dio: dio,
+          path: '${ApiConstants.baseUrl}/transport-locations/paginated',
+          fromJson: TransportLocationModel.fromJson,
+        );
+
+  final notifier = DefaultPagedListNotifier<TransportLocationModel>(
+    source,
+    initialQuery: const ListQuery(page: 1, pageSize: 50, sort: 'un_locode', includeInactive: true),
+  );
+
+  notifier.load();
+  return notifier;
+});
 
 final transportLocationsProvider =
     StateNotifierProvider<TransportLocationsNotifier, AsyncValue<List<TransportLocationModel>>>((ref) {

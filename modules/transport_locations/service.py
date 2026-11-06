@@ -58,9 +58,9 @@ class TransportLocationService:
             )
         return location
 
-    def create(self, data: TransportLocationCreate) -> TransportLocation:
+    def create(self, data: TransportLocationCreate, commit: bool = True) -> TransportLocation:
         self.validator.validate_no_duplicate_locode(data.un_locode)
-        return self.repo.create(data)
+        return self.repo.create(data, commit=commit)
 
     def update(self, location_id: int, data: TransportLocationUpdate) -> TransportLocation:
         location = self.get_by_id(location_id)

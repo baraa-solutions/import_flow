@@ -9,6 +9,7 @@ import '../providers/customs_tariff_provider.dart';
 import '../widgets/add_agreement_dialog.dart';
 import '../widgets/tariff_form_dialog.dart';
 import '../widgets/verify_tariff_dialog.dart';
+import 'anti_dumping_hazard_card.dart';
 
   void showNafezaDetailsDialog(
       BuildContext context, WidgetRef ref, CustomsTariffModel tariff) {
@@ -128,6 +129,8 @@ import '../widgets/verify_tariff_dialog.dart';
                               ],
                             ),
                           ),
+                          if (tariff.hasAntiDumpingRisk)
+                            AntiDumpingHazardCard(tariff: tariff),
                           const SizedBox(height: 16),
                           const Divider(height: 20, thickness: 1),
 
@@ -378,6 +381,16 @@ Widget _buildNafezaRulesList(
           'ق 4547 - يشترط للإفراج عن الصنف وارد تجار أن يكون إنتاج مصانع مسجلة من شركات مالكة للعلامة أو مطبقاً للائحة الفحص المعتمدة');
     }
 
+    // Anti-Dumping Rules from Nafeza
+    if (tariff.antiDumpingNotes != null && tariff.antiDumpingNotes!.isNotEmpty) {
+      for (final noteLine in tariff.antiDumpingNotes!.split('\n')) {
+        final trimmed = noteLine.trim();
+        if (trimmed.isNotEmpty && !rules.contains(trimmed)) {
+          rules.add(trimmed);
+        }
+      }
+    }
+
     // General VAT Rule matching screenshot (ر 7042 - يحصل ضريبة قيمة مضافة بمقدار14% [عام])
     rules.add(
         'ر 7042 - يحصل ضريبة قيمة مضافة بمقدار ${tariff.vatRate.toStringAsFixed(0)}% [عام]');
@@ -389,22 +402,27 @@ Widget _buildNafezaRulesList(
 
     return Column(
       children: rules.map((ruleText) {
+        final isAntiDumping = ruleText.trim().startsWith('غ') || ruleText.contains('إغراق') || ruleText.contains('اغراق');
         return Container(
           margin: const EdgeInsets.only(bottom: 8),
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          decoration: const BoxDecoration(
-            color: Color(0xFFF8F9FA),
+          decoration: BoxDecoration(
+            color: isAntiDumping ? AppTheme.flatCrimson.withValues(alpha: 0.06) : const Color(0xFFF8F9FA),
             border: BorderDirectional(
-              start: BorderSide(color: Color(0xFF1B65A8), width: 3.5),
+              start: BorderSide(
+                color: isAntiDumping ? AppTheme.flatCrimson : const Color(0xFF1B65A8),
+                width: 3.5,
+              ),
             ),
           ),
           child: Align(
             alignment: AlignmentDirectional.centerEnd,
             child: Text(
               ruleText,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 13,
-                color: AppTheme.charcoal,
+                fontWeight: isAntiDumping ? FontWeight.w600 : FontWeight.normal,
+                color: isAntiDumping ? AppTheme.flatCrimson : AppTheme.charcoal,
                 height: 1.4,
               ),
               textDirection: TextDirection.rtl,

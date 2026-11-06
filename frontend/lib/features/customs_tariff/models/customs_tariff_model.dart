@@ -36,6 +36,8 @@ class CustomsTariffModel {
   final bool requiresAcid;
   final String? regulatoryAuthority;
   final String? priorApprovalNote;
+  final bool hasAntiDumpingRisk;
+  final String? antiDumpingNotes;
 
   final DateTime effectiveFrom;
   final DateTime? effectiveTo;
@@ -69,6 +71,8 @@ class CustomsTariffModel {
     required this.requiresAcid,
     this.regulatoryAuthority,
     this.priorApprovalNote,
+    this.hasAntiDumpingRisk = false,
+    this.antiDumpingNotes,
     required this.effectiveFrom,
     this.effectiveTo,
     this.sourceUrl,
@@ -99,6 +103,8 @@ class CustomsTariffModel {
       requiresAcid: json['requires_acid'] as bool? ?? false,
       regulatoryAuthority: json['regulatory_authority']?.toString(),
       priorApprovalNote: json['prior_approval_note']?.toString(),
+      hasAntiDumpingRisk: json['has_anti_dumping_risk'] as bool? ?? false,
+      antiDumpingNotes: json['anti_dumping_notes']?.toString(),
       effectiveFrom: json['effective_from'] != null
           ? DateTime.tryParse(json['effective_from'].toString()) ?? DateTime.now()
           : DateTime.now(),
@@ -137,6 +143,8 @@ class CustomsTariffModel {
         'requires_inspection': requiresInspection,
         'requires_acid': requiresAcid,
         'regulatory_authority': regulatoryAuthority,
+        'has_anti_dumping_risk': hasAntiDumpingRisk,
+        if (antiDumpingNotes != null) 'anti_dumping_notes': antiDumpingNotes,
         'effective_from': effectiveFrom.toIso8601String().split('T').first,
         'effective_to': effectiveTo?.toIso8601String().split('T').first,
         'notes': notes,

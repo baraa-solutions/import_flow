@@ -93,6 +93,8 @@ class NafezaIntegrationClient:
                 "requires_inspection": tariff_create.requires_inspection,
                 "regulatory_authority": tariff_create.regulatory_authority,
                 "prior_approval_note": tariff_create.prior_approval_note,
+                "has_anti_dumping_risk": tariff_create.has_anti_dumping_risk,
+                "anti_dumping_notes": tariff_create.anti_dumping_notes,
                 "source_url": tariff_create.source_url,
             }
             tariff_record = tariff_repo.update_tariff(db, existing_tariff.tariff_id, update_data)
@@ -101,6 +103,14 @@ class NafezaIntegrationClient:
             db.refresh(tariff_record)
         else:
             tariff_record = create_tariff_service(db, tariff_create)
+
+        if getattr(tariff_record, "has_anti_dumping_risk", False):
+            from modules.experience_guide.service import ExperienceGuideService
+            ExperienceGuideService(db).sync_anti_dumping_guide_entry(
+                tariff_record.hs_code,
+                tariff_record.hs_description,
+                tariff_record.anti_dumping_notes,
+            )
 
         # Sync agreements
         synced_agreements = []

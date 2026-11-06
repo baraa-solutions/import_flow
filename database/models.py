@@ -17,7 +17,7 @@ from modules.customs_abandonment.model import CustomsAbandonmentRadar
 from modules.customs_clearance.model import ClearanceExpenseInvoice, ClearanceFollowupLog, CustomsClearanceRecord
 from modules.customs_clearance_quotations.model import ClearanceServicePriceListItem, CustomsClearanceQuotationItem, CustomsClearanceRFQ
 from modules.customs_consultation.model import BrokerPriceList, BrokerPriceListItem, ClearanceExpenseType, CustomsBrokerQuoteItem, CustomsChecklistItem, CustomsConsultationSession
-from modules.customs_tariff.model import CustomsTariff, FeeCode, PreferentialAgreement
+from modules.customs_tariff.model import CustomsTariff, FeeCode, PreferentialAgreement, TradeRemedyMeasure
 from modules.demurrage_detention.model import Carrier, CarrierDemurrageRate, DemurragePolicy, DemurrageTracking, Terminal, TerminalStorageRate
 from modules.docs_customs_approval.model import CustomsDocumentApproval, DiscrepancyRectificationTicket, DocsCustomsApprovalSession
 from modules.expense_catalog.model import ExpenseCatalog

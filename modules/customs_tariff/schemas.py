@@ -37,6 +37,8 @@ class CustomsTariffCreate(BaseModel):
     requires_acid: bool = Field(default=True, description="يتطلب ACID")
     regulatory_authority: Optional[str] = Field(None, max_length=500, description="الجهات الرقابية")
     prior_approval_note: Optional[str] = Field(None, description="ملاحظات وشروط الموافقة المسبقة")
+    has_anti_dumping_risk: bool = Field(default=False, description="خاضع لاشتراطات رسوم الإغراق والتدابير الوقائية")
+    anti_dumping_notes: Optional[str] = Field(None, description="ملاحظات وتفاصيل رسوم الإغراق والحساب الخاص")
 
     # Effective dates
     effective_from: date = Field(default_factory=date.today, description="تاريخ بداية السريان")
@@ -86,6 +88,8 @@ class CustomsTariffUpdate(BaseModel):
     requires_acid: Optional[bool] = None
     regulatory_authority: Optional[str] = Field(None, max_length=500)
     prior_approval_note: Optional[str] = None
+    has_anti_dumping_risk: Optional[bool] = None
+    anti_dumping_notes: Optional[str] = None
 
     effective_from: Optional[date] = None
     effective_to: Optional[date] = None
@@ -127,6 +131,8 @@ class CustomsTariffResponse(BaseModel):
     requires_acid: bool
     regulatory_authority: Optional[str]
     prior_approval_note: Optional[str]
+    has_anti_dumping_risk: bool = False
+    anti_dumping_notes: Optional[str] = None
 
     effective_from: date
     effective_to: Optional[date]
@@ -353,6 +359,22 @@ class CustomsDutyEstimateRequest(BaseModel):
     packaging_egp: Decimal = Field(default=Decimal("0.00"), ge=0, description="قيمة التعبئة والتغليف بالجنيه")
     origin_country: Optional[str] = Field(None, description="بلد المنشأ (رمز ISO e.g. IT, TR, CN)")
     estimate_date: Optional[date] = Field(None, description="تاريخ التقدير — None يعني اليوم")
+    weight_kg: Decimal = Field(default=Decimal("0.00"), ge=0, description="الوزن بالكيلوجرام (لرسوم الحماية المحسوبة بالطن)")
+    qty: Decimal = Field(default=Decimal("0.00"), ge=0, description="الكمية (لرسوم الحماية المحسوبة بالوحدة)")
+    exporter_name: Optional[str] = Field(None, description="اسم المصدّر (لرسوم الإغراق المحددة لمصدّر بعينه)")
+
+
+class TradeRemedyLineDuty(BaseModel):
+    """One applied measure on one item, kept in the breakdown so the figure can be traced to its decree."""
+    measure_code: str
+    measure_type: str
+    duty_basis: str
+    decree_ref: str
+    rate_percent: Optional[Decimal] = None
+    fixed_amount: Optional[Decimal] = None
+    fixed_currency: Optional[str] = None
+    exchange_rate: Optional[Decimal] = None
+    amount_egp: Decimal
 
 
 class CustomsDutyBreakdown(BaseModel):
@@ -413,6 +435,14 @@ class CustomsDutyBreakdown(BaseModel):
     requires_acid: bool
     regulatory_authority: Optional[str]
 
+    # رسوم الإغراق والتدابير الوقائية
+    has_anti_dumping_risk: bool = False
+    anti_dumping_notes: Optional[str] = None
+    trade_remedy_duty_egp: Decimal = Decimal("0.00")
+    trade_remedy_duties: List[TradeRemedyLineDuty] = Field(default_factory=list)
+    trade_remedy_notice_code: Optional[str] = None
+    trade_remedy_notice_params: Optional[dict] = None
+
     model_config = ConfigDict(from_attributes=True)
 
 
@@ -433,6 +463,7 @@ class MultiItemCustomsEstimateLine(BaseModel):
     value_without_payment_fc: Decimal = Field(default=Decimal("0.00"), ge=0, description="قيمة بدون دفع إن وجدت")
     inspection_fee_egp: Decimal = Field(default=Decimal("0.00"), ge=0, description="رسوم فحص أجر خدمات مخصص للصنف إن وجد")
     is_exemption_conditions_met: Optional[bool] = Field(None, description="هل تم استيفاء وتطبيق شروط الإعفاء الجمركي للبند (اتفاقية شراكة / تصنيع / شهادة منشأ مستوفاة)")
+    exporter_name: Optional[str] = Field(None, description="اسم المصدّر (لرسوم الإغراق المحددة لمصدّر بعينه)")
 
     @model_validator(mode="after")
     def validate_exempted_and_unpaid(self) -> "MultiItemCustomsEstimateLine":
@@ -504,6 +535,12 @@ class MultiItemCustomsLineBreakdown(BaseModel):
 
     inspection_fee_egp: Decimal
 
+    # رسوم الإغراق
+    has_anti_dumping_risk: bool = False
+    anti_dumping_notes: Optional[str] = None
+    trade_remedy_duty_egp: Decimal = Decimal("0.00")
+    trade_remedy_duties: List[TradeRemedyLineDuty] = Field(default_factory=list)
+
     # Audit Trail Flags
     insurance_source: str = Field("actual", description="مصدر حساب التأمين: actual أو deemed")
     freight_source: str = Field("actual", description="مصدر حساب النولون: actual أو deemed")
@@ -548,6 +585,11 @@ class MultiItemCustomsBreakdown(BaseModel):
     total_import_fee_egp: Decimal = Decimal("0.00")
     total_inspection_fees_egp: Decimal
 
+    total_trade_remedy_duty_egp: Decimal = Decimal("0.00")
+    has_anti_dumping_risk: bool = False
+    trade_remedy_notice_code: Optional[str] = None
+    trade_remedy_notice_params: Optional[dict] = None
+
     items_taxes_total_egp: Decimal
     grand_total_payable_egp: Decimal
 
@@ -575,3 +617,57 @@ class ImportFileCustomsSimulationResponse(BaseModel):
     skipped_lines: List[dict] = Field(default_factory=list, description="البنود التي تم استبعادها لعدم وجود بند جمركي أو قيمة")
 
 
+
+
+# ==================================================
+# Trade remedies: anti-dumping, safeguard and countervailing duties
+# ==================================================
+
+TradeRemedyType = Literal["ANTI_DUMPING", "SAFEGUARD", "COUNTERVAILING"]
+TradeRemedyBasis = Literal["PERCENT_OF_CIF", "FIXED_PER_TON", "FIXED_PER_UNIT"]
+
+
+class TradeRemedyMeasureBase(BaseModel):
+    measure_type: TradeRemedyType
+    hs_code: str = Field(..., min_length=4, max_length=20, description="البند أو البند الفرعي (من غير نقط) — يطبَّق على كل صنف يبدأ به")
+    origin_country: Optional[str] = Field(None, min_length=2, max_length=2, description="بلد المنشأ ISO-2؛ فاضي = كل بلاد المنشأ")
+    exporter_name: Optional[str] = Field(None, max_length=200, description="مصدّر بعينه؛ فاضي = باقي المصدّرين")
+    duty_basis: TradeRemedyBasis
+    rate_percent: Optional[Decimal] = Field(None, ge=0, le=1000)
+    fixed_amount: Optional[Decimal] = Field(None, ge=0)
+    fixed_currency: Optional[str] = Field(None, min_length=3, max_length=3)
+    decree_ref: str = Field(..., min_length=1, max_length=100, description="رقم القرار الوزاري / المنشور الجمركي")
+    effective_from: date
+    effective_to: Optional[date] = None
+    notes: Optional[str] = None
+
+
+class TradeRemedyMeasureCreate(TradeRemedyMeasureBase):
+    pass
+
+
+class TradeRemedyMeasureUpdate(BaseModel):
+    measure_type: Optional[TradeRemedyType] = None
+    hs_code: Optional[str] = Field(None, min_length=4, max_length=20)
+    origin_country: Optional[str] = Field(None, min_length=2, max_length=2)
+    exporter_name: Optional[str] = Field(None, max_length=200)
+    duty_basis: Optional[TradeRemedyBasis] = None
+    rate_percent: Optional[Decimal] = Field(None, ge=0, le=1000)
+    fixed_amount: Optional[Decimal] = Field(None, ge=0)
+    fixed_currency: Optional[str] = Field(None, min_length=3, max_length=3)
+    decree_ref: Optional[str] = Field(None, min_length=1, max_length=100)
+    effective_from: Optional[date] = None
+    effective_to: Optional[date] = None
+    notes: Optional[str] = None
+
+
+class TradeRemedyMeasureResponse(TradeRemedyMeasureBase):
+    model_config = ConfigDict(from_attributes=True)
+
+    measure_id: int
+    measure_code: str
+    is_active: bool
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+    created_by: Optional[str] = None
+    updated_by: Optional[str] = None

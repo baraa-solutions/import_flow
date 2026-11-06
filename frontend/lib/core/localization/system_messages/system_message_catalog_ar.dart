@@ -1664,6 +1664,39 @@ const Map<String, Map<String, String>> systemMessageCatalogAr = {
   'CT_CUSTOMS_RATE_MISSING': {
     'note': 'لا يوجد سعر صرف جمركي مسجل للعملة \'{currency}\' بتاريخ {on_date}.',
   },
+  'TRM_INVALID_HS': {
+    'note': 'البند الجمركي \'{hs_code}\' غير صالح: لازم 4 أرقام على الأقل.',
+  },
+  'TRM_INVALID_ORIGIN': {
+    'note': 'بلد المنشأ \'{origin_country}\' لازم يكون رمز ISO من حرفين.',
+  },
+  'TRM_BASIS_FIELDS_MISSING': {
+    'note': 'أساس الحساب {duty_basis} محتاج النسبة المئوية أو المبلغ الثابت وعملته.',
+  },
+  'TRM_INVALID_DATES': {
+    'note': 'تاريخ نهاية السريان ({effective_to}) قبل تاريخ بدايته ({effective_from}).',
+  },
+  'TRM_OVERLAP': {
+    'note': 'التدبير {measure_code} مسجل لنفس البند وبلد المنشأ والمصدّر في نفس الفترة.',
+  },
+  'TRM_NOT_FOUND': {
+    'note': 'تدبير الحماية التجارية رقم {measure_id} غير موجود.',
+  },
+  'CT_TRADE_REMEDY_ORIGIN_MISSING': {
+    'note': 'البند {hs_code} عليه تدبير {measure_type} حسب بلد المنشأ؛ حدّد بلد المنشأ لحساب الرسم.',
+  },
+  'CT_TRADE_REMEDY_EXPORTER_MISSING': {
+    'note': 'تدبير {measure_type} على البند {hs_code} محدد لمصدّرين بعينهم؛ حدّد اسم المصدّر لحساب الرسم.',
+  },
+  'CT_TRADE_REMEDY_QTY_MISSING': {
+    'note': 'رسم الحماية على البند {hs_code} محسوب على أساس {duty_basis}؛ أدخل الوزن أو الكمية الفعلية للصنف.',
+  },
+  'CT_TRADE_REMEDY_DEPOSIT': {
+    'note': 'حصيلة رسوم الحماية التجارية ({decree_refs}) تُورَّد لحساب وزارة الاستثمار والتجارة الخارجية.',
+  },
+  'CT_TRADE_REMEDY_RATE_MISSING': {
+    'note': 'البند {hs_codes} عليه إشارة رسوم إغراق أو تدابير وقائية لكن مفيش تدبير ساري مسجل، فالرسم مش داخل في الحساب. سجّل القرار في تدابير الحماية التجارية.',
+  },
   'CT_AGREEMENT_DATA_INVALID': {
     'note': 'بيانات اتفاقية التجارة التفضيلية غير صحيحة ({reason}).',
   },

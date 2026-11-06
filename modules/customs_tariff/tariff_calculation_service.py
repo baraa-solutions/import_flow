@@ -29,7 +29,9 @@ from .schemas import (
     MultiItemCustomsEstimateLine,
     MultiItemCustomsEstimateRequest,
     MultiItemCustomsLineBreakdown,
+    TradeRemedyLineDuty,
 )
+from .trade_remedy_service import resolve_trade_remedy_duties, trade_remedy_notice
 from .tariff_agreements_service import (
     EXEMPTIONS_REGISTRY,
     _agreement_duty_rate,
@@ -288,18 +290,29 @@ def estimate_customs_duty_service(
     import_fee_amount = _round(cif * (import_fee_rate / Decimal("100")))
     customs_service_fee_amount = _round(cif * (svc_fee_rate / Decimal("100")))
 
-    # Unified VAT Base equation: CIF Base + Actual Import Duty Amount
-    vat_base = cif + import_duty_amount
+    # Trade remedies (anti-dumping / safeguard / countervailing): only registered, effective measures count.
+    has_dumping = bool(getattr(tariff, "has_anti_dumping_risk", False))
+    dumping_notes = getattr(tariff, "anti_dumping_notes", None)
+    dumping_amount, remedy_duties = resolve_trade_remedy_duties(
+        db, request.hs_code, request.origin_country, request.exporter_name,
+        cif, request.weight_kg, request.qty, on_date,
+    )
+
+    # Unified VAT Base equation: CIF Base + Actual Import Duty Amount + Anti-Dumping Duty Amount
+    vat_base = cif + import_duty_amount + dumping_amount
     vat_amount = _round(vat_base * (vat_rate / Decimal("100")))
 
     total_taxes = (
         import_duty_amount
+        + dumping_amount
         + vat_amount
         + schedule_tax_amount
         + development_fee_amount
         + import_fee_amount
         + customs_service_fee_amount
     )
+
+    notice_code, notice_params = trade_remedy_notice([request.hs_code] if has_dumping else [], remedy_duties)
 
     return CustomsDutyBreakdown(
         hs_code=tariff.hs_code,
@@ -330,6 +343,12 @@ def estimate_customs_duty_service(
         requires_inspection=tariff.requires_inspection,
         requires_acid=tariff.requires_acid,
         regulatory_authority=tariff.regulatory_authority,
+        has_anti_dumping_risk=has_dumping,
+        anti_dumping_notes=dumping_notes,
+        trade_remedy_duty_egp=dumping_amount,
+        trade_remedy_duties=remedy_duties,
+        trade_remedy_notice_code=notice_code,
+        trade_remedy_notice_params=notice_params,
     )
 
 
@@ -420,6 +439,9 @@ def estimate_multi_item_customs_duty_service(
     total_development_fee_egp = Decimal("0.00")
     total_import_fee_egp = Decimal("0.00")
     total_inspection_fees_egp = Decimal("0.00")
+    total_trade_remedy_duty_egp = Decimal("0.00")
+    flagged_hs_codes: List[str] = []
+    applied_remedies: List[TradeRemedyLineDuty] = []
 
     for idx, line in enumerate(request.lines):
         # Strict Tariff Lookup — FAIL LOUDLY if HS Code is not in DB on date (Issue #1)
@@ -511,14 +533,26 @@ def estimate_multi_item_customs_duty_service(
         development_fee_line_egp = _round(cif_line_egp * (dev_rate / Decimal("100")))
         import_fee_line_egp = _round(cif_line_egp * (imp_fee_rate / Decimal("100")))
 
-        # Unified VAT Base Equation: CIF Line EGP + Actual Import Duty EGP (Issue #4)
+        # Trade remedies for the line: registered measures by HS code, origin and exporter only
+        line_has_dumping = bool(getattr(tariff, "has_anti_dumping_risk", False))
+        line_dumping_notes = getattr(tariff, "anti_dumping_notes", None)
+        line_dumping_egp, line_remedies = resolve_trade_remedy_duties(
+            db, line.hs_code, line.origin_country, line.exporter_name,
+            cif_line_egp, line.weight_kg, line.qty, on_date,
+        )
+        applied_remedies.extend(line_remedies)
+        if line_has_dumping:
+            flagged_hs_codes.append(line.hs_code)
+
+        # Unified VAT Base Equation: CIF Line EGP + Actual Import Duty EGP + Anti-Dumping Duty (Issue #4)
         vat_taxable_base_egp, _ = apply_exemption(cif_line_egp, exemption_info, "vat")
-        vat_base_egp = vat_taxable_base_egp + duty_line_egp
+        vat_base_egp = vat_taxable_base_egp + duty_line_egp + line_dumping_egp
         vat_line_egp = _round(vat_base_egp * (vat_rate / Decimal("100")))
 
         inspection_fee_line_egp = _round(line.inspection_fee_egp)
 
         total_duty_egp += duty_line_egp
+        total_trade_remedy_duty_egp += line_dumping_egp
         total_schedule_tax_egp += schedule_tax_line_egp
         total_vat_egp += vat_line_egp
         total_customs_service_fee_egp += customs_service_fee_line_egp
@@ -556,6 +590,10 @@ def estimate_multi_item_customs_duty_service(
                 customs_service_fee_rate=svc_fee_rate,
                 customs_service_fee_egp=customs_service_fee_line_egp,
                 inspection_fee_egp=inspection_fee_line_egp,
+                has_anti_dumping_risk=line_has_dumping,
+                anti_dumping_notes=line_dumping_notes,
+                trade_remedy_duty_egp=line_dumping_egp,
+                trade_remedy_duties=line_remedies,
                 insurance_source=insurance_source,
                 freight_source=freight_source,
                 exemption_code_applied=exemption_code_to_apply if exemption_info else None,
@@ -595,8 +633,11 @@ def estimate_multi_item_customs_duty_service(
         else extra_nafeza_fees
     )
 
+    multi_notice_code, multi_notice_params = trade_remedy_notice(flagged_hs_codes, applied_remedies)
+
     items_taxes_total_egp = (
         total_duty_egp
+        + total_trade_remedy_duty_egp
         + total_schedule_tax_egp
         + total_customs_service_fee_egp
         + total_vat_egp
@@ -634,6 +675,10 @@ def estimate_multi_item_customs_duty_service(
         total_inspection_fees_egp=total_inspection_fees_egp,
         items_taxes_total_egp=items_taxes_total_egp,
         grand_total_payable_egp=grand_total_payable_egp,
+        total_trade_remedy_duty_egp=total_trade_remedy_duty_egp,
+        has_anti_dumping_risk=bool(flagged_hs_codes or applied_remedies),
+        trade_remedy_notice_code=multi_notice_code,
+        trade_remedy_notice_params=multi_notice_params,
         fee_codes_breakdown=fee_codes_result,
     )
 

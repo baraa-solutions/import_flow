@@ -66,6 +66,8 @@ class CustomsTariff(Base):
     """الجهات الرقابية المسؤولة (NTRA, GOEIC, MOH, etc.)"""
 
     prior_approval_note = Column(Text, nullable=True)
+    has_anti_dumping_risk = Column(Boolean, default=False, nullable=False, index=True)
+    anti_dumping_notes = Column(Text, nullable=True)
     """ملاحظات وشروط الموافقة المسبقة (ملحق 8 وتعديلاته)"""
 
     # ==================================================
@@ -225,3 +227,58 @@ class FeeCode(Base):
     created_by = Column(String(100), nullable=True)
     updated_by = Column(String(100), nullable=True)
 
+
+
+class TradeRemedyMeasure(Base):
+    """
+    تدابير الحماية التجارية: رسوم الإغراق، التدابير الوقائية، الرسوم التعويضية.
+
+    The duty of a measure is never guessed: it is applied only when a registered, effective measure
+    matches the item's HS code (prefix), its origin country (or every origin when origin is empty)
+    and, for exporter-specific rates, the exporter.
+    """
+
+    __tablename__ = "trade_remedy_measures"
+
+    measure_id = Column(Integer, primary_key=True, autoincrement=True, index=True)
+    measure_code = Column(String(30), nullable=False, unique=True, index=True)
+    """Business reference shown to users e.g. TRM-000001."""
+
+    measure_type = Column(String(30), nullable=False, index=True)
+    """ANTI_DUMPING / SAFEGUARD / COUNTERVAILING"""
+
+    hs_code = Column(String(20), nullable=False, index=True)
+    """HS code or heading (without dots) the measure covers; applies to every item starting with it."""
+
+    origin_country = Column(String(2), nullable=True, index=True)
+    """ISO-2 origin; empty = every origin (typical for safeguard measures)."""
+
+    exporter_name = Column(String(200), nullable=True)
+    """Exporter-specific rate; empty = the rate for all other exporters of that origin."""
+
+    duty_basis = Column(String(30), nullable=False)
+    """PERCENT_OF_CIF / FIXED_PER_TON / FIXED_PER_UNIT"""
+
+    rate_percent = Column(Numeric(7, 3), nullable=True)
+    fixed_amount = Column(Numeric(14, 2), nullable=True)
+    fixed_currency = Column(String(3), nullable=True)
+
+    decree_ref = Column(String(100), nullable=False)
+    """Ministerial decree / customs publication e.g. 'قرار وزاري 123/2026' or 'غ6555'."""
+
+    effective_from = Column(Date, nullable=False)
+    effective_to = Column(Date, nullable=True)
+    notes = Column(Text, nullable=True)
+
+    is_active = Column(Boolean, default=True, nullable=False, index=True)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
+    updated_at = Column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
+    created_by = Column(String(100), nullable=True)
+    updated_by = Column(String(100), nullable=True)
+    deleted_at = Column(DateTime(timezone=True), nullable=True)
+    deleted_by = Column(String(100), nullable=True)

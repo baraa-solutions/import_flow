@@ -8,6 +8,9 @@ from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, Tabl
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib import colors
 from fastapi import Response, HTTPException, status
+from contextlib import contextmanager
+from typing import Callable
+from sqlalchemy.orm import Session
 
 
 class MasterDataExportImportHelper:
@@ -162,6 +165,82 @@ class MasterDataExportImportHelper:
             parsed_data.append(row_dict)
 
         return parsed_data
+
+    @staticmethod
+    @contextmanager
+    def atomic_transaction(db: Session):
+        """
+        Guarantees atomic All-or-Nothing execution via savepoint/nested transaction.
+        If an exception is raised, rolls back immediately to prevent partial database mutations.
+        """
+        is_nested = db.in_transaction()
+        savepoint = db.begin_nested() if is_nested else db.begin()
+        try:
+            yield savepoint
+            savepoint.commit()
+        except Exception:
+            savepoint.rollback()
+            raise
+
+    @staticmethod
+    def execute_atomic_import(
+        db: Session,
+        rows: List[Dict[str, Any]],
+        process_row_fn: Callable[[int, Dict[str, Any]], Any],
+    ) -> Dict[str, Any]:
+        """
+        Executes an atomic import (All-or-Nothing) using an isolated transaction savepoint.
+        If ANY row fails validation or DB insertion, the entire batch is rolled back immediately,
+        guaranteeing zero partial records remain committed in the database.
+        """
+        if not rows:
+            return {"message": "No rows to import.", "imported_count": 0, "errors": []}
+
+        errors: List[str] = []
+        is_nested = db.in_transaction()
+        savepoint = db.begin_nested() if is_nested else db.begin()
+        imported_count = 0
+
+        try:
+            for idx, row in enumerate(rows, start=2):
+                try:
+                    process_row_fn(idx, row)
+                    imported_count += 1
+                except Exception as ex:
+                    errors.append(f"Row {idx}: {str(ex)}")
+
+            if errors:
+                savepoint.rollback()
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail={
+                        "message": f"Import aborted: {len(errors)} error(s) encountered. All changes were rolled back (All-or-Nothing).",
+                        "errors": errors,
+                        "imported_count": 0,
+                    },
+                )
+
+            savepoint.commit()
+            return {
+                "message": f"Successfully imported {imported_count} records.",
+                "imported_count": imported_count,
+                "errors": [],
+            }
+        except HTTPException:
+            if getattr(savepoint, "is_active", False):
+                savepoint.rollback()
+            raise
+        except Exception as e:
+            if getattr(savepoint, "is_active", False):
+                savepoint.rollback()
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail={
+                    "message": f"Unexpected error during import: {str(e)}. All changes rolled back.",
+                    "errors": [str(e)],
+                    "imported_count": 0,
+                },
+            )
 
     @staticmethod
     def export_to_excel(filename_title: str, headers: List[str], rows_data: List[List[Any]], lang: str = "ar") -> bytes:

@@ -4,7 +4,7 @@ from typing import List, Optional, Tuple
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
-from .model import CustomsTariff, PreferentialAgreement
+from .model import CustomsTariff, PreferentialAgreement, TradeRemedyMeasure
 
 
 # ==================================================
@@ -409,3 +409,69 @@ def create_fee_code(db: Session, data: dict) -> FeeCode:
     return fc
 
 
+
+
+# ==================================================
+# Trade remedy measures
+# ==================================================
+
+def get_trade_remedy_measure(db: Session, measure_id: int, include_inactive: bool = False) -> Optional[TradeRemedyMeasure]:
+    query = db.query(TradeRemedyMeasure).filter(TradeRemedyMeasure.measure_id == measure_id)
+    if not include_inactive:
+        query = query.filter(TradeRemedyMeasure.is_active == True)
+    return query.first()
+
+
+def list_trade_remedy_measures(
+    db: Session,
+    hs_code: Optional[str] = None,
+    origin_country: Optional[str] = None,
+    measure_type: Optional[str] = None,
+    include_inactive: bool = False,
+) -> List[TradeRemedyMeasure]:
+    query = db.query(TradeRemedyMeasure)
+    if not include_inactive:
+        query = query.filter(TradeRemedyMeasure.is_active == True)
+    if hs_code:
+        query = query.filter(TradeRemedyMeasure.hs_code.like(f"{hs_code.strip().replace('.', '')}%"))
+    if origin_country:
+        query = query.filter(TradeRemedyMeasure.origin_country == origin_country.strip().upper())
+    if measure_type:
+        query = query.filter(TradeRemedyMeasure.measure_type == measure_type)
+    return query.order_by(TradeRemedyMeasure.hs_code, TradeRemedyMeasure.effective_from.desc()).all()
+
+
+def list_trade_remedy_measures_for_key(
+    db: Session, measure_type: str, hs_code: str, origin_country: Optional[str], exporter_name: Optional[str]
+) -> List[TradeRemedyMeasure]:
+    query = db.query(TradeRemedyMeasure).filter(
+        TradeRemedyMeasure.is_active == True,
+        TradeRemedyMeasure.measure_type == measure_type,
+        TradeRemedyMeasure.hs_code == hs_code,
+    )
+    query = query.filter(
+        TradeRemedyMeasure.origin_country == origin_country
+        if origin_country else TradeRemedyMeasure.origin_country.is_(None)
+    )
+    query = query.filter(
+        TradeRemedyMeasure.exporter_name == exporter_name
+        if exporter_name else TradeRemedyMeasure.exporter_name.is_(None)
+    )
+    return query.all()
+
+
+def find_effective_trade_remedy_measures(db: Session, hs_code: str, on_date: date) -> List[TradeRemedyMeasure]:
+    """Active measures in force on ``on_date`` whose HS code is a prefix of ``hs_code`` (origin filtered later)."""
+    from sqlalchemy import literal
+
+    nodots = (hs_code or "").strip().replace(".", "")
+    return (
+        db.query(TradeRemedyMeasure)
+        .filter(
+            TradeRemedyMeasure.is_active == True,
+            literal(nodots).like(TradeRemedyMeasure.hs_code + "%"),
+            TradeRemedyMeasure.effective_from <= on_date,
+            or_(TradeRemedyMeasure.effective_to == None, TradeRemedyMeasure.effective_to >= on_date),
+        )
+        .all()
+    )
