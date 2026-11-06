@@ -1,0 +1,10 @@
+16 screens that did nothing when clicked in the sidebar now open: master items catalog, price trends, expense catalog, formal letters, custody release, the smart upload hub and the wave 1 to 4 screens.
+Logistics invoices: the clearance advances and payment vouchers tabs now open and show their data.
+The customs abandonment radar (Art. 67) now loads its data from the server.
+Split shipments, multimodal freight and the container board: pick an import file instead of a fixed shipment, and no more sample purchase orders.
+Anti-dumping and safeguard duties: computed from registered decrees (HS code, origin, exporter, rate or fixed amount, effective dates) and included in the VAT base, with a warning on items flagged by Nafeza.
+Nafeza text import: takes the base import duty rate and warns when the page shows several rates.
+Quick search (Ctrl+K) lists every new screen, tab titles follow the interface language, and the goods-in-transit ledger opens the right screen.
+Excel import of projects and ports needs the master-data edit permission and imports all rows or none.
+The top bar clock shows the date and week number again.
+Database upgrades are safer with tables that reference each other.
