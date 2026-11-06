@@ -13728,6 +13728,21 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get phaseDelayedCount => 'شحنات متأخرة';
 
 // === end review phase08_10 keys ===
+
+  // === import file scope selector keys (wave 2 screens) ===
+  @override
+  String get importFileScopeLabel => 'ملف الاستيراد';
+  @override
+  String get importFileScopeRequired => 'اختر ملف استيراد لعرض بياناته';
+  @override
+  String get importFileScopeRequiredHint => 'ابحث في قائمة ملف الاستيراد بالأعلى برقم الملف أو المورد أو الشركة';
+  @override
+  String get splitPoolDialogTitle => 'إعادة توزيع مجمع التكاليف';
+  @override
+  String get splitPoolCustomsLabel => 'إجمالي التكاليف الجمركية للملف';
+  @override
+  String get splitPoolFreightLabel => 'إجمالي تكاليف الشحن للملف';
+  // === end import file scope selector keys ===
 }
 
 

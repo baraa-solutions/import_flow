@@ -87,7 +87,7 @@ class SplitAllocationsListResult {
   }
 }
 
-/// Unallocated PO item placeholder model
+/// PO line of the import file that still has quantity left to allocate.
 class UnallocatedPoItem {
   final int poItemId;
   final int poId;
@@ -107,7 +107,41 @@ class UnallocatedPoItem {
     required this.allocatedQuantity,
   });
 
+  factory UnallocatedPoItem.fromJson(Map<String, dynamic> json) {
+    return UnallocatedPoItem(
+      poItemId: json['po_item_id'] as int,
+      poId: json['po_id'] as int,
+      poNumber: json['po_number'] as String? ?? '',
+      itemSku: json['item_sku'] as String? ?? '',
+      itemName: json['item_name'] as String? ?? '',
+      totalQuantity: (json['total_quantity'] as num?)?.toDouble() ?? 0.0,
+      allocatedQuantity: (json['allocated_quantity'] as num?)?.toDouble() ?? 0.0,
+    );
+  }
+
   double get remainingQuantity => totalQuantity - allocatedQuantity;
+}
+
+/// Unallocated PO lines of one import file plus its master B/L (if recorded).
+class UnallocatedPoItemsResult {
+  final int shipmentId;
+  final String? blNumber;
+  final List<UnallocatedPoItem> items;
+
+  UnallocatedPoItemsResult({
+    required this.shipmentId,
+    required this.blNumber,
+    required this.items,
+  });
+
+  factory UnallocatedPoItemsResult.fromJson(Map<String, dynamic> json) {
+    final list = json['items'] as List<dynamic>? ?? [];
+    return UnallocatedPoItemsResult(
+      shipmentId: json['shipment_id'] as int? ?? 0,
+      blNumber: json['bl_number'] as String?,
+      items: list.map((i) => UnallocatedPoItem.fromJson(i as Map<String, dynamic>)).toList(),
+    );
+  }
 }
 
 /// Repository
@@ -129,6 +163,13 @@ class SplitShipmentsRepository {
       queryParameters: params,
     );
     return SplitAllocationsListResult.fromJson(response.data as Map<String, dynamic>);
+  }
+
+  Future<UnallocatedPoItemsResult> listUnallocatedPoItems(int shipmentId) async {
+    final response = await dio.get(
+      '/api/v1/split-shipments/shipments/$shipmentId/unallocated-po-items',
+    );
+    return UnallocatedPoItemsResult.fromJson(response.data as Map<String, dynamic>);
   }
 
   Future<SplitAllocationData> createAllocation(
@@ -169,13 +210,18 @@ final splitShipmentsRepositoryProvider = Provider<SplitShipmentsRepository>((ref
   return SplitShipmentsRepository(dio);
 });
 
-final splitShipmentIdProvider = StateProvider<int>((ref) => 1);
 final selectedSplitBlFilterProvider = StateProvider<String?>((ref) => null);
 
+/// Keyed by the selected import file id — never fetched without a chosen file.
 final splitAllocationsListProvider =
-    FutureProvider.autoDispose<SplitAllocationsListResult>((ref) async {
+    FutureProvider.autoDispose.family<SplitAllocationsListResult, int>((ref, shipmentId) async {
   final repo = ref.watch(splitShipmentsRepositoryProvider);
-  final shipmentId = ref.watch(splitShipmentIdProvider);
   final splitBl = ref.watch(selectedSplitBlFilterProvider);
   return repo.listAllocations(shipmentId, splitBlNumber: splitBl);
+});
+
+final unallocatedPoItemsProvider =
+    FutureProvider.autoDispose.family<UnallocatedPoItemsResult, int>((ref, shipmentId) async {
+  final repo = ref.watch(splitShipmentsRepositoryProvider);
+  return repo.listUnallocatedPoItems(shipmentId);
 });

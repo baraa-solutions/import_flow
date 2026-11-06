@@ -215,14 +215,13 @@ final containerTrackingRepositoryProvider = Provider<ContainerTrackingRepository
   return ContainerTrackingRepository(dio);
 });
 
-final containerShipmentIdProvider = StateProvider<int>((ref) => 1);
 final containerStatusFilterProvider = StateProvider<String?>((ref) => null);
 final selectedContainerForTimelineProvider = StateProvider<ContainerUnitData?>((ref) => null);
 
+/// Keyed by the selected import file id — never fetched without a chosen file.
 final containerTrackingListProvider =
-    FutureProvider.autoDispose<ContainerListResult>((ref) async {
+    FutureProvider.autoDispose.family<ContainerListResult, int>((ref, shipmentId) async {
   final repo = ref.watch(containerTrackingRepositoryProvider);
-  final shipmentId = ref.watch(containerShipmentIdProvider);
   final status = ref.watch(containerStatusFilterProvider);
   return repo.getShipmentContainers(shipmentId, status: status);
 });

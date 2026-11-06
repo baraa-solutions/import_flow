@@ -331,7 +331,7 @@ class CommandPaletteRegistry {
       subtitleAr: 'حصر البضائع المشحونة التي لم تصل للمخازن بعد ومتابعتها',
       subtitleEn: 'Live ledger of floating inventory and shipments at sea',
       icon: Icons.move_to_inbox_rounded,
-      routeIndex: 63,
+      routeIndex: 57, // Inbound hub, tab 0 = GIT ledger (63 is the import requirements matrix)
       badge: 'GIT',
       keywords: ['git', 'transit', 'بضاعة بالطريق', 'مخزون متحرك'],
     );
@@ -430,6 +430,193 @@ class CommandPaletteRegistry {
       routeIndex: 68,
       badge: 'Inquiry',
       keywords: ['inquiry', 'search', 'clone', 'استعلام', 'بحث', 'استنساخ'],
+    );
+
+    addScreen(
+      id: 'screen_logistics_invoices',
+      titleAr: 'فواتير ومدفوعات الخدمات اللوجستية',
+      titleEn: 'Logistics Invoices & Payments',
+      subtitleAr: 'فواتير الخدمات وسندات الصرف والعُهد وتأمين البضائع',
+      subtitleEn: 'Service invoices, payment vouchers, advances & cargo insurance',
+      icon: Icons.receipt_long_outlined,
+      routeIndex: 70,
+      keywords: ['invoice', 'payment', 'advance', 'فواتير', 'سندات صرف', 'عهد'],
+    );
+
+    addScreen(
+      id: 'screen_expense_catalog',
+      titleAr: 'كتالوج المصروفات الجمركية القياسي',
+      titleEn: 'Expense Catalog & Codes',
+      subtitleAr: 'أكواد المصروفات الموحدة وربطها بالمخلصين',
+      subtitleEn: 'Standard coded expenses and broker mappings',
+      icon: Icons.receipt_long_outlined,
+      routeIndex: 72,
+      keywords: ['expense', 'catalog', 'مصروفات', 'كتالوج'],
+    );
+
+    addScreen(
+      id: 'screen_formal_letters',
+      titleAr: 'محرر ومولد الخطابات الرسمية المعتمدة',
+      titleEn: 'Formal Letters Drafting',
+      subtitleAr: 'توليد الخطابات الرسمية للجمارك والجهات والبنوك',
+      subtitleEn: 'Official letters to customs, agencies and banks',
+      icon: Icons.mark_email_read_outlined,
+      routeIndex: 73,
+      keywords: ['letter', 'خطاب', 'خطابات'],
+    );
+
+    addScreen(
+      id: 'screen_custody_release',
+      titleAr: 'الإفراج تحت التحفظ وتعهدات البضائع',
+      titleEn: 'Customs Custody Release',
+      subtitleAr: 'الإفراج المؤقت تحت التحفظ ومتابعة التعهدات',
+      subtitleEn: 'Under-bond custody release and undertakings',
+      icon: Icons.shield_outlined,
+      routeIndex: 74,
+      keywords: ['custody', 'release', 'تحفظ', 'إفراج', 'تعهد'],
+    );
+
+    addScreen(
+      id: 'screen_smart_upload_hub',
+      titleAr: 'مركز الاستخراج والتدقيق الذكي للمستندات',
+      titleEn: 'AI Document Extraction Hub',
+      subtitleAr: 'رفع المستندات واستخراج بياناتها ومطابقتها',
+      subtitleEn: 'Upload documents, extract data and cross-check',
+      icon: Icons.document_scanner_outlined,
+      routeIndex: 75,
+      keywords: ['upload', 'extract', 'رفع', 'استخراج', 'مستندات'],
+    );
+
+    addScreen(
+      id: 'screen_master_items',
+      titleAr: 'كاتالوج الأصناف والسلع',
+      titleEn: 'Master Items Catalog',
+      subtitleAr: 'الأصناف الموحدة وبنود التعريفة وأسعار الموردين',
+      subtitleEn: 'Unified items, HS codes and supplier prices',
+      icon: Icons.category_outlined,
+      routeIndex: 76,
+      keywords: ['items', 'catalog', 'أصناف', 'سلع'],
+    );
+
+    addScreen(
+      id: 'screen_item_price_trends',
+      titleAr: 'رادار اتجاه الأسعار ومقارنة الصفقات',
+      titleEn: 'Item Price Trends Radar',
+      subtitleAr: 'تاريخ أسعار الأصناف ومقارنة الصفقات بين الموردين',
+      subtitleEn: 'Item price history and supplier deal comparison',
+      icon: Icons.trending_up_outlined,
+      routeIndex: 77,
+      keywords: ['price', 'trend', 'أسعار', 'اتجاه'],
+    );
+
+    addScreen(
+      id: 'screen_regulatory_matrix',
+      titleAr: 'مصفوفة المتطلبات الرقابية',
+      titleEn: 'Regulatory Requirements Matrix',
+      subtitleAr: 'المتطلبات الرقابية والجهات المختصة لكل بند',
+      subtitleEn: 'Regulatory requirements and authorities per item',
+      icon: Icons.rule_outlined,
+      routeIndex: 78,
+      keywords: ['regulatory', 'matrix', 'رقابية', 'متطلبات'],
+    );
+
+    addScreen(
+      id: 'screen_trade_finance',
+      titleAr: 'اعتمادات وتمويل الاستيراد وفروق العملة',
+      titleEn: 'Trade Finance & Letters of Credit',
+      subtitleAr: 'الاعتمادات المستندية والتمويل وفروق العملة',
+      subtitleEn: 'Letters of credit, import finance and FX differences',
+      icon: Icons.account_balance_outlined,
+      routeIndex: 79,
+      keywords: ['lc', 'letter of credit', 'finance', 'اعتماد', 'تمويل'],
+    );
+
+    addScreen(
+      id: 'screen_container_lifecycle',
+      titleAr: 'دورة حياة الحاويات الفردية وغرامات التأخير',
+      titleEn: 'Container Lifecycle & Demurrage',
+      subtitleAr: 'تتبع كل حاوية وغرامات الأرضيات والتأخير',
+      subtitleEn: 'Per-container tracking, demurrage and detention',
+      icon: Icons.inventory_2_outlined,
+      routeIndex: 80,
+      keywords: ['container', 'demurrage', 'حاوية', 'أرضيات', 'غرامات'],
+    );
+
+    addScreen(
+      id: 'screen_split_shipments',
+      titleAr: 'تجزئة الشحنات وتوزيع بنود أوامر الشراء',
+      titleEn: 'Split Shipments & Allocations',
+      subtitleAr: 'توزيع بنود أوامر الشراء على البوالص الجزئية',
+      subtitleEn: 'Allocate PO lines across partial bills of lading',
+      icon: Icons.call_split_outlined,
+      routeIndex: 81,
+      keywords: ['split', 'partial', 'allocation', 'تجزئة', 'جزئية'],
+    );
+
+    addScreen(
+      id: 'screen_multimodal_freight',
+      titleAr: 'عمليات الشحن متعدد الوسائط',
+      titleEn: 'Multimodal Freight Operations',
+      subtitleAr: 'الشحن الجوي والمجمّع والرورو والصب',
+      subtitleEn: 'Air, LCL, Ro-Ro and bulk freight',
+      icon: Icons.flight_takeoff_outlined,
+      routeIndex: 82,
+      keywords: ['multimodal', 'air', 'lcl', 'جوي', 'متعدد الوسائط'],
+    );
+
+    addScreen(
+      id: 'screen_customs_regimes',
+      titleAr: 'النظم الجمركية المعلقة والمناطق الحرة',
+      titleEn: 'Customs Special Regimes',
+      subtitleAr: 'الدروباك والمناطق الحرة والإدخال المؤقت',
+      subtitleEn: 'Drawback, free zones and temporary admission',
+      icon: Icons.account_balance_wallet_outlined,
+      routeIndex: 83,
+      keywords: ['regime', 'free zone', 'drawback', 'مناطق حرة', 'سماح مؤقت'],
+    );
+
+    addScreen(
+      id: 'screen_trade_agreements',
+      titleAr: 'الاتفاقيات التفضيلية وشهادات المنشأ',
+      titleEn: 'Preferential Trade Agreements',
+      subtitleAr: 'الاتفاقيات التجارية والتحقق من شهادات المنشأ',
+      subtitleEn: 'Trade agreements and origin certificate checks',
+      icon: Icons.policy_outlined,
+      routeIndex: 84,
+      keywords: ['agreement', 'origin', 'اتفاقية', 'منشأ'],
+    );
+
+    addScreen(
+      id: 'screen_logistics_exceptions',
+      titleAr: 'استثناءات الشحن ونزاعات التثمين الجمركي',
+      titleEn: 'Logistics Exceptions & Disputes',
+      subtitleAr: 'تأجيل الشحن ونزاعات التثمين والتظلمات',
+      subtitleEn: 'Roll-overs, valuation disputes and appeals',
+      icon: Icons.warning_amber_rounded,
+      routeIndex: 85,
+      keywords: ['exception', 'dispute', 'استثناء', 'نزاع', 'تثمين'],
+    );
+
+    addScreen(
+      id: 'screen_deposits_recovery',
+      titleAr: 'استرداد تأمينات الحاويات والضمانات البنكية',
+      titleEn: 'Deposits & Guarantees Recovery',
+      subtitleAr: 'استرداد تأمينات الحاويات وخطابات الضمان',
+      subtitleEn: 'Container deposits and bank guarantee recovery',
+      icon: Icons.savings_outlined,
+      routeIndex: 86,
+      keywords: ['deposit', 'guarantee', 'تأمين', 'ضمان', 'استرداد'],
+    );
+
+    addScreen(
+      id: 'screen_vendor_quality',
+      titleAr: 'فحص ما قبل الشحن وتقييم أداء الموردين',
+      titleEn: 'Pre-Shipment Inspection & Vendor Rating',
+      subtitleAr: 'فحص البضاعة قبل الشحن وتقييم الموردين',
+      subtitleEn: 'Pre-shipment inspection and vendor scorecards',
+      icon: Icons.rate_review_outlined,
+      routeIndex: 87,
+      keywords: ['psi', 'inspection', 'vendor', 'فحص', 'موردين'],
     );
 
     // ── Master Data Screens ──

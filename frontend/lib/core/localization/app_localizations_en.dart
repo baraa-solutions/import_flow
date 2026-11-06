@@ -13727,6 +13727,21 @@ class AppLocalizationsEn extends AppLocalizations {
   @override String get phaseDelayedCount => 'Delayed Shipments';
 
 // === end review phase08_10 keys ===
+
+  // === import file scope selector keys (wave 2 screens) ===
+  @override
+  String get importFileScopeLabel => 'Import file';
+  @override
+  String get importFileScopeRequired => 'Select an import file to view its data';
+  @override
+  String get importFileScopeRequiredHint => 'Use the import file list above to search by file code, supplier or company';
+  @override
+  String get splitPoolDialogTitle => 'Redistribute cost pool';
+  @override
+  String get splitPoolCustomsLabel => 'Total customs cost of the file';
+  @override
+  String get splitPoolFreightLabel => 'Total freight cost of the file';
+  // === end import file scope selector keys ===
 }
 
 

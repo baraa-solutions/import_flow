@@ -16,6 +16,7 @@ from modules.split_shipments.schemas import (
     BatchAllocationCreate,
     ProratedCostCalculationRequest,
     ProratedCostCalculationResponse,
+    UnallocatedPoItemsOut,
 )
 from modules.split_shipments.service import SplitShipmentService
 from modules.split_shipments.repository import SplitShipmentRepository
@@ -68,6 +69,19 @@ def list_allocations(
         total_prorated_customs=round(total_customs, 2),
         total_prorated_freight=round(total_freight, 2),
     )
+
+
+@router.get(
+    "/shipments/{shipment_id}/unallocated-po-items",
+    response_model=UnallocatedPoItemsOut,
+    summary="List PO lines of the import file that still have unallocated quantity",
+)
+def list_unallocated_po_items(
+    shipment_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(can_view),
+):
+    return SplitShipmentService(db).list_unallocated_po_items(shipment_id)
 
 
 @router.post(

@@ -1,10 +1,14 @@
 import 'dart:io';
 
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:frontend/core/localization/app_localizations.dart';
+import 'package:frontend/core/services/command_palette_registry.dart';
 import 'package:frontend/core/providers/navigation_provider.dart';
 import 'package:frontend/core/providers/workspace_tabs_provider.dart';
 import 'package:frontend/features/home/widgets/home_screen_registry.dart';
+import 'package:frontend/features/home/widgets/multi_tab_workspace_bar.dart';
 
 /// Every literal screen index the app navigates to: sidebar items and selectNavigationIndex calls.
 Set<int> _navigatedIndices() {
@@ -47,4 +51,44 @@ void main() {
       expect(tab.title, isNot(startsWith('شاشة ')));
     }
   });
+
+  for (final locale in const [Locale('ar'), Locale('en')]) {
+    testWidgets('screens 72–87 have a ${locale.languageCode} workspace tab title and a Ctrl+K entry',
+        (tester) async {
+      late List<CommandPaletteItem> items;
+      late List<String> titles;
+      await tester.pumpWidget(
+        ProviderScope(
+          child: MaterialApp(
+            home: AppLocalizationsProvider(
+              locale: locale,
+              child: Consumer(
+                builder: (context, ref, _) {
+                  items = CommandPaletteRegistry.getItems(context, ref);
+                  titles = [
+                    for (var i = 72; i < kHomeScreenRegistry.length; i++)
+                      getLocalizedTabTitle(context, i, '__fallback__'),
+                  ];
+                  return const SizedBox.shrink();
+                },
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(titles, isNot(contains('__fallback__')));
+
+      final ids = items.map((i) => i.id).toList();
+      expect(ids.toSet().length, ids.length, reason: 'command palette ids must be unique');
+      final routes = items.map((i) => i.routeIndex).whereType<int>().toSet();
+      expect(routes.where((r) => r < 0 || r >= kHomeScreenRegistry.length), isEmpty);
+      for (var i = 72; i < kHomeScreenRegistry.length; i++) {
+        expect(routes, contains(i), reason: 'screen $i is missing from Ctrl+K');
+      }
+      // The GIT ledger is tab 0 of the inbound hub (57); 63 is the import requirements matrix.
+      expect(items.firstWhere((i) => i.id == 'screen_git_ledger').routeIndex, 57);
+    });
+  }
 }

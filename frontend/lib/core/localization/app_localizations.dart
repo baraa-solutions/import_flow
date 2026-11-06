@@ -10923,6 +10923,15 @@ abstract class AppLocalizations {
   String get phaseDelayedCount;
 
 // === end review phase08_10 keys ===
+
+  // === import file scope selector keys (wave 2 screens) ===
+  String get importFileScopeLabel;
+  String get importFileScopeRequired;
+  String get importFileScopeRequiredHint;
+  String get splitPoolDialogTitle;
+  String get splitPoolCustomsLabel;
+  String get splitPoolFreightLabel;
+  // === end import file scope selector keys ===
 }
 
 
