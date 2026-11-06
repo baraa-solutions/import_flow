@@ -200,20 +200,18 @@ class ExperienceGuideService:
         if existing:
             return existing
 
-        desc_snippet = hs_description[:60] if hs_description else "الصنف"
+        # Stored text is English (single-language storage); only facts from the tariff record are stated.
         content_text = (
-            f"تحذير تشغيلي حرج يمنع استكمال الإجراءات حتى الإقرار والاطلاع: هذا البند الجمركي خاضع لاشتراطات رسوم الإغراق والتدابير الوقائية. "
-            f"يراعى إيداع حصيلة رسم الإغراق والتدابير الوقائية لحساب وزارة الاستثمار والتجارة الخارجية (غ6555). "
-            f"مطلوب شهادة منشأ أصلية مصدقة ومرفقة قبل الشحن وفاتورة مصنع تفصيلية واستيفاء شرط الشحن المباشر من بلد المنشأ (ق4122) "
-            f"لتفادي التحفظ الجمركي أو فرض غرامات ورسوم إغراق باهظة."
+            f"Critical: tariff item {clean_hs} is flagged for anti-dumping / safeguard measures. "
+            "Acknowledge before continuing. The duty is added to the customs estimate only from a registered, "
+            "effective trade remedy measure (decree, origin, rate); its proceeds are paid to the Ministry of "
+            "Investment and Foreign Trade special account."
         )
         if anti_dumping_notes:
-            content_text += f"\nاشتراطات نافذة:\n{anti_dumping_notes}"
-
-        category_title = "السجاد والأرضيات" if ("سجاد" in hs_description or "أرضيات" in hs_description) else desc_snippet
+            content_text += f"\nNafeza requirements:\n{anti_dumping_notes}"
 
         entry = GuideEntry(
-            title=f"صنف {category_title} — اشتراطات ورسوم إغراق وتدابير وقائية",
+            title=f"HS {clean_hs}: anti-dumping / safeguard measures",
             content=content_text,
             entry_type="alert",
             severity="critical",
@@ -226,19 +224,11 @@ class ExperienceGuideService:
         self.db.add(entry)
         self.db.flush()
 
-        scope_hs = GuideEntryScope(
+        self.db.add(GuideEntryScope(
             guide_entry_id=entry.entry_id,
             scope_type="hs_code",
             scope_value=clean_hs,
-        )
-        self.db.add(scope_hs)
-
-        if "سجاد" in hs_description or "أرضيات" in hs_description:
-            self.db.add(GuideEntryScope(
-                guide_entry_id=entry.entry_id,
-                scope_type="product_category",
-                scope_value="سجاد وأغطية أرضيات",
-            ))
+        ))
 
         self.db.commit()
         self.db.refresh(entry)
