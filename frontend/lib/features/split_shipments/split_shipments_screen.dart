@@ -1,20 +1,25 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/localization/api_error_text.dart';
+import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/buttons/app_button.dart';
+import '../../../core/widgets/import_file_scope_selector.dart';
 import '../../../core/widgets/vertical_stage_scaffold.dart';
 import 'split_shipments_provider.dart';
 import 'widgets/bl_allocation_splitter_card.dart';
+import 'widgets/prorated_cost_pool_dialog.dart';
 import 'widgets/prorated_cost_preview_card.dart';
 import 'widgets/unallocated_po_items_table.dart';
 
 /// Coordinator screen for Split Shipments & Multi-PO fulfillment (Type A Stage Screen).
 class SplitShipmentsScreen extends ConsumerStatefulWidget {
-  final int shipmentId;
+  /// Import file to open on; null shows the file picker's empty state.
+  final int? shipmentId;
 
   const SplitShipmentsScreen({
     super.key,
-    this.shipmentId = 1,
+    this.shipmentId,
   });
 
   @override
@@ -25,43 +30,29 @@ class _SplitShipmentsScreenState extends ConsumerState<SplitShipmentsScreen> {
   int _currentTabIndex = 0;
   UnallocatedPoItem? _itemToAllocate;
 
-  // Mock list of PO items for demonstration and allocation
-  final List<UnallocatedPoItem> _samplePoItems = [
-    UnallocatedPoItem(
-      poItemId: 1,
-      poId: 10,
-      poNumber: 'PO-2026-4401',
-      itemSku: 'SKU-INVERTER-5KW',
-      itemName: 'محول تيار شمسي 5 كيلوواط',
-      totalQuantity: 200,
-      allocatedQuantity: 80,
-    ),
-    UnallocatedPoItem(
-      poItemId: 2,
-      poId: 10,
-      poNumber: 'PO-2026-4401',
-      itemSku: 'SKU-PANEL-450W',
-      itemName: 'ألواح طاقة شمسية 450 واط',
-      totalQuantity: 1000,
-      allocatedQuantity: 400,
-    ),
-    UnallocatedPoItem(
-      poItemId: 3,
-      poId: 11,
-      poNumber: 'PO-2026-4402',
-      itemSku: 'SKU-CABLE-6MM',
-      itemName: 'كابلات طاقة شمسية 6 مم',
-      totalQuantity: 5000,
-      allocatedQuantity: 2500,
-    ),
-  ];
+  late int? _fileId = widget.shipmentId;
 
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(splitShipmentIdProvider.notifier).state = widget.shipmentId;
+  void _selectFile(int? fileId) {
+    setState(() {
+      _fileId = fileId;
+      _itemToAllocate = null;
+      _currentTabIndex = 0;
     });
+  }
+
+  void _invalidateFileData() {
+    ref.invalidate(splitAllocationsListProvider);
+    ref.invalidate(unallocatedPoItemsProvider);
+  }
+
+  void _showError(Object error) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(ApiErrorText.of(context.l10n, error)),
+        backgroundColor: AppTheme.crimson,
+      ),
+    );
   }
 
   void _handleAllocateItem(UnallocatedPoItem item) {
@@ -72,9 +63,22 @@ class _SplitShipmentsScreenState extends ConsumerState<SplitShipmentsScreen> {
   }
 
   void _handleConfirmSplit(Map<String, dynamic> payload) async {
-    final repo = ref.read(splitShipmentsRepositoryProvider);
-    await repo.createAllocation(widget.shipmentId, payload);
-    ref.invalidate(splitAllocationsListProvider);
+    final fileId = _fileId;
+    final item = _itemToAllocate;
+    if (fileId == null) return;
+    if (item != null) {
+      payload['po_id'] = item.poId;
+      payload['po_item_id'] = item.poItemId;
+      payload['total_item_quantity'] = item.totalQuantity;
+    }
+    try {
+      await ref.read(splitShipmentsRepositoryProvider).createAllocation(fileId, payload);
+    } catch (e) {
+      _showError(e);
+      return;
+    }
+    _invalidateFileData();
+    if (!mounted) return;
     setState(() {
       _itemToAllocate = null;
       _currentTabIndex = 2; // Switch to Prorated Costs tab
@@ -87,13 +91,21 @@ class _SplitShipmentsScreenState extends ConsumerState<SplitShipmentsScreen> {
   }
 
   void _handleRecalculatePool() async {
-    final repo = ref.read(splitShipmentsRepositoryProvider);
-    await repo.recalculateProratedCosts(
-      widget.shipmentId,
-      customsPool: 150000.0,
-      freightPool: 60000.0,
-    );
-    ref.invalidate(splitAllocationsListProvider);
+    final fileId = _fileId;
+    if (fileId == null) return;
+    final pools = await showProratedCostPoolDialog(context);
+    if (pools == null) return;
+    try {
+      await ref.read(splitShipmentsRepositoryProvider).recalculateProratedCosts(
+            fileId,
+            customsPool: pools.$1,
+            freightPool: pools.$2,
+          );
+    } catch (e) {
+      _showError(e);
+      return;
+    }
+    _invalidateFileData();
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('تمت إعادة احتساب وتحديث مجمع التكاليف التناسبية بنجاح')),
@@ -103,7 +115,7 @@ class _SplitShipmentsScreenState extends ConsumerState<SplitShipmentsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final allocationsAsync = ref.watch(splitAllocationsListProvider);
+    final fileId = _fileId;
 
     const tabs = [
       VerticalNavTabItem(
@@ -123,35 +135,7 @@ class _SplitShipmentsScreenState extends ConsumerState<SplitShipmentsScreen> {
       ),
     ];
 
-    Widget bodyWidget;
-    switch (_currentTabIndex) {
-      case 0:
-        bodyWidget = UnallocatedPoItemsTable(
-          items: _samplePoItems,
-          onAllocate: _handleAllocateItem,
-        );
-        break;
-      case 1:
-        bodyWidget = BlAllocationSplitterCard(
-          initialParentBl: 'MEDU-99887766',
-          initialSku: _itemToAllocate?.itemSku,
-          maxQuantity: _itemToAllocate?.remainingQuantity,
-          onConfirmSplit: _handleConfirmSplit,
-          onCancel: () => setState(() => _currentTabIndex = 0),
-        );
-        break;
-      case 2:
-      default:
-        bodyWidget = allocationsAsync.when(
-          loading: () => const Center(child: CircularProgressIndicator()),
-          error: (err, _) => Center(child: Text('خطأ في تحميل التكاليف: $err')),
-          data: (result) => ProratedCostPreviewCard(
-            allocations: result.items,
-            onRecalculatePool: _handleRecalculatePool,
-          ),
-        );
-        break;
-    }
+    final Widget bodyWidget = fileId == null ? const ImportFileRequiredState() : _buildFileBody(fileId);
 
     return SelectionArea(
       child: VerticalStageScaffold(
@@ -163,13 +147,17 @@ class _SplitShipmentsScreenState extends ConsumerState<SplitShipmentsScreen> {
         tabs: tabs,
         selectedIndex: _currentTabIndex,
         onTabSelected: (index) => setState(() => _currentTabIndex = index),
-        selectedImportFileId: widget.shipmentId,
+        selectedImportFileId: fileId,
+        topBanner: ImportFileScopeSelector(
+          selectedImportFileId: fileId,
+          onChanged: _selectFile,
+        ),
         headerActions: [
           AppButton(
             label: 'تحديث',
             icon: Icons.refresh,
             variant: AppButtonVariant.secondary,
-            onPressed: () => ref.invalidate(splitAllocationsListProvider),
+            onPressed: fileId == null ? null : _invalidateFileData,
           ),
         ],
         body: Padding(
@@ -178,5 +166,49 @@ class _SplitShipmentsScreenState extends ConsumerState<SplitShipmentsScreen> {
         ),
       ),
     );
+  }
+
+  Widget _buildFileBody(int fileId) {
+    switch (_currentTabIndex) {
+      case 0:
+        return ref.watch(unallocatedPoItemsProvider(fileId)).when(
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (err, _) => Center(
+                child: Text(
+                  ApiErrorText.of(context.l10n, err),
+                  style: const TextStyle(color: AppTheme.crimson),
+                ),
+              ),
+              data: (result) => UnallocatedPoItemsTable(
+                items: result.items,
+                onAllocate: _handleAllocateItem,
+              ),
+            );
+      case 1:
+        final parentBl = ref.watch(unallocatedPoItemsProvider(fileId)).valueOrNull?.blNumber ?? '';
+        return BlAllocationSplitterCard(
+          key: ValueKey('splitter-$fileId-${_itemToAllocate?.poItemId}-$parentBl'),
+          initialParentBl: parentBl,
+          initialSku: _itemToAllocate?.itemSku,
+          maxQuantity: _itemToAllocate?.remainingQuantity,
+          onConfirmSplit: _handleConfirmSplit,
+          onCancel: () => setState(() => _currentTabIndex = 0),
+        );
+      case 2:
+      default:
+        return ref.watch(splitAllocationsListProvider(fileId)).when(
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (err, _) => Center(
+                child: Text(
+                  ApiErrorText.of(context.l10n, err),
+                  style: const TextStyle(color: AppTheme.crimson),
+                ),
+              ),
+              data: (result) => ProratedCostPreviewCard(
+                allocations: result.items,
+                onRecalculatePool: _handleRecalculatePool,
+              ),
+            );
+    }
   }
 }

@@ -16,6 +16,8 @@ from modules.split_shipments.schemas import (
     ProratedCostCalculationRequest,
     ProratedCostCalculationResponse,
     ProratedCostItemResult,
+    UnallocatedPoItemOut,
+    UnallocatedPoItemsOut,
 )
 from modules.split_shipments.validators import (
     validate_bl_numbers,
@@ -28,6 +30,49 @@ class SplitShipmentService:
     def __init__(self, db: Session):
         self.db = db
         self.repo = SplitShipmentRepository(db)
+
+    def list_unallocated_po_items(self, shipment_id: int) -> UnallocatedPoItemsOut:
+        """Real PO lines linked to the import file that still have quantity left to allocate."""
+        import_file = self.repo.get_import_file(shipment_id)
+        if not import_file:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Import file #{shipment_id} not found.",
+            )
+
+        linked_po_ids = [
+            int(po_id) for po_id in (import_file.po_ids or []) if str(po_id).isdigit()
+        ]
+        lines = self.repo.list_po_lines_for_shipment(shipment_id, linked_po_ids)
+        allocated_by_item = self.repo.get_allocated_quantity_by_po_item(shipment_id)
+
+        items: List[UnallocatedPoItemOut] = []
+        for line, po in lines:
+            total_qty = float(line.quantity or 0.0)
+            allocated_qty = allocated_by_item.get(line.item_id, 0.0)
+            remaining = round(total_qty - allocated_qty, 4)
+            if remaining <= 0:
+                continue
+            items.append(
+                UnallocatedPoItemOut(
+                    po_item_id=line.item_id,
+                    po_id=po.po_id,
+                    po_number=po.po_number,
+                    item_sku=(line.item_code or "").strip() or f"PO-LINE-{line.item_id}",
+                    item_name=line.description_ar or line.description_en or line.main_description or "",
+                    unit_of_measure=line.unit_of_measure,
+                    total_quantity=total_qty,
+                    allocated_quantity=allocated_qty,
+                    remaining_quantity=remaining,
+                )
+            )
+
+        return UnallocatedPoItemsOut(
+            shipment_id=shipment_id,
+            bl_number=import_file.bl_number,
+            items=items,
+            total=len(items),
+        )
 
     def create_allocation(
         self,

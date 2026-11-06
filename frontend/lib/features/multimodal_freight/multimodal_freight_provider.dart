@@ -149,13 +149,12 @@ final multimodalFreightRepositoryProvider = Provider<MultimodalFreightRepository
   return MultimodalFreightRepository(dio);
 });
 
-final multimodalShipmentIdProvider = StateProvider<int>((ref) => 1);
 final multimodalModeFilterProvider = StateProvider<String?>((ref) => null);
 
+/// Keyed by the selected import file id — never fetched without a chosen file.
 final multimodalFreightListProvider =
-    FutureProvider.autoDispose<MultimodalFreightListResult>((ref) async {
+    FutureProvider.autoDispose.family<MultimodalFreightListResult, int>((ref, shipmentId) async {
   final repo = ref.watch(multimodalFreightRepositoryProvider);
-  final shipmentId = ref.watch(multimodalShipmentIdProvider);
   final mode = ref.watch(multimodalModeFilterProvider);
   return repo.listFreightDetails(shipmentId, transportMode: mode);
 });

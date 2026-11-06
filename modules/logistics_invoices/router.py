@@ -139,6 +139,37 @@ def get_wht_form41_report(
     return service.get_wht_form41_report(year=year, month=month)
 
 
+# Literal list routes must be declared before GET /{id}: otherwise /{id} captures
+# 'advances' / 'payments' and answers 422 (FastAPI matches routes in declaration order).
+@router.get("/advances", response_model=List[ClearanceAdvancePaymentResponse])
+def list_clearance_advances(
+    shipment_id: Optional[int] = Query(None),
+    partner_id: Optional[int] = Query(None),
+    status: Optional[str] = Query(None),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("financial_approval.view")),
+):
+    service = LogisticsInvoicesService(db)
+    return service.repo.list_advances(shipment_id=shipment_id, partner_id=partner_id, status=status)
+
+
+@router.get("/payments", response_model=List[LogisticsPaymentVoucherResponse])
+def list_payment_vouchers(
+    partner_id: Optional[int] = Query(None),
+    shipment_id: Optional[int] = Query(None),
+    status: Optional[str] = Query(None),
+    skip: int = Query(0, ge=0),
+    limit: int = Query(100, ge=1, le=500),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("financial_approval.view")),
+):
+    service = LogisticsInvoicesService(db)
+    vouchers, _ = service.repo.list_vouchers(
+        partner_id=partner_id, shipment_id=shipment_id, status=status, skip=skip, limit=limit
+    )
+    return vouchers
+
+
 @router.get("/{id}", response_model=LogisticsInvoiceResponse)
 def get_invoice(
     id: int,
@@ -343,18 +374,6 @@ def settle_clearance_advance(
     return service.settle_advance(id, payload, user_name=current_user.full_name or current_user.username)
 
 
-@router.get("/advances", response_model=List[ClearanceAdvancePaymentResponse])
-def list_clearance_advances(
-    shipment_id: Optional[int] = Query(None),
-    partner_id: Optional[int] = Query(None),
-    status: Optional[str] = Query(None),
-    db: Session = Depends(get_db),
-    current_user: User = Depends(require_permission("financial_approval.view")),
-):
-    service = LogisticsInvoicesService(db)
-    return service.repo.list_advances(shipment_id=shipment_id, partner_id=partner_id, status=status)
-
-
 # ============================================================================
 # Payment Vouchers & Knock-Off Endpoints
 # ============================================================================
@@ -367,20 +386,3 @@ def create_payment_voucher(
 ):
     service = LogisticsInvoicesService(db)
     return service.create_payment_voucher(payload, user_name=current_user.full_name or current_user.username)
-
-
-@router.get("/payments", response_model=List[LogisticsPaymentVoucherResponse])
-def list_payment_vouchers(
-    partner_id: Optional[int] = Query(None),
-    shipment_id: Optional[int] = Query(None),
-    status: Optional[str] = Query(None),
-    skip: int = Query(0, ge=0),
-    limit: int = Query(100, ge=1, le=500),
-    db: Session = Depends(get_db),
-    current_user: User = Depends(require_permission("financial_approval.view")),
-):
-    service = LogisticsInvoicesService(db)
-    vouchers, _ = service.repo.list_vouchers(
-        partner_id=partner_id, shipment_id=shipment_id, status=status, skip=skip, limit=limit
-    )
-    return vouchers

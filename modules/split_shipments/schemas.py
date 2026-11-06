@@ -106,3 +106,22 @@ class ProratedCostCalculationResponse(BaseModel):
     freight_cost_pool: float
     currency: str
     allocations: List[ProratedCostItemResult]
+
+
+class UnallocatedPoItemOut(BaseModel):
+    po_item_id: int
+    po_id: int
+    po_number: str
+    item_sku: str
+    item_name: str
+    unit_of_measure: Optional[str] = None
+    total_quantity: float
+    allocated_quantity: float
+    remaining_quantity: float
+
+
+class UnallocatedPoItemsOut(BaseModel):
+    shipment_id: int
+    bl_number: Optional[str] = Field(default=None, description="Master B/L of the import file, if recorded")
+    items: List[UnallocatedPoItemOut]
+    total: int

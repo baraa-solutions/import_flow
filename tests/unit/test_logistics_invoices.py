@@ -683,6 +683,16 @@ def test_logistics_invoices_api_endpoints(db_session):
         )
         assert res.status_code == 200
         assert res.json()["claim_status"] == "under_inspection"
+
+        # 11. List endpoints next to GET /{id} reach their own handlers (were 422: "advances" is not an int)
+        res = client.get("/api/v1/logistics-invoices/advances")
+        assert res.status_code == 200
+        assert isinstance(res.json(), list)
+        res = client.get("/api/v1/logistics-invoices/payments")
+        assert res.status_code == 200
+        assert isinstance(res.json(), list)
+        res = client.get("/api/v1/logistics-invoices/999999")
+        assert res.status_code == 404
     finally:
         app.dependency_overrides.pop(get_db, None)
         app.dependency_overrides.pop(get_current_user, None)
