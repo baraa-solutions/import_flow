@@ -49,6 +49,14 @@ AGREEMENT_COUNTRY_MAPPINGS: Dict[str, Dict[str, str]] = {
 }
 
 
+def import_duty_rates(text: str) -> List[Decimal]:
+    """Every "ضريبة الوارد" rate on a Nafeza page, in page order."""
+    return [
+        Decimal(rate)
+        for rate in re.findall(r"ضريبة\s*الوارد(?:\s*\([^)]+\))?[\s:\n]*([\d\.]+)\s*%", text)
+    ]
+
+
 def parse_nafeza_tariff_text(raw_text: str) -> Tuple[CustomsTariffCreate, List[PreferentialAgreementCreate]]:
     """
     محلل وصائغ النصوص الجمركية الذكي (Nafeza Smart Tariff Parser).
@@ -85,10 +93,11 @@ def parse_nafeza_tariff_text(raw_text: str) -> Tuple[CustomsTariffCreate, List[P
     if duty_match:
         customs_duty_rate = Decimal(duty_match.group(1))
     else:
-        all_duties = re.findall(r"ضريبة\s*الوارد(?:\s*\([^)]+\))?[\s:\n]*([\d\.]+)\s*%", text)
-        if all_duties:
-            rates = [Decimal(r) for r in all_duties]
-            customs_duty_rate = max(rates)
+        # Nafeza lists the base regime first; later "ضريبة الوارد" rows belong to other regimes. Take the
+        # first row (as before #200), never the highest; the parse summary flags pages with several rates.
+        page_rates = import_duty_rates(text)
+        if page_rates:
+            customs_duty_rate = page_rates[0]
 
     # 4. Extract VAT Rate
     vat_rate = Decimal("14.00")

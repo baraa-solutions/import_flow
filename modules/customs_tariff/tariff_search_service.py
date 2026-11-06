@@ -24,7 +24,7 @@ from sqlalchemy.orm import Session
 from modules.common import enum_codes
 from . import repository
 from .model import CustomsTariff
-from .nafeza_text_parser import parse_nafeza_tariff_text
+from .nafeza_text_parser import import_duty_rates, parse_nafeza_tariff_text
 from .schemas import (
     CustomsTariffCreate,
     CustomsTariffUpdate,
@@ -397,6 +397,13 @@ def parse_smart_nafeza_tariff_text_service(raw_text: str, db: Optional[Session] 
         f"ضريبة الوارد الأساسية {tariff.customs_duty_rate}%، القيمة المضافة {tariff.vat_rate}%، "
         f"وتم استخراج {len(agreements)} اتفاقيات تفضيلية مرتبطة."
     )
+    distinct_rates = sorted(set(import_duty_rates(raw_text)))
+    if len(distinct_rates) > 1:
+        summary_ar += (
+            " تنبيه: الصفحة فيها أكتر من نسبة لضريبة الوارد ("
+            + "، ".join(f"{rate}%" for rate in distinct_rates)
+            + f")؛ اتاخدت النسبة الأولى ({tariff.customs_duty_rate}%) على إنها النظام الأساسي، راجعها قبل الحفظ."
+        )
 
     comparison = None
     if db is not None:
