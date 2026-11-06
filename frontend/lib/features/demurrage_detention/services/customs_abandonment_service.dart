@@ -25,13 +25,13 @@ class CustomsAbandonmentService {
     if (abandonmentStatus != null && abandonmentStatus != 'All') query['abandonment_status'] = abandonmentStatus;
     if (search != null && search.isNotEmpty) query['search'] = search;
 
-    final response = await _dio.get('/api/v1/customs-abandonment', queryParameters: query);
+    final response = await _dio.get('/api/v1/customs-abandonment/radars', queryParameters: query);
     final data = response.data as List;
     return data.map((e) => CustomsAbandonmentRadarModel.fromJson(e)).toList();
   }
 
   Future<CustomsAbandonmentSummaryModel> getSummary() async {
-    final response = await _dio.get('/api/v1/customs-abandonment/summary');
+    final response = await _dio.get('/api/v1/customs-abandonment/radars/summary');
     return CustomsAbandonmentSummaryModel.fromJson(response.data);
   }
 
@@ -48,7 +48,7 @@ class CustomsAbandonmentService {
     String? actionPlan,
   }) async {
     final response = await _dio.post(
-      '/api/v1/customs-abandonment/$radarId/request-extension',
+      '/api/v1/customs-abandonment/radars/$radarId/request-extension',
       data: {
         'reason': reason,
         'requested_days': requestedDays,
@@ -66,7 +66,7 @@ class CustomsAbandonmentService {
     String? notes,
   }) async {
     final response = await _dio.post(
-      '/api/v1/customs-abandonment/$radarId/grant-extension',
+      '/api/v1/customs-abandonment/radars/$radarId/grant-extension',
       data: {
         'extension_granted_until': extensionGrantedUntil,
         'official_approval_ref': officialApprovalRef,
@@ -77,7 +77,7 @@ class CustomsAbandonmentService {
   }
 
   Future<ExtensionLetterDraftModel> getLetterDraft(int radarId) async {
-    final response = await _dio.get('/api/v1/customs-abandonment/$radarId/letter-draft');
+    final response = await _dio.get('/api/v1/customs-abandonment/radars/$radarId/extension-letter-draft');
     return ExtensionLetterDraftModel.fromJson(response.data);
   }
 }
