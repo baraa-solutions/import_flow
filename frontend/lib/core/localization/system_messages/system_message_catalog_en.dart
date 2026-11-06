@@ -1664,6 +1664,39 @@ const Map<String, Map<String, String>> systemMessageCatalogEn = {
   'CT_CUSTOMS_RATE_MISSING': {
     'note': 'No customs exchange rate registered for currency \'{currency}\' on date {on_date}.',
   },
+  'TRM_INVALID_HS': {
+    'note': 'Tariff item \'{hs_code}\' is not valid: it needs at least 4 digits.',
+  },
+  'TRM_INVALID_ORIGIN': {
+    'note': 'Origin country \'{origin_country}\' must be a two-letter ISO code.',
+  },
+  'TRM_BASIS_FIELDS_MISSING': {
+    'note': 'Measure basis {duty_basis} needs its rate (percent) or its fixed amount and currency.',
+  },
+  'TRM_INVALID_DATES': {
+    'note': 'The end date ({effective_to}) is before the start date ({effective_from}).',
+  },
+  'TRM_OVERLAP': {
+    'note': 'Measure {measure_code} already covers the same tariff item, origin and exporter in this period.',
+  },
+  'TRM_NOT_FOUND': {
+    'note': 'Trade remedy measure {measure_id} was not found.',
+  },
+  'CT_TRADE_REMEDY_ORIGIN_MISSING': {
+    'note': 'Tariff item {hs_code} has a {measure_type} measure by origin: enter the origin country to compute it.',
+  },
+  'CT_TRADE_REMEDY_EXPORTER_MISSING': {
+    'note': 'The {measure_type} measure on {hs_code} is set per exporter: enter the exporter name to compute it.',
+  },
+  'CT_TRADE_REMEDY_QTY_MISSING': {
+    'note': 'The trade remedy duty on {hs_code} is charged per {duty_basis}: enter the item\'s actual weight or quantity.',
+  },
+  'CT_TRADE_REMEDY_DEPOSIT': {
+    'note': 'Trade remedy duties under {decree_refs} are paid to the Ministry of Investment and Foreign Trade special account.',
+  },
+  'CT_TRADE_REMEDY_RATE_MISSING': {
+    'note': 'Tariff item {hs_codes} is flagged for anti-dumping or safeguard measures but no effective measure is registered, so no duty is included. Register the decree under Trade Remedies.',
+  },
   'CT_AGREEMENT_DATA_INVALID': {
     'note': 'Invalid preferential trade agreement data ({reason}).',
   },

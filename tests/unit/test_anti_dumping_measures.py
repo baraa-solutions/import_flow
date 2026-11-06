@@ -92,9 +92,9 @@ def test_sync_anti_dumping_guide_entry(db_session: Session):
     assert entry.entry_id is not None
     assert entry.severity == "critical"
     assert entry.created_by == "System Seed (Logistics)"
-    assert "رسوم إغراق وتدابير وقائية" in entry.title
+    # Stored in English (single-language storage); the Nafeza notes are kept verbatim
+    assert entry.title == "HS 5703290000: anti-dumping / safeguard measures"
     assert "غ6555" in entry.content
-    assert "ق4122" in entry.content
 
     # Match shipment by HS Code
     match_resp = guide_service.match_shipment(
@@ -122,14 +122,22 @@ def test_customs_landed_cost_anti_dumping_vat_base(db_session: Session):
     tariff = create_tariff_service(db_session, tariff_in)
     assert tariff.has_anti_dumping_risk is True
 
-    # 2. Single Item Calculation with Anti-Dumping Rate
+    # 2. The rate comes from a registered measure (decree + origin + effective dates), never from the request
+    from datetime import date
+    from modules.customs_tariff.schemas import TradeRemedyMeasureCreate
+    from modules.customs_tariff.trade_remedy_service import create_trade_remedy_measure
+
+    create_trade_remedy_measure(db_session, TradeRemedyMeasureCreate(
+        measure_type="ANTI_DUMPING", hs_code="5703", origin_country="CN", duty_basis="PERCENT_OF_CIF",
+        rate_percent=Decimal("25.00"), decree_ref="غ6555", effective_from=date(2020, 1, 1),
+    ), "tester")
+
     cif_val = Decimal("100000.00")  # 100,000 EGP
-    # Test with 25% anti-dumping rate
     calc_req = CustomsDutyEstimateRequest(
         hs_code="5703290000",
         cif_value=cif_val,
         freight=Decimal("0.00"),
-        anti_dumping_duty_rate=Decimal("25.00"),
+        origin_country="CN",
     )
 
     breakdown = estimate_customs_duty_service(db_session, calc_req)
@@ -137,22 +145,28 @@ def test_customs_landed_cost_anti_dumping_vat_base(db_session: Session):
     # Basic duty = 60% of 100,000 = 60,000
     assert breakdown.import_duty_amount == Decimal("60000.00")
 
-    # Anti-dumping duty = 25% of 100,000 = 25,000
+    # Anti-dumping duty = 25% of 100,000 = 25,000 (measure registered for CN)
     assert breakdown.has_anti_dumping_risk is True
-    assert breakdown.anti_dumping_duty_rate == Decimal("25.00")
-    assert breakdown.anti_dumping_duty_amount == Decimal("25000.00")
+    assert breakdown.trade_remedy_duty_egp == Decimal("25000.00")
+    assert breakdown.trade_remedy_duties[0].decree_ref == "غ6555"
 
     # VAT Base MUST BE CIF + Import Duty + Anti-Dumping Duty = 100,000 + 60,000 + 25,000 = 185,000
-    expected_vat_base = Decimal("185000.00")
-    assert breakdown.vat_base == expected_vat_base
+    assert breakdown.vat_base == Decimal("185000.00")
 
     # VAT = 14% of 185,000 = 25,900
-    expected_vat = Decimal("25900.00")
-    assert breakdown.vat_amount == expected_vat
+    assert breakdown.vat_amount == Decimal("25900.00")
 
-    # Verify special deposit account mention
-    assert breakdown.special_deposit_account is not None
-    assert "وزارة الاستثمار والتجارة الخارجية" in breakdown.special_deposit_account
+    # The deposit-account notice is a message code rendered from the catalog, not stored text
+    assert breakdown.trade_remedy_notice_code == "CT_TRADE_REMEDY_DEPOSIT"
+    assert breakdown.trade_remedy_notice_params == {"decree_refs": "غ6555"}
+
+    # Another origin: flagged item, no registered measure -> no duty, and the breakdown says why
+    other = estimate_customs_duty_service(db_session, CustomsDutyEstimateRequest(
+        hs_code="5703290000", cif_value=cif_val, freight=Decimal("0.00"), origin_country="TR",
+    ))
+    assert other.trade_remedy_duty_egp == Decimal("0.00")
+    assert other.vat_base == Decimal("160000.00")
+    assert other.trade_remedy_notice_code == "CT_TRADE_REMEDY_RATE_MISSING"
 
 
 def test_smart_reference_card_generates_anti_dumping_critical_alert(db_session: Session):
@@ -190,4 +204,4 @@ def test_smart_reference_card_generates_anti_dumping_critical_alert(db_session: 
     assert len(card_resp.matched_guide_entries) >= 1
     critical_entries = [e for e in card_resp.matched_guide_entries if e.severity == "critical"]
     assert len(critical_entries) >= 1
-    assert any("إغراق" in e.title or "5703290000" in e.title for e in critical_entries)
+    assert any(hs in e.title and "anti-dumping" in e.title for e in critical_entries)

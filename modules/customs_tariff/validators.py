@@ -93,3 +93,84 @@ def validate_effective_date_range(
     """
     if effective_to and effective_to <= effective_from:
         raise ValueError("تاريخ انتهاء السريان يجب أن يكون بعد تاريخ البداية.")
+
+
+# ==================================================
+# Trade remedy measures (anti-dumping / safeguard / countervailing)
+# ==================================================
+
+def normalize_trade_remedy_hs(hs_code: str) -> str:
+    return (hs_code or "").strip().replace(".", "").replace(" ", "")
+
+
+def validate_trade_remedy_fields(data: dict) -> dict:
+    """Checks one complete measure (after merging an update) and returns it normalised."""
+    from fastapi import status
+    from modules.common.errors import CodedHTTPException
+
+    hs = normalize_trade_remedy_hs(data.get("hs_code") or "")
+    if not hs.isdigit() or len(hs) < 4:
+        raise CodedHTTPException(
+            status.HTTP_422_UNPROCESSABLE_CONTENT, "TRM_INVALID_HS",
+            f"البند الجمركي '{data.get('hs_code')}' غير صالح: لازم 4 أرقام على الأقل.",
+            hs_code=data.get("hs_code") or "",
+        )
+    data["hs_code"] = hs
+
+    origin = (data.get("origin_country") or "").strip().upper() or None
+    if origin is not None and not (len(origin) == 2 and origin.isalpha()):
+        raise CodedHTTPException(
+            status.HTTP_422_UNPROCESSABLE_CONTENT, "TRM_INVALID_ORIGIN",
+            f"بلد المنشأ '{origin}' لازم يكون رمز ISO من حرفين.", origin_country=origin,
+        )
+    data["origin_country"] = origin
+    data["exporter_name"] = (data.get("exporter_name") or "").strip() or None
+
+    basis = data.get("duty_basis")
+    if basis == "PERCENT_OF_CIF":
+        if data.get("rate_percent") is None:
+            raise CodedHTTPException(
+                status.HTTP_422_UNPROCESSABLE_CONTENT, "TRM_BASIS_FIELDS_MISSING",
+                "النسبة المئوية مطلوبة لتدبير محسوب كنسبة من CIF.", duty_basis=basis,
+            )
+        data["fixed_amount"] = None
+        data["fixed_currency"] = None
+    else:
+        currency = (data.get("fixed_currency") or "").strip().upper()
+        if data.get("fixed_amount") is None or len(currency) != 3:
+            raise CodedHTTPException(
+                status.HTTP_422_UNPROCESSABLE_CONTENT, "TRM_BASIS_FIELDS_MISSING",
+                "المبلغ الثابت وعملته مطلوبين لتدبير محسوب بمبلغ ثابت.", duty_basis=basis,
+            )
+        data["fixed_currency"] = currency
+        data["rate_percent"] = None
+
+    if data.get("effective_to") is not None and data["effective_to"] < data["effective_from"]:
+        raise CodedHTTPException(
+            status.HTTP_422_UNPROCESSABLE_CONTENT, "TRM_INVALID_DATES",
+            "تاريخ نهاية السريان قبل تاريخ بدايته.",
+            effective_from=data["effective_from"].isoformat(), effective_to=data["effective_to"].isoformat(),
+        )
+    return data
+
+
+def validate_no_overlapping_trade_remedy(db: Session, data: dict, exclude_id: Optional[int] = None) -> None:
+    """Same measure type, HS code, origin and exporter may not be in force twice on the same day."""
+    from fastapi import status
+    from modules.common.errors import CodedHTTPException
+
+    new_start = data["effective_from"]
+    new_end = data.get("effective_to")
+    for rec in repository.list_trade_remedy_measures_for_key(
+        db, data["measure_type"], data["hs_code"], data.get("origin_country"), data.get("exporter_name")
+    ):
+        if exclude_id is not None and rec.measure_id == exclude_id:
+            continue
+        starts_before_other_ends = rec.effective_to is None or new_start <= rec.effective_to
+        ends_after_other_starts = new_end is None or new_end >= rec.effective_from
+        if starts_before_other_ends and ends_after_other_starts:
+            raise CodedHTTPException(
+                status.HTTP_409_CONFLICT, "TRM_OVERLAP",
+                f"يوجد تدبير مسجل ({rec.measure_code}) لنفس البند وبلد المنشأ والمصدّر في نفس الفترة.",
+                measure_code=rec.measure_code,
+            )

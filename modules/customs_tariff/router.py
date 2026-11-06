@@ -11,7 +11,11 @@ from modules.auth.router import get_current_user
 from utils.cache_manager import memory_cache
 from utils.export_import_helper import MasterDataExportImportHelper
 
+from . import trade_remedy_service
 from .schemas import (
+    TradeRemedyMeasureCreate,
+    TradeRemedyMeasureResponse,
+    TradeRemedyMeasureUpdate,
     CustomsDutyBreakdown,
     CustomsDutyEstimateRequest,
     CustomsTariffCreate,
@@ -285,6 +289,58 @@ def create_fee_code(data: FeeCodeCreate, db: Session = Depends(get_db)):
     إضافة كود رسم جديد لقائمة تحصيل نافذة والجمارك المصرية.
     """
     return create_fee_code_service(db, data)
+
+
+# ==================================================
+# Trade remedies (anti-dumping / safeguard / countervailing) — declared before /{tariff_id}
+# ==================================================
+
+@customs_tariff_router.get(
+    "/trade-remedies", response_model=List[TradeRemedyMeasureResponse], dependencies=[can_view]
+)
+def list_trade_remedies(
+    hs_code: Optional[str] = Query(None),
+    origin_country: Optional[str] = Query(None),
+    measure_type: Optional[str] = Query(None),
+    include_inactive: bool = Query(False),
+    db: Session = Depends(get_db),
+):
+    return trade_remedy_service.list_trade_remedy_measures(db, hs_code, origin_country, measure_type, include_inactive)
+
+
+@customs_tariff_router.post(
+    "/trade-remedies", response_model=TradeRemedyMeasureResponse, status_code=201, dependencies=[can_edit]
+)
+def create_trade_remedy(
+    payload: TradeRemedyMeasureCreate, db: Session = Depends(get_db), current_user=Depends(get_current_user)
+):
+    return trade_remedy_service.create_trade_remedy_measure(db, payload, current_user.username)
+
+
+@customs_tariff_router.put(
+    "/trade-remedies/{measure_id}", response_model=TradeRemedyMeasureResponse, dependencies=[can_edit]
+)
+def update_trade_remedy(
+    measure_id: int,
+    payload: TradeRemedyMeasureUpdate,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    return trade_remedy_service.update_trade_remedy_measure(db, measure_id, payload, current_user.username)
+
+
+@customs_tariff_router.delete(
+    "/trade-remedies/{measure_id}", response_model=TradeRemedyMeasureResponse, dependencies=[can_edit]
+)
+def delete_trade_remedy(measure_id: int, db: Session = Depends(get_db), current_user=Depends(get_current_user)):
+    return trade_remedy_service.soft_delete_trade_remedy_measure(db, measure_id, current_user.username)
+
+
+@customs_tariff_router.post(
+    "/trade-remedies/{measure_id}/restore", response_model=TradeRemedyMeasureResponse, dependencies=[can_edit]
+)
+def restore_trade_remedy(measure_id: int, db: Session = Depends(get_db), current_user=Depends(get_current_user)):
+    return trade_remedy_service.restore_trade_remedy_measure(db, measure_id, current_user.username)
 
 
 @customs_tariff_router.get("/{tariff_id}", response_model=CustomsTariffResponse, dependencies=[can_view])

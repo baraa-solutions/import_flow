@@ -633,6 +633,49 @@
       "note"
     ]
   },
+  "CT_TRADE_REMEDY_DEPOSIT": {
+    "params": [
+      "decree_refs"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "CT_TRADE_REMEDY_EXPORTER_MISSING": {
+    "params": [
+      "hs_code",
+      "measure_type"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "CT_TRADE_REMEDY_ORIGIN_MISSING": {
+    "params": [
+      "hs_code",
+      "measure_type"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "CT_TRADE_REMEDY_QTY_MISSING": {
+    "params": [
+      "duty_basis",
+      "hs_code"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "CT_TRADE_REMEDY_RATE_MISSING": {
+    "params": [
+      "hs_codes"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
   "CURRENCY_BASE_EXISTS": {
     "params": [
       "base_currency"
@@ -4309,6 +4352,55 @@
     "parts": [
       "title",
       "body",
+      "note"
+    ]
+  },
+  "TRM_BASIS_FIELDS_MISSING": {
+    "params": [
+      "duty_basis"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "TRM_INVALID_DATES": {
+    "params": [
+      "effective_from",
+      "effective_to"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "TRM_INVALID_HS": {
+    "params": [
+      "hs_code"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "TRM_INVALID_ORIGIN": {
+    "params": [
+      "origin_country"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "TRM_NOT_FOUND": {
+    "params": [
+      "measure_id"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "TRM_OVERLAP": {
+    "params": [
+      "measure_code"
+    ],
+    "parts": [
       "note"
     ]
   },
