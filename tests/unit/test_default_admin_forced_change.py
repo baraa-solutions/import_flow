@@ -50,7 +50,7 @@ auth_router_module = importlib.import_module("modules.auth.router")
 currencies_router_module = importlib.import_module("modules.currencies.router")
 purchase_orders_router_module = importlib.import_module("modules.purchase_orders.router")
 
-HEAD_REVISION = "ff11aa22bb33"  # current head
+HEAD_REVISION = "a7c1e9d3f5b2"  # current head
 DEFAULT_PASSWORD = "Admin@123"
 NEW_PASSWORD = "Sorour-Admin-2026"
 CHANGE_URL = "/api/v1/auth/me/change-password"
