@@ -18,6 +18,9 @@ int _numToInt(dynamic val, [int fallback = 0]) {
   return fallback;
 }
 
+/// Where a tariff version stands against a given day (ministerial-decree validity window).
+enum TariffValidity { active, expired, upcoming }
+
 class CustomsTariffModel {
   final int tariffId;
   final String hsCode;
@@ -169,6 +172,19 @@ class CustomsTariffModel {
     final ar = categoryLabelArabic ?? '';
     return '$raw $en $ar'.toLowerCase();
   }
+
+  /// Validity of this version on [day] (today by default). Both bounds are inclusive, as in the
+  /// backend lookup `effective_from <= day <= effective_to` (a closed version ends the day before
+  /// its successor starts).
+  TariffValidity validityOn([DateTime? day]) {
+    final d = _dateOnly(day ?? DateTime.now());
+    if (_dateOnly(effectiveFrom).isAfter(d)) return TariffValidity.upcoming;
+    final to = effectiveTo;
+    if (to != null && _dateOnly(to).isBefore(d)) return TariffValidity.expired;
+    return TariffValidity.active;
+  }
+
+  static DateTime _dateOnly(DateTime value) => DateTime(value.year, value.month, value.day);
 }
 
 class CustomsDutyBreakdownModel {

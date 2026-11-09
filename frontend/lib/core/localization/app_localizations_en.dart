@@ -8055,6 +8055,18 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get hsEffectiveActiveRecord => '(Approved Live Record)';
   @override
+  String get tariffEffectiveFromLabel => 'Effective From';
+  @override
+  String get tariffEffectiveToLabel => 'Effective To (optional)';
+  @override
+  String get tariffEffectiveToAfterFromError => 'Effective To must be after Effective From';
+  @override
+  String tariffValidSince(String date) => 'In force since $date';
+  @override
+  String tariffExpiredOn(String date) => 'Expired on $date';
+  @override
+  String tariffStartsOn(String date) => 'Starts on $date';
+  @override
   String get hsDiffHistoryAction => 'Evolution & Diffs Analysis ➔';
   @override
   String get hsTabTaxRates => 'Taxes & Duties';

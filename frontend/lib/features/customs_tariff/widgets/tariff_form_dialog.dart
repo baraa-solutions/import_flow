@@ -40,6 +40,9 @@ void showTariffDialog(BuildContext context, WidgetRef ref,
   final priorApprovalCtrl =
       TextEditingController(text: tariff?.priorApprovalNote ?? '');
   final notesCtrl = TextEditingController(text: tariff?.notes ?? '');
+  String isoDate(DateTime? d) => d == null ? '' : d.toIso8601String().split('T').first;
+  final effectiveFromCtrl = TextEditingController(text: isoDate(tariff?.effectiveFrom ?? DateTime.now()));
+  final effectiveToCtrl = TextEditingController(text: isoDate(tariff?.effectiveTo));
   final rawTextCtrl = TextEditingController();
 
   bool requiresCoo = tariff?.requiresCoo ?? false;
@@ -172,6 +175,8 @@ void showTariffDialog(BuildContext context, WidgetRef ref,
                             authCtrl: authCtrl,
                             priorApprovalCtrl: priorApprovalCtrl,
                             notesCtrl: notesCtrl,
+                            effectiveFromCtrl: effectiveFromCtrl,
+                            effectiveToCtrl: effectiveToCtrl,
                             isNewTariff: tariff == null,
                             requiresAcid: requiresAcid,
                             requiresCoo: requiresCoo,
@@ -288,6 +293,8 @@ void showTariffDialog(BuildContext context, WidgetRef ref,
                             'regulatory_authority': authCtrl.text.trim().isEmpty ? null : authCtrl.text.trim(),
                             'prior_approval_note': priorApprovalCtrl.text.trim().isEmpty ? null : priorApprovalCtrl.text.trim(),
                             'notes': notesCtrl.text.trim().isEmpty ? null : notesCtrl.text.trim(),
+                            'effective_from': effectiveFromCtrl.text.trim(),
+                            'effective_to': effectiveToCtrl.text.trim().isEmpty ? null : effectiveToCtrl.text.trim(),
                           };
 
                           if (tariff == null) {
