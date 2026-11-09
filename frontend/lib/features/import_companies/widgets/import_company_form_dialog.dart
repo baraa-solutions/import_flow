@@ -59,6 +59,7 @@ class _ImportCompanyFormDialogState extends ConsumerState<ImportCompanyFormDialo
   late bool _hasGlobalBrand;
   late final TextEditingController _globalBrandCtrl;
   late bool _hasIso9001;
+  late final Map<String, DateTime?> _expiries;
   late final TextEditingController _iso9001Ctrl;
 
   late DateTime _impExpiry;
@@ -90,6 +91,13 @@ class _ImportCompanyFormDialogState extends ConsumerState<ImportCompanyFormDialo
     _hasGlobalBrand = c?.hasGlobalBrand ?? false;
     _globalBrandCtrl = TextEditingController(text: c?.globalBrandNumber ?? '');
     _hasIso9001 = c?.hasIso9001 ?? false;
+    _expiries = {
+      'nafeza_token': c?.nafezaTokenExpiry,
+      'wipo': c?.wipoExpiry,
+      'euipo': c?.euipoExpiry,
+      'global_brand': c?.globalBrandExpiry,
+      'iso_9001': c?.iso9001Expiry,
+    };
     _iso9001Ctrl = TextEditingController(text: c?.iso9001Number ?? '');
 
     _impExpiry = c?.importerIdExpiry ?? DateTime.now().add(const Duration(days: 365));
@@ -155,6 +163,11 @@ class _ImportCompanyFormDialogState extends ConsumerState<ImportCompanyFormDialo
         globalBrandNumber: _hasGlobalBrand && _globalBrandCtrl.text.trim().isNotEmpty ? _globalBrandCtrl.text.trim() : null,
         hasIso9001: _hasIso9001,
         iso9001Number: _hasIso9001 && _iso9001Ctrl.text.trim().isNotEmpty ? _iso9001Ctrl.text.trim() : null,
+        nafezaTokenExpiry: _expiries['nafeza_token'],
+        wipoExpiry: _hasWipo ? _expiries['wipo'] : null,
+        euipoExpiry: _hasEuipo ? _expiries['euipo'] : null,
+        globalBrandExpiry: _hasGlobalBrand ? _expiries['global_brand'] : null,
+        iso9001Expiry: _hasIso9001 ? _expiries['iso_9001'] : null,
         isActive: companyToEdit?.isActive ?? true,
       );
 
@@ -294,6 +307,8 @@ class _ImportCompanyFormDialogState extends ConsumerState<ImportCompanyFormDialo
                           hasIso9001: _hasIso9001,
                           iso9001Ctrl: _iso9001Ctrl,
                           onIso9001Changed: (v) => setState(() => _hasIso9001 = v ?? false),
+                          expiries: _expiries,
+                          onExpiryChanged: (key, value) => setState(() => _expiries[key] = value),
                         ),
                       ],
                     ),

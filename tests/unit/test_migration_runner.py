@@ -26,7 +26,7 @@ from utils.migration_linter import MigrationLinter
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 PREVIOUS_HEAD = "d3e4f5a6b7c8"
-HEAD_REVISION = "a7c1e9d3f5b2"
+HEAD_REVISION = "b3d5f7a9c1e2"
 
 
 class _SpyMasterData:
@@ -388,7 +388,9 @@ def test_11_single_head_follows_the_baseline_and_linter_passes():
     # -> e4f5a6b7c8d9 (pre-Form 4 readiness pipeline)
     # -> a1b2c3d4e5f6 (budget_currency in projects)
     # -> ff11aa22bb33 (trade remedy measures) -> a7c1e9d3f5b2 (exclusive payment pathway)
-    assert script.get_revision(HEAD_REVISION).down_revision == "ff11aa22bb33"
+    # -> b3d5f7a9c1e2 (certificate expiry dates)
+    assert script.get_revision(HEAD_REVISION).down_revision == "a7c1e9d3f5b2"
+    assert script.get_revision("a7c1e9d3f5b2").down_revision == "ff11aa22bb33"
     assert script.get_revision("ff11aa22bb33").down_revision == "ee66aa77bb88"
     assert script.get_revision("ee66aa77bb88").down_revision == "ee55aa66bb77"
     assert script.get_revision("ee55aa66bb77").down_revision == "ee44aa55bb66"

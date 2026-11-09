@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime
 
 from pydantic import BaseModel
 from pydantic import ConfigDict
@@ -71,6 +71,10 @@ class SupplierBase(BaseModel):
     global_brand_number: str | None = None
     has_iso_9001: bool = False
     iso_9001_number: str | None = None
+    wipo_expiry: date | None = None
+    euipo_expiry: date | None = None
+    global_brand_expiry: date | None = None
+    iso_9001_expiry: date | None = None
 
     registered_decree_43: bool = False
 
@@ -158,6 +162,10 @@ class SupplierUpdate(BaseModel):
     global_brand_number: str | None = None
     has_iso_9001: bool | None = None
     iso_9001_number: str | None = None
+    wipo_expiry: date | None = None
+    euipo_expiry: date | None = None
+    global_brand_expiry: date | None = None
+    iso_9001_expiry: date | None = None
 
     registered_decree_43: bool | None = None
 
