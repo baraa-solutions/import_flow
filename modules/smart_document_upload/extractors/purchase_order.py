@@ -7,7 +7,7 @@ European numbering support, tariff registration compliance, and packing metrics.
 from __future__ import annotations
 
 import re
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 from modules.smart_document_upload.extractors.base_extractor import BaseExtractor
 
@@ -26,6 +26,13 @@ _DESC_STOP_RE = re.compile(
 )
 _ORDER_REF_LABEL_RE = re.compile(r"^(?:your\s+order|our\s+order(?:\s+confirmation)?|vs\.?\s+ordine|ns\.?\s+conferma)$", re.IGNORECASE)
 _ORDER_REF_LINE_RE = re.compile(r"^(?:bolla|ddt|r\d{2}\s+\d+\s+date|\d+\s+date\s+\d)", re.IGNORECASE)
+
+
+def _same_number(a: Any, b: Any) -> bool:
+    try:
+        return abs(float(a) - float(b)) < 0.005
+    except (TypeError, ValueError):
+        return False
 
 
 class PurchaseOrderExtractor(BaseExtractor):
@@ -242,6 +249,58 @@ class PurchaseOrderExtractor(BaseExtractor):
                     p["description"] = matching.get("description")
 
         return packing_items
+
+    # ─── Two-pass PI / PL reconciliation ──────────────────────────────────────
+
+    _PACKING_HEADING = re.compile(r"^\s*(?:PACKING\s*(?:&\s*WEIGHT\s*)?LIST|قائمة\s+(?:ال)?تعبئة)\b", re.MULTILINE | re.IGNORECASE)
+    _COLOR_CODE_ROW = re.compile(r"^\s*(YH-\d{3,4}|[A-Z]{2,4}-\d{3,5})\s+(.+)$", re.MULTILINE | re.IGNORECASE)
+    _PLACEHOLDER_CODE = re.compile(r"^(?:ITEM|HTS)-", re.IGNORECASE)
+
+    def _split_invoice_and_packing(self, text: str) -> Tuple[str, str]:
+        """(invoice part, packing-list part). The packing part is empty when the document has no
+        packing-list heading after some invoice content."""
+        match = self._PACKING_HEADING.search(text)
+        if not match or not text[: match.start()].strip():
+            return text, ""
+        return text[: match.start()], text[match.start():]
+
+    def _color_code_packing_rows(self, packing_text: str) -> Dict[str, Dict[str, float]]:
+        """Per-code packing metrics from rows "CODE CTNS PCS GW NW CBM" (first row per code wins)."""
+        rows: Dict[str, Dict[str, float]] = {}
+        for m in self._COLOR_CODE_ROW.finditer(packing_text):
+            code = m.group(1).strip().upper()
+            nums = [BaseExtractor.parse_numeric_str(n) for n in re.findall(r"\d+(?:[.,]\d+)?", m.group(2))]
+            if code in rows or len(nums) < 2:
+                continue
+            row = {"qty_pkg": nums[0], "qty_pcs": nums[1]}
+            if len(nums) >= 5:
+                row.update(gross=nums[2], net=nums[3], cbm=nums[4])
+            rows[code] = row
+        return rows
+
+    def _reconcile_line_items(self, items: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """One line per physical item. A repeated real code with the same quantity and the same (or a missing)
+        unit price is the same item seen again (e.g. in the packing-list table): its fields only fill gaps of
+        the first row. Placeholder codes (ITEM-001, HTS-...) and same-code lines with another quantity or price
+        (separate invoice lines, e.g. two deliveries of one article) are kept."""
+        merged: List[Dict[str, Any]] = []
+        by_code: Dict[str, Dict[str, Any]] = {}
+        for item in items:
+            code = str(item.get("item_code") or "").strip().upper()
+            first = by_code.get(code)
+            same_item = first is not None and _same_number(item.get("quantity"), first.get("quantity")) and (
+                not item.get("unit_price") or not first.get("unit_price")
+                or _same_number(item["unit_price"], first["unit_price"])
+            )
+            if code and not self._PLACEHOLDER_CODE.match(code) and same_item:
+                for key, value in item.items():
+                    if first.get(key) in (None, "", 0, 0.0) and value not in (None, ""):
+                        first[key] = value
+                continue
+            if code and code not in by_code:
+                by_code[code] = item
+            merged.append(item)
+        return merged
 
     def _extract_total_amount(self, text: str) -> Optional[float]:
         # 1. Net to pay EUR 42.472,35 / Total net incl. surcharge (French/Steelcase/EU multi-page invoices)
@@ -780,19 +839,27 @@ class PurchaseOrderExtractor(BaseExtractor):
                 r"^\s*(YH-\d{3,4}|[A-Z]{2,4}-\d{3,5})\s+(?:(\d+)\s+)?(\d+)\b",
                 re.MULTILINE | re.IGNORECASE,
             )
-            for m in color_item_pattern.finditer(text):
+            invoice_text, packing_text = self._split_invoice_and_packing(text)
+            packing_rows = self._color_code_packing_rows(packing_text)
+            for m in color_item_pattern.finditer(invoice_text):
                 code = m.group(1).strip()
                 ctns = float(m.group(2)) if m.group(2) else 20.0
                 qty = float(m.group(3)) if m.group(3) else 100.0
                 price = global_unit_price if global_unit_price and global_unit_price > 0 else 60.70
-                items.append({
+                item = {
                     "item_code": code,
                     "description": f"PET Acoustic Panels ({code})",
                     "hs_code": "5602290000" if not default_hs else default_hs,
                     "quantity": qty,
                     "unit_price": price,
-                    "total_price": qty * price,
-                })
+                    "total_price": round(qty * price, 2),
+                }
+                pl_row = packing_rows.get(code.upper())
+                if pl_row:
+                    item["qty_pkg"] = pl_row["qty_pkg"]
+                    if "gross" in pl_row:
+                        item.update(gross_weight_kg=pl_row["gross"], net_weight_kg=pl_row["net"], total_cbm=pl_row["cbm"])
+                items.append(item)
 
         # 4. Narbutas / European Standard Invoice space-separated row pattern
         # Matches: PSHD041 [.PA01.MA03] Mobile table with metal base... 4.00 Pcs 124.00 496.00
@@ -914,7 +981,7 @@ class PurchaseOrderExtractor(BaseExtractor):
                 item["hs_code_status"] = "registered"
                 item["hs_code_warning"] = None
 
-        return items[:50]
+        return self._reconcile_line_items(items)[:50]
 
     def _clean_gi_item_desc(self, raw_desc: str) -> str:
         lines = [l.strip() for l in raw_desc.splitlines() if l.strip()]
@@ -1646,6 +1713,27 @@ class PurchaseOrderExtractor(BaseExtractor):
             except (ValueError, IndexError):
                 continue
 
+        if packing:
+            return packing
+
+        # 2a. Chinese Yuheng per-code rows (YH-652 20 100 1460 1400 9.2) under the PACKING LIST heading
+        _, packing_text = self._split_invoice_and_packing(text)
+        for code, row in self._color_code_packing_rows(packing_text).items():
+            if "gross" not in row or row["qty_pkg"] <= 0:
+                continue
+            packing.append({
+                "item_code": code,
+                "package_type": "Carton",
+                "qty_pkg": row["qty_pkg"],
+                "qty_pcs": row["qty_pcs"],
+                "weight_unit": "KGM",
+                "gross_weight_unit_kg": round(row["gross"] / row["qty_pkg"], 3),
+                "net_weight_unit_kg": round(row["net"] / row["qty_pkg"], 3),
+                "total_gross_weight_kg": row["gross"],
+                "total_net_weight_kg": row["net"],
+                "total_cbm": row["cbm"],
+                "is_stackable": True,
+            })
         if packing:
             return packing
 
