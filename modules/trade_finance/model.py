@@ -3,7 +3,7 @@ Trade Finance Models (LC, CAD, Advance Payments, Bank Charges & FX Hedging)
 """
 
 from datetime import datetime, timezone
-from sqlalchemy import Boolean, Column, Date, DateTime, Float, ForeignKey, Integer, String, Text
+from sqlalchemy import Boolean, Column, Date, DateTime, Float, ForeignKey, Index, Integer, String, Text, text
 from sqlalchemy.orm import relationship
 
 from database.database import Base
@@ -55,6 +55,16 @@ class ImportFinanceInstrument(Base):
         order_by="FxHedgingAndVariance.booking_date.asc()",
     )
     import_file = relationship("ImportFile", foreign_keys=[import_file_id])
+
+    # Exclusive payment pathway: at most one active, non-cancelled primary instrument per import file.
+    __table_args__ = (
+        Index(
+            "uq_finance_instrument_active_per_file",
+            "import_file_id",
+            unique=True,
+            sqlite_where=text("is_active = 1 AND status != 'CANCELLED'"),
+        ),
+    )
 
 
 class LcBankCharge(Base):

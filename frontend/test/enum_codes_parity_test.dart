@@ -38,6 +38,7 @@ const _typeMap = <String, String>{
   'PO_STATUS': DomainEnumType.poStatus,
   'SHIPMENT_MODE': DomainEnumType.shipmentMode,
   'PAYMENT_TYPE': DomainEnumType.paymentType,
+  'PAYMENT_TERM': DomainEnumType.paymentTerm,
   'LEGAL_DOC_KIND': DomainEnumType.legalDocKind,
   'LAB_TEST_RESULT': DomainEnumType.labTestResult,
   'ODC_STATUS': DomainEnumType.odcStatus,

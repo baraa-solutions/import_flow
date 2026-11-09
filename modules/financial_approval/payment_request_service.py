@@ -94,6 +94,7 @@ from modules.financial_approval.validators import (
 )
 from modules.notifications.model import SystemNotification
 from modules.users.model import User
+from modules.trade_finance.payment_pathway import ensure_payment_type_allowed
 
 logger = logging.getLogger(__name__)
 
@@ -453,6 +454,7 @@ def create_payment_request_service(
 
     if schema.import_file_id:
         _ensure_no_open_payment_of_type(db, schema.import_file_id, schema.payment_type)
+        ensure_payment_type_allowed(db, schema.import_file_id, schema.payment_type, actor=current_user_name or "system")
 
     initial_status = schema.status if schema.status in PAYMENT_CREATE_STATUSES else PAYMENT_DRAFT
     file_code = "No File"
@@ -535,6 +537,11 @@ def update_payment_request_service(
                                                                     or target_status != db_item.status):
         _ensure_no_open_payment_of_type(
             db, target_file, changes.get("payment_type", db_item.payment_type), exclude_id=db_item.payment_id
+        )
+    if target_file and ("import_file_id" in changes or "payment_type" in changes):
+        ensure_payment_type_allowed(
+            db, target_file, changes.get("payment_type", db_item.payment_type),
+            actor=current_user_name or "system", exclude_id=db_item.payment_id,
         )
 
     repo.apply_payment_changes(db, db_item, changes, current_version, updated_by=current_user_name)
@@ -885,6 +892,7 @@ def clone_payment_request_service(
     payment_type = normalize_payment_type(orig.payment_type)
     if import_file_id:
         _ensure_no_open_payment_of_type(db, import_file_id, payment_type)
+        ensure_payment_type_allowed(db, import_file_id, payment_type, actor=current_user_name or "system")
 
     notes = orig.notes
     if schema.remarks:
