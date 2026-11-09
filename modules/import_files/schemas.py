@@ -4,9 +4,10 @@ Pydantic Schemas for Import Files Master & Tracking Module
 
 from typing import List, Optional, Any, Dict
 from datetime import date, datetime
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import BaseModel, Field, ConfigDict, field_validator
 
 from modules.common.legacy_rows import LegacyRowTolerantModel, read_model
+from modules.trade_finance.payment_pathway import normalize_payment_term
 
 class InvoiceItemSchema(BaseModel):
     invoice_no: str = Field(..., description="Invoice Number e.g. PI-889")
@@ -47,6 +48,9 @@ class ImportFileBase(BaseModel):
     acid_exemption_reason: Optional[str] = Field(None, description="Postal parcel under 50kg and $2000 (Article 1, Customs Law 207/2020) or Exceeds threshold")
     courier_tracking_no: Optional[str] = Field(None, description="Courier tracking number e.g. AWB")
     incoterm_code: str = Field("FOB", description="FOB, CIF, CFR, etc.")
+    payment_term: Optional[str] = Field(
+        None, description="Exclusive payment pathway: ADVANCE_PAYMENT, LC, CAD, OPEN_ACCOUNT (inherited from the PO when empty)"
+    )
     priority: str = Field("High", description="Low, Medium, High, Critical")
     shipment_category: str = Field("New Purchase", description="New Purchase, Repair, Replacement, Sample")
     hs_code: Optional[str] = Field(None, description="HS Code e.g. 8520")
@@ -155,6 +159,11 @@ class ImportFileBase(BaseModel):
     closure_reason: Optional[str] = Field(None, description="Reason for early closure or termination")
     closed_at_phase: Optional[str] = Field(None, description="Operational phase where closure occurred")
 
+    @field_validator("payment_term", mode="before")
+    @classmethod
+    def _normalize_payment_term(cls, value: Any) -> Optional[str]:
+        return normalize_payment_term(value)
+
 
 class CloseShipmentSubmit(BaseModel):
     closure_reason: str = Field(..., min_length=3, description="Reason for stopping/closing shipment")
@@ -204,6 +213,7 @@ class ImportFileUpdate(BaseModel):
     acid_exemption_reason: Optional[str] = None
     courier_tracking_no: Optional[str] = None
     incoterm_code: Optional[str] = None
+    payment_term: Optional[str] = None
     priority: Optional[str] = None
     shipment_category: Optional[str] = None
     hs_code: Optional[str] = None
@@ -301,6 +311,11 @@ class ImportFileUpdate(BaseModel):
     skipped_stages: Optional[List[str]] = None
     owner: Optional[str] = None
     notes: Optional[str] = None
+
+    @field_validator("payment_term", mode="before")
+    @classmethod
+    def _normalize_payment_term(cls, value: Any) -> Optional[str]:
+        return normalize_payment_term(value)
 
 
 class FreightRfqDataResponse(BaseModel):
