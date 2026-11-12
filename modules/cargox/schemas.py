@@ -4,7 +4,9 @@ Pydantic Schemas for CargoX & ACI Dispatch Hub (CGX-001)
 
 from datetime import datetime
 from typing import List, Optional, Dict, Any, Literal
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, computed_field
+
+from modules.integrations.integration_mode import is_simulated_mode
 
 
 class CargoXDocumentCreate(BaseModel):
@@ -50,7 +52,7 @@ class CargoXEnvelopeCreate(BaseModel):
     bl_number: Optional[str] = None
     notes: Optional[str] = None
     documents: Optional[List[CargoXDocumentCreate]] = None
-    mode: str = "MOCK"  # MOCK, STAGING, PRODUCTION
+    mode: Optional[str] = Field(None, description="Deprecated and ignored: the integration mode comes from server settings")
     is_draft: bool = False
     status: Optional[str] = None
 
@@ -97,11 +99,18 @@ class CargoXEnvelopeResponse(BaseModel):
     updated_at: datetime
     updated_by: str
     documents: List[CargoXDocumentResponse] = []
+    integration_mode: Optional[str] = None
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def is_simulated(self) -> bool:
+        """True when the blockchain hash / customs seal came from the simulated (MOCK) CargoX client."""
+        return is_simulated_mode(self.integration_mode)
 
 
 class CargoXSealAndTransferRequest(BaseModel):
     bl_number: Optional[str] = None
-    mode: str = "MOCK"
+    mode: Optional[str] = Field(None, description="Deprecated and ignored: the integration mode comes from server settings")
 
 
 class CargoXSealAndTransferResponse(BaseModel):
@@ -116,6 +125,8 @@ class CargoXSealAndTransferResponse(BaseModel):
     transferred_at: datetime
     customs_confirmation_receipt: str
     message: str
+    integration_mode: Optional[str] = None
+    is_simulated: bool = False
 
 
 class ACIDDocumentVerificationItem(BaseModel):

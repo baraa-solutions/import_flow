@@ -9,6 +9,9 @@ import pytest
 # SECRET_KEY must be at least 32 chars (enforced by settings.py)
 os.environ.setdefault("SECRET_KEY", "test-secret-key-for-unit-tests-only-32chars")
 os.environ["ALLOW_DEV_AUTH_BYPASS"] = "true"
+# Production Mock Guard (NLv0Dpj5): existing tests exercise the simulated Nafeza / CargoX / PKI clients.
+# The guard only blocks MOCK in the frozen build, but the flag keeps the suite valid if that ever changes.
+os.environ.setdefault("ALLOW_MOCK_INTEGRATIONS", "true")
 os.environ.setdefault("ENABLE_API_DOCS", "false")
 
 # The session database lives in its own temporary folder: startup snapshots and pre_migration backups

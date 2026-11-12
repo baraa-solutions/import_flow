@@ -102,6 +102,8 @@ class CargoXEnvelopeModel {
   final DateTime updatedAt;
   final String updatedBy;
   final List<CargoXDocumentModel> documents;
+  final String? integrationMode;
+  final bool isSimulated;
 
   CargoXEnvelopeModel({
     required this.envelopeId,
@@ -131,6 +133,8 @@ class CargoXEnvelopeModel {
     required this.updatedAt,
     required this.updatedBy,
     this.documents = const [],
+    this.integrationMode,
+    this.isSimulated = false,
   });
 
   factory CargoXEnvelopeModel.fromJson(Map<String, dynamic> json) {
@@ -165,6 +169,8 @@ class CargoXEnvelopeModel {
               ?.map((e) => CargoXDocumentModel.fromJson(e as Map<String, dynamic>))
               .toList() ??
           [],
+      integrationMode: json['integration_mode'] as String?,
+      isSimulated: json['is_simulated'] as bool? ?? (json['integration_mode'] == 'MOCK'),
     );
   }
 
@@ -197,6 +203,8 @@ class CargoXEnvelopeModel {
       'updated_at': updatedAt.toIso8601String(),
       'updated_by': updatedBy,
       'documents': documents.map((e) => e.toJson()).toList(),
+      'integration_mode': integrationMode,
+      'is_simulated': isSimulated,
     };
   }
 }

@@ -23,6 +23,9 @@
 /modules/demurrage_detention/       @kamalsroor1
 /modules/currencies/                @kamalsroor1
 
+# External integrations (Nafeza / CargoX / PKI): Production Mock Guard, never present a simulation as real
+/modules/integrations/              @kamalsroor1
+
 # Update / release chain and production data
 /modules/app_update/                @kamalsroor1
 /modules/production_sync/           @kamalsroor1

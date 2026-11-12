@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_theme.dart';
 import '../providers/system_observability_provider.dart';
 import 'system_health_table.dart';
+import '../../integrations/widgets/simulation_mode_banner.dart';
 
 class DeepHealthTab extends ConsumerWidget {
   final bool isArabic;
@@ -23,6 +24,8 @@ class DeepHealthTab extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          const IntegrationStatusPanel(),
+          const SizedBox(height: 12),
           Card(
             elevation: 0,
             shape: RoundedRectangleBorder(

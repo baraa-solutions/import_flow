@@ -3,6 +3,12 @@ import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Dict, Any, Optional
 from .pki_signer import PKISignerService
+from .integration_mode import (
+    IntegrationProvider,
+    ensure_mode_allowed,
+    select_integration_mode,
+    simulation_flags,
+)
 
 
 class NafezaIntegrationClient:
@@ -11,10 +17,12 @@ class NafezaIntegrationClient:
     Supports ACID Application, Customs Declaration (Form 46) Polling, and Webhook Receiver.
     """
 
-    def __init__(self, mode: str = "MOCK", api_key: Optional[str] = None):
-        self.mode = mode.upper()  # MOCK, STAGING, PRODUCTION
-        self.api_key = api_key or os.getenv("NAFEZA_API_KEY", "NAFEZA_DEMO_API_KEY_2026")
-        self.signer = PKISignerService(mode=self.mode)
+    def __init__(self, mode: Optional[str] = None, api_key: Optional[str] = None):
+        # Mode comes from settings (NAFEZA_INTEGRATION_MODE); ``mode`` is an override for code/tests only.
+        self.integration_mode = select_integration_mode(IntegrationProvider.NAFEZA, mode)
+        self.mode = self.integration_mode.value
+        self.api_key = api_key or os.getenv("NAFEZA_API_KEY")
+        self.signer = PKISignerService(mode=mode)
 
     def request_acid_number(
         self,
@@ -25,8 +33,9 @@ class NafezaIntegrationClient:
         invoice_value_usd: float,
     ) -> Dict[str, Any]:
         """
-        Submits ACID Request to Nafeza Gate.
+        Submits ACID Request to Nafeza Gate (simulated in MOCK mode; refused in the production build).
         """
+        ensure_mode_allowed(IntegrationProvider.NAFEZA, self.integration_mode)
         payload = {
             "importer_id": importer_id,
             "exporter_id": exporter_id,
@@ -49,17 +58,18 @@ class NafezaIntegrationClient:
             "expiry_date": validity_end,
             "nafeza_reference_id": f"NAF-REQ-{uuid.uuid4().hex[:8].upper()}",
             "pki_signature": pki_sig,
-            "integration_mode": self.mode,
-            "message": "ACID Number successfully issued by Nafeza Customs Authority System.",
+            **simulation_flags(self.integration_mode),
+            "message": "SIMULATED ACID number - nothing was sent to Nafeza.",
         }
 
     def verify_webhook_signature(self, webhook_body: str, signature_header: str) -> bool:
         """
-        Verifies HMAC / RSA signature on incoming Nafeza webhook payloads.
+        Verifies the signature on an incoming Nafeza webhook payload.
+
+        No real HMAC / RSA verification exists yet (Phase 3), so every webhook is rejected, in every
+        mode: accepting unverified callbacks would let anyone forge an official Nafeza status.
         """
-        if self.mode == "MOCK":
-            return True
-        return len(signature_header) > 10
+        return False
 
     # =========================================================================
     # INT-NAFEZA-008: Tariff Parse & Sync + Customs Exchange Rates

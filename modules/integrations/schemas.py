@@ -8,7 +8,7 @@ class ACIDLiveRequest(BaseModel):
     exporter_country_code: str = Field("CN", min_length=2, max_length=2)
     tariff_hs_codes: List[str] = Field(..., min_length=1)
     invoice_value_usd: float = Field(..., gt=0)
-    mode: Optional[str] = Field("MOCK", description="MOCK, STAGING, or PRODUCTION")
+    mode: Optional[str] = Field(None, description="Deprecated and ignored: the integration mode comes from server settings")
 
 
 class CargoXEnvelopeLiveRequest(BaseModel):
@@ -16,18 +16,18 @@ class CargoXEnvelopeLiveRequest(BaseModel):
     importer_company_code: str
     foreign_exporter_cargox_id: str
     document_types: List[str] = Field(default=["Commercial Invoice", "Bill of Lading", "Certificate of Origin", "Packing List"])
-    mode: Optional[str] = Field("MOCK")
+    mode: Optional[str] = Field(None, description="Deprecated and ignored: the integration mode comes from server settings")
 
 
 class CargoXTransferLiveRequest(BaseModel):
     envelope_id: str
     bl_number: str
-    mode: Optional[str] = Field("MOCK")
+    mode: Optional[str] = Field(None, description="Deprecated and ignored: the integration mode comes from server settings")
 
 
 class PKISignPayloadRequest(BaseModel):
     payload_data: dict
-    mode: Optional[str] = Field("MOCK")
+    mode: Optional[str] = Field(None, description="Deprecated and ignored: the integration mode comes from server settings")
 
 
 # =========================================================================
@@ -36,7 +36,7 @@ class PKISignPayloadRequest(BaseModel):
 
 class NafezaTariffParseRequest(BaseModel):
     raw_text: str = Field(..., min_length=10, description="نص البند المنسوخ من موقع نافذة")
-    mode: Optional[str] = Field("MOCK", description="MOCK, STAGING, or PRODUCTION")
+    mode: Optional[str] = Field(None, description="Deprecated and ignored: the integration mode comes from server settings")
 
 
 class NafezaTariffSyncResponse(BaseModel):
@@ -107,3 +107,21 @@ class AccreditedInspectionBody(BaseModel):
     accreditation_scope: str
     is_active: bool = True
 
+
+
+# =========================================================================
+# Production Mock Guard (NLv0Dpj5): integration status panel
+# =========================================================================
+
+class IntegrationProviderStatus(BaseModel):
+    provider: str
+    integration_mode: str = Field(..., description="MOCK, SANDBOX or LIVE")
+    is_simulated: bool
+    is_available: bool
+    message: str
+
+
+class IntegrationStatusResponse(BaseModel):
+    is_production_build: bool
+    any_simulated: bool
+    providers: List[IntegrationProviderStatus]
