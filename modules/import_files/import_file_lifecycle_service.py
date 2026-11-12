@@ -30,6 +30,7 @@ from modules.import_files.schemas import (
 from modules.import_files.model import ImportFile
 import modules.import_files.repository as repo
 import modules.import_files.validators as validators
+from modules.trade_finance import payment_pathway
 from modules.audit_logs.service import AuditLogService
 from modules.common import cargo_math, enum_codes
 from modules.common.system_parameters import air_volumetric_kg_per_cbm
@@ -435,6 +436,10 @@ def create_import_file_service(
         starting_step = payload.initial_starting_step or "STEP_01"
         data_dict.update(step_tracking_columns("STEP_08_PO" if starting_step == "STEP_08" else starting_step))
 
+        # Exclusive payment pathway: inherited from the linked POs when not given explicitly.
+        if not data_dict.get("payment_term"):
+            data_dict["payment_term"] = payment_pathway.payment_term_from_purchase_orders(db, payload.po_ids)
+
         # Evaluate ACID requirement and courier rules
         w, v = _extract_weight_and_value(payload.packing_lists_data, payload.invoices_data, payload.estimated_cost)
         calc_req, calc_reason = evaluate_acid_requirement(payload.shipment_mode, payload.shipment_sub_mode, w, v)
@@ -551,6 +556,15 @@ def update_import_file_service(
     )
     for field_name in forbidden_tracking:
         update_dict.pop(field_name, None)
+
+    # Exclusive payment pathway: locked while financing of the current pathway exists;
+    # inherited from newly linked POs while still empty.
+    if "payment_term" in update_dict:
+        payment_pathway.ensure_payment_term_change_allowed(db, existing, update_dict["payment_term"])
+    elif existing.payment_term is None and payload.po_ids:
+        inherited = payment_pathway.payment_term_from_purchase_orders(db, payload.po_ids)
+        if inherited:
+            update_dict["payment_term"] = inherited
 
     # Dynamic ACID & Courier evaluation
     new_mode = payload.shipment_mode or existing.shipment_mode

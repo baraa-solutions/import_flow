@@ -91,7 +91,7 @@ class LogisticsInvoicesService:
 
     def create_invoice(self, payload: LogisticsInvoiceCreate, user_name: str = "System") -> LogisticsServiceInvoice:
         # 1. Validations
-        self.validator.validate_shipment(payload.shipment_id)
+        self.validator.validate_shipment(payload.shipment_id, require_active=True)
         partner = self.validator.validate_partner(payload.partner_id)
         self.validator.validate_no_duplicate_invoice(payload.partner_id, payload.invoice_number)
         self.validator.validate_container_locks(payload.bl_number, payload.partner_id, payload.containers)
@@ -497,7 +497,7 @@ class LogisticsInvoicesService:
         )
 
     def create_insurance_policy(self, payload: InsurancePolicyCreate, user_name: str = "System") -> InsurancePolicy:
-        self.validator.validate_shipment(payload.shipment_id)
+        self.validator.validate_shipment(payload.shipment_id, require_active=True)
         self.validator.validate_partner(payload.insurance_company_id, expected_types=["Insurance", "Insurance Company"])
 
         code = self.repo.get_next_policy_code()

@@ -56,6 +56,8 @@ class DomainEnumType {
   static const shipmentMode = 'shipment_mode';
   // Review wave types (docs/enum_codes.json).
   static const paymentType = 'payment_type';
+  /// Exclusive payment pathway of a shipment (import_files.payment_term).
+  static const paymentTerm = 'payment_term';
   static const legalDocKind = 'legal_doc_kind';
   static const labTestResult = 'lab_test_result';
   static const odcStatus = 'odc_status';
@@ -352,6 +354,7 @@ class DomainEnums {
       'FINAL_SETTLEMENT',
       'LETTER_OF_CREDIT',
     ],
+    DomainEnumType.paymentTerm: ['ADVANCE_PAYMENT', 'LC', 'CAD', 'OPEN_ACCOUNT'],
     DomainEnumType.legalDocKind: [
       'ACID',
       'COMMERCIAL_REGISTRY',
@@ -763,6 +766,13 @@ class DomainEnums {
       'LC': 'LETTER_OF_CREDIT',
       'Letter of Credit': 'LETTER_OF_CREDIT',
     },
+    DomainEnumType.paymentTerm: {
+      'Cash Against Documents (تحصيل مستندي)': 'CAD',
+      'Cash in Advance (دفعة مقدمة / سويفت)': 'ADVANCE_PAYMENT',
+      'Letter of Credit (اعتماد مستندي)': 'LC',
+      'Open Account (حساب مفتوح / دفع آجل)': 'OPEN_ACCOUNT',
+      'SWIFT': 'ADVANCE_PAYMENT',
+    },
     DomainEnumType.legalDocKind: {
       'البطاقة الاستيرادية (Import Card)': 'IMPORT_CARD',
       'البطاقة الضريبية / ملف القيمة المضافة (Tax Card)': 'TAX_CARD',
@@ -844,6 +854,10 @@ class DomainEnums {
     'payment_type.DOCUMENTARY_COLLECTION': ['Documentary Collection (CAD)', 'تحصيل مستندي (CAD)'],
     'payment_type.FINAL_SETTLEMENT': ['Final Settlement', 'تسوية نهائية'],
     'payment_type.LETTER_OF_CREDIT': ['Letter of Credit (L/C)', 'اعتماد مستندي (L/C)'],
+    'payment_term.ADVANCE_PAYMENT': ['Cash in Advance / SWIFT', 'دفعة مقدمة / سويفت'],
+    'payment_term.LC': ['Letter of Credit / LC', 'اعتماد مستندي'],
+    'payment_term.CAD': ['CAD / Cash Against Documents', 'تحصيل مستندي'],
+    'payment_term.OPEN_ACCOUNT': ['Open Account / Deferred Payment', 'حساب مفتوح / دفع آجل'],
     'legal_doc_kind.ACID': ['ACID', 'رقم ACID'],
     'legal_doc_kind.COMMERCIAL_REGISTRY': ['Commercial Registry', 'السجل التجاري'],
     'legal_doc_kind.IMPORT_CARD': ['Import Card', 'البطاقة الاستيرادية'],

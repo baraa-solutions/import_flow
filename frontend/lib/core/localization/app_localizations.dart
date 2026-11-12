@@ -10591,6 +10591,7 @@ abstract class AppLocalizations {
   String get settlementClo01PartyBroker;
   String get settlementClo01PartyTransport;
   String get settlementClo01PartyDemurrage;
+  String get settlementClo01PartyBank;
   String get settlementClo01NoInvoices;
   String get settlementClo01ColInvoice;
   String get settlementClo01ColParty;
