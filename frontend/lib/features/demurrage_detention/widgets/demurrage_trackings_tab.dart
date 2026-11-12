@@ -371,10 +371,7 @@ class _DemurrageTrackingsTabState extends ConsumerState<DemurrageTrackingsTab> {
             icon: Icons.assignment_turned_in,
             variant: AppButtonVariant.primary,
             size: AppButtonSize.small,
-            onPressed: () {
-              final targetFileId = widget.initialImportFileId ?? (filteredTrackings.isNotEmpty ? filteredTrackings.first.importFileId : 1);
-              ContainerEirDialog.show(context, importFileId: targetFileId);
-            },
+            onPressed: () => ContainerEirDialog.showForFile(context, ref, importFileId: widget.initialImportFileId),
           )),
           CcUi.fit(AppButton(
             key: const Key('globalEmptyContainerReturnBtn'),

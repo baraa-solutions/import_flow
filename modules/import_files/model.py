@@ -16,6 +16,7 @@ from sqlalchemy import (
     JSON,
     Text,
     Index,
+    CheckConstraint,
     text,
 )
 from sqlalchemy.orm import relationship
@@ -67,6 +68,9 @@ class ImportFile(Base):
     acid_exemption_reason = Column(String(255), nullable=True)
     courier_tracking_no = Column(String(100), nullable=True)
     incoterm_code = Column(String(20), nullable=False, default="FOB") # FOB, CIF, CFR, etc.
+    # Exclusive payment pathway (trade_finance.payment_pathway): ADVANCE_PAYMENT, LC, CAD, OPEN_ACCOUNT.
+    # Empty until known (GP-001); locked once an instrument or payment request of the pathway exists.
+    payment_term = Column(String(20), nullable=True, index=True)
     priority = Column(String(20), nullable=False, default="High") # Low, Medium, High, Critical
     shipment_category = Column(String(50), nullable=False, default="New Purchase") # New Purchase, Repair, Replacement, Sample
     hs_code = Column(String(50), nullable=True) # e.g. 8520
@@ -213,6 +217,10 @@ class ImportFile(Base):
         Index("idx_import_files_current_phase_id", "current_phase_id"),
         Index("idx_import_files_parent_id", "parent_import_file_id"),
         Index("idx_import_files_search_comp", "company_id", "supplier_id", "hs_code"),
+        CheckConstraint(
+            "payment_term IS NULL OR payment_term IN ('ADVANCE_PAYMENT', 'LC', 'CAD', 'OPEN_ACCOUNT')",
+            name="ck_import_files_payment_term",
+        ),
     )
 
 

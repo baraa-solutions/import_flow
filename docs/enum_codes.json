@@ -463,6 +463,21 @@
       "Sadad / E-Finance": "SADAD_EFINANCE"
     }
   },
+  "PAYMENT_TERM": {
+    "codes": {
+      "ADVANCE_PAYMENT": "Cash in Advance / SWIFT",
+      "CAD": "CAD / Cash Against Documents",
+      "LC": "Letter of Credit / LC",
+      "OPEN_ACCOUNT": "Open Account / Deferred Payment"
+    },
+    "legacy": {
+      "Cash Against Documents (تحصيل مستندي)": "CAD",
+      "Cash in Advance (دفعة مقدمة / سويفت)": "ADVANCE_PAYMENT",
+      "Letter of Credit (اعتماد مستندي)": "LC",
+      "Open Account (حساب مفتوح / دفع آجل)": "OPEN_ACCOUNT",
+      "SWIFT": "ADVANCE_PAYMENT"
+    }
+  },
   "PAYMENT_TYPE": {
     "codes": {
       "ADVANCE_PAYMENT": "Advance Payment",

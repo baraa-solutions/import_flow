@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 from modules.common.validators import not_found
 from modules.import_files.model import ImportFile
 from modules.trade_finance.model import FxHedgingAndVariance, ImportFinanceInstrument, LcBankCharge
+from modules.trade_finance.payment_pathway import INSTRUMENT_CANCELLED, ensure_instrument_allowed
 from modules.trade_finance.repository import TradeFinanceRepository
 from modules.trade_finance.schemas import (
     FxHedgingAndVarianceCreate,
@@ -54,6 +55,9 @@ class TradeFinanceService:
                 status_code=status.HTTP_409_CONFLICT,
                 detail=f"رقم الأداة التمويلية ({data.instrument_number}) مسجل مسبقاً في النظام.",
             )
+
+        # 3. Exclusive payment pathway: one active instrument per file, of the file's pathway
+        ensure_instrument_allowed(self.db, data.import_file_id, data.instrument_type, actor=current_user)
 
         inst = ImportFinanceInstrument(
             instrument_type=data.instrument_type.upper(),
@@ -109,6 +113,12 @@ class TradeFinanceService:
     ) -> ImportFinanceInstrument:
         inst = self.get_instrument(inst_id)
         updates = validate_instrument_update(data)
+
+        # Re-activating a cancelled instrument must respect the exclusive payment pathway again.
+        if inst.status == INSTRUMENT_CANCELLED and updates.get("status", INSTRUMENT_CANCELLED) != INSTRUMENT_CANCELLED:
+            ensure_instrument_allowed(
+                self.db, inst.import_file_id, inst.instrument_type, actor=current_user, exclude_id=inst.id
+            )
 
         for key, value in updates.items():
             setattr(inst, key, value)
