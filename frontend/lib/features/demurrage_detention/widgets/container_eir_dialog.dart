@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/localization/app_localizations.dart';
+import '../../../core/widgets/import_file_picker_dialog.dart';
 import '../../../core/theme/app_theme.dart';
 import '../l10n/container_eir_l10n.dart';
 import '../models/container_eir_model.dart';
@@ -40,6 +41,19 @@ class ContainerEirDialog extends ConsumerStatefulWidget {
         initialContainerNumber: initialContainerNumber,
       ),
     );
+  }
+
+  /// Opens the dialog for [importFileId], or asks the user to pick the import file first when the
+  /// caller has no file context. Never falls back to another file (e.g. the first row of a table):
+  /// an EIR stops demurrage, so recording it on the wrong shipment corrupts that file's costs.
+  static Future<bool?> showForFile(BuildContext context, WidgetRef ref, {int? importFileId}) async {
+    var fileId = importFileId;
+    if (fileId == null) {
+      final picked = await showImportFilePickerDialog(context, ref, title: context.l10n.openContainerEirDialog);
+      if (picked == null || !context.mounted) return null;
+      fileId = picked.importFileId;
+    }
+    return show(context, importFileId: fileId);
   }
 
   @override

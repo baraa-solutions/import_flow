@@ -58,7 +58,38 @@ class Form46LoadedData {
 }
 
 class CustomsDeclaration46FormService {
-  static Form46LoadedData loadForFile(WidgetRef ref, int fileId) {
+  /// Loads the form with the official customs exchange rate in force on the declaration date
+  /// (Trello MzO3XGmf / H10). The rate is fetched from the backend `as_of_date` lookup; when no rate
+  /// exists for that day the figures report it as missing instead of using today's rate.
+  static Future<Form46LoadedData> loadForFileAtDeclarationDate(
+    WidgetRef ref,
+    int fileId, {
+    DateTime? onDate,
+  }) async {
+    final draft = loadForFile(ref, fileId, onDate: onDate);
+    final currency = _fobCurrency(ref, fileId);
+    if (currency == null || currency.isEmpty) return draft;
+    final rate = await ref
+        .read(currenciesProvider.notifier)
+        .fetchCustomsExchangeRate(currencyCode: currency, onDate: draft.declarationDate);
+    return loadForFile(ref, fileId, onDate: draft.declarationDate, customsFxRateOverride: (value: rate));
+  }
+
+  static String? _fobCurrency(WidgetRef ref, int fileId) {
+    final file = (ref.read(importFilesProvider).valueOrNull ?? []).where((f) => f.importFileId == fileId).firstOrNull;
+    if (file == null) return null;
+    return Form46Calculator.invoiceFob(List<InvoiceItemModel>.from(file.invoicesData as List)).currency;
+  }
+
+  /// [onDate] replaces the stored declaration date (the customs FX rate follows it).
+  /// [customsFxRateOverride] carries a rate already resolved for that date; `(value: null)` means
+  /// "no rate on that date" and is not replaced by the latest rate.
+  static Form46LoadedData loadForFile(
+    WidgetRef ref,
+    int fileId, {
+    DateTime? onDate,
+    ({double? value})? customsFxRateOverride,
+  }) {
     final files = ref.read(importFilesProvider).valueOrNull ?? [];
     final file = files.where((f) => f.importFileId == fileId).firstOrNull;
 
@@ -130,6 +161,7 @@ class CustomsDeclaration46FormService {
       final parsedDate = DateTime.tryParse(file.form46Date!);
       if (parsedDate != null) declarationDate = parsedDate;
     }
+    if (onDate != null) declarationDate = onDate;
 
     String? selectedOffice;
     if (file.portOfDischarge != null && file.portOfDischarge!.isNotEmpty) {
@@ -159,6 +191,8 @@ class CustomsDeclaration46FormService {
       }
     }
 
+    // Tariff rows held by the app are the active versions only, so they are matched as of today;
+    // a past version needs the backend history lookup (get_active_tariff_on_date).
     final primaryTariff = Form46Calculator.matchTariff(fileHsCodes, allTariffs);
     final matchedTariffs = Form46Calculator.matchTariffs(fileHsCodes, allTariffs);
 
@@ -166,10 +200,12 @@ class CustomsDeclaration46FormService {
     final figures = Form46Calculator.compute(
       fobForeign: fobRes.amount,
       fobIssue: fobRes.issue,
-      customsFxRate: Form46Calculator.customsRateFor(
-        fobRes.currency,
-        ref.read(currenciesProvider).valueOrNull ?? [],
-      ),
+      customsFxRate: customsFxRateOverride != null
+          ? customsFxRateOverride.value
+          : Form46Calculator.customsRateFor(
+              fobRes.currency,
+              ref.read(currenciesProvider).valueOrNull ?? [],
+            ),
       tariff: primaryTariff,
     );
 

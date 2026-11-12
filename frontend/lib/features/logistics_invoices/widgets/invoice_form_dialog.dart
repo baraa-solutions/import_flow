@@ -4,6 +4,7 @@ import '../../../../core/widgets/widgets.dart';
 import '../../../core/theme/app_theme.dart';
 import '../models/logistics_invoice_models.dart';
 import '../providers/logistics_invoices_provider.dart';
+import '../../import_files/providers/import_files_provider.dart';
 import '../repositories/logistics_invoices_repository.dart';
 import 'bl_container_lock_widget.dart';
 import 'partner_balance_card.dart';
@@ -37,7 +38,7 @@ class InvoiceFormDialog extends ConsumerStatefulWidget {
 class _InvoiceFormDialogState extends ConsumerState<InvoiceFormDialog> {
   final _formKey = GlobalKey<FormState>();
 
-  late int _shipmentId;
+  int? _shipmentId;
   late String _blNumber;
   late int _partnerId;
   late String _partnerName;
@@ -58,7 +59,6 @@ class _InvoiceFormDialogState extends ConsumerState<InvoiceFormDialog> {
   bool _isPrefilling = false;
 
   // Controllers
-  late TextEditingController _shipmentIdCtrl;
   late TextEditingController _blNumberCtrl;
   late TextEditingController _partnerIdCtrl;
   late TextEditingController _partnerNameCtrl;
@@ -70,7 +70,8 @@ class _InvoiceFormDialogState extends ConsumerState<InvoiceFormDialog> {
     super.initState();
     final inv = widget.initialInvoice;
 
-    _shipmentId = inv?.shipmentId ?? widget.initialShipmentId ?? 1;
+    // Never a made-up file id: the user picks the file when the caller has none.
+    _shipmentId = inv?.shipmentId ?? widget.initialShipmentId;
     _blNumber = inv?.blNumber ?? widget.initialBlNumber ?? '';
     _partnerId = inv?.partnerId ?? widget.initialPartnerId ?? 1;
     _partnerName = inv?.partnerName ?? widget.initialPartnerName ?? '';
@@ -90,13 +91,15 @@ class _InvoiceFormDialogState extends ConsumerState<InvoiceFormDialog> {
     _selectedContainers = inv?.containers.map((c) => c.containerNumber).toList() ?? [];
     _lines = inv?.lines != null ? List.from(inv!.lines) : [];
 
-    _shipmentIdCtrl = TextEditingController(text: _shipmentId.toString());
     _blNumberCtrl = TextEditingController(text: _blNumber);
     _partnerIdCtrl = TextEditingController(text: _partnerId.toString());
     _partnerNameCtrl = TextEditingController(text: _partnerName);
     _invoiceNumberCtrl = TextEditingController(text: _invoiceNumber);
     _notesCtrl = TextEditingController(text: _notes ?? '');
 
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) ref.read(importFilesProvider.notifier).fetchImportFiles();
+    });
     if (inv == null && _lines.isEmpty) {
       _loadPrefillLines();
     }
@@ -104,7 +107,6 @@ class _InvoiceFormDialogState extends ConsumerState<InvoiceFormDialog> {
 
   @override
   void dispose() {
-    _shipmentIdCtrl.dispose();
     _blNumberCtrl.dispose();
     _partnerIdCtrl.dispose();
     _partnerNameCtrl.dispose();
@@ -114,10 +116,15 @@ class _InvoiceFormDialogState extends ConsumerState<InvoiceFormDialog> {
   }
 
   Future<void> _loadPrefillLines() async {
+    final shipmentId = _shipmentId;
+    if (shipmentId == null) {
+      if (_lines.isEmpty) _addEmptyLine();
+      return;
+    }
     setState(() => _isPrefilling = true);
     try {
       final repo = ref.read(logisticsInvoicesRepositoryProvider);
-      final prefill = await repo.getPrefillLines(_shipmentId, _partnerType);
+      final prefill = await repo.getPrefillLines(shipmentId, _partnerType);
       setState(() {
         _currency = prefill.currency;
         _exchangeRate = prefill.exchangeRate;
@@ -351,9 +358,13 @@ class _InvoiceFormDialogState extends ConsumerState<InvoiceFormDialog> {
                           },
                           invoiceNumberCtrl: _invoiceNumberCtrl,
                           partnerNameCtrl: _partnerNameCtrl,
-                          shipmentIdCtrl: _shipmentIdCtrl,
+                          shipmentId: _shipmentId,
+                          importFiles: ref.watch(importFilesProvider).valueOrNull ?? const [],
                           blNumberCtrl: _blNumberCtrl,
-                          onShipmentIdChanged: (id) => setState(() => _shipmentId = id),
+                          onShipmentIdChanged: (id) {
+                            setState(() => _shipmentId = id);
+                            if (widget.initialInvoice == null) _loadPrefillLines();
+                          },
                           onBlNumberChanged: (bl) => setState(() => _blNumber = bl),
                           currency: _currency,
                           onCurrencyChanged: (c) {
@@ -372,9 +383,9 @@ class _InvoiceFormDialogState extends ConsumerState<InvoiceFormDialog> {
                           onFetchCbeRate: _fetchCbeRate,
                         ),
                         const SizedBox(height: 12),
-                        if (_blNumberCtrl.text.trim().isNotEmpty) ...[
+                        if (_shipmentId != null && _blNumberCtrl.text.trim().isNotEmpty) ...[
                           BLContainerLockWidget(
-                            shipmentId: _shipmentId,
+                            shipmentId: _shipmentId!,
                             blNumber: _blNumberCtrl.text.trim(),
                             selectedContainerNumbers: _selectedContainers,
                             onContainersChanged: (c) => setState(() => _selectedContainers = c),
