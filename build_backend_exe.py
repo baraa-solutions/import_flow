@@ -2,6 +2,7 @@
 Sorour Logistics ERP — Backend PyInstaller Builder
 Compiles FastAPI backend into a standalone `backend.exe` executable.
 """
+import importlib.util
 import os
 import sys
 import subprocess
@@ -9,6 +10,15 @@ from pathlib import Path
 from typing import List
 
 ROOT_DIR = Path(__file__).resolve().parent
+
+# OCR bundle (Universal Entity Extractor reads images / scanned PDFs without a Tesseract install).
+# RapidOCR ships its det / cls / rec .onnx models and config.yaml inside the package (no PyInstaller hook exists
+# for it, so they are collected explicitly); onnxruntime needs its native libraries. The Arabic recognizer is a
+# code-owned model folder resolved at sys._MEIPASS/<ARABIC_OCR_MODELS_SUBDIR> when frozen
+# (modules/import_documentation/arabic_ocr_engine.resolve_arabic_models_dir).
+OCR_PACKAGES = ("rapidocr_onnxruntime", "onnxruntime", "cv2", "pyclipper", "shapely")
+ARABIC_OCR_MODELS_SUBDIR = "modules/import_documentation/models/arabic_ocr"
+ARABIC_OCR_MODEL_FILES = ("rec.onnx", "dict.txt")
 
 
 def build_pyinstaller_command() -> List[str]:
@@ -87,6 +97,16 @@ def build_pyinstaller_command() -> List[str]:
         "modules.smart_document_upload.extractors.other_extractors",
         "modules.smart_document_upload.extractors.master_data_entity",
         "modules.smart_document_upload.extractors.base_extractor",
+        # OCR (lazy imports inside functions, invisible to PyInstaller's analysis)
+        "modules.smart_document_upload.ocr_pipeline",
+        "modules.import_documentation.arabic_ocr_engine",
+        "bidi",
+        "bidi.algorithm",
+        "rapidocr_onnxruntime",
+        "onnxruntime",
+        "cv2",
+        "pyclipper",
+        "shapely",
     ]
 
     # Collect all modules
@@ -123,6 +143,15 @@ def build_pyinstaller_command() -> List[str]:
     cmd.extend(["--collect-submodules", "alembic"])
     cmd.extend(["--collect-submodules", "mako"])
 
+    # Second exception: OCR models (code-owned, read-only). RapidOCR models + config.yaml, onnxruntime native
+    # libraries, and the Arabic recognizer folder (rec.onnx + dict.txt only).
+    cmd.extend(["--collect-submodules", "rapidocr_onnxruntime"])
+    cmd.extend(["--collect-data", "rapidocr_onnxruntime"])
+    cmd.extend(["--collect-binaries", "onnxruntime"])
+    arabic_models_dir = ROOT_DIR.joinpath(*ARABIC_OCR_MODELS_SUBDIR.split("/"))
+    for filename in ARABIC_OCR_MODEL_FILES:
+        cmd.extend(["--add-data", f"{arabic_models_dir / filename}{os.pathsep}{ARABIC_OCR_MODELS_SUBDIR}"])
+
     # Add hidden imports
     for imp in hidden_imports:
         cmd.extend(["--hidden-import", imp])
@@ -132,10 +161,32 @@ def build_pyinstaller_command() -> List[str]:
     return cmd
 
 
+def missing_ocr_bundle_inputs() -> List[str]:
+    """What the OCR bundle needs but this build environment lacks (empty list = ready to build).
+
+    A backend.exe built without these silently loses image / scanned-PDF OCR on client machines, so the build
+    refuses to run instead (release gate)."""
+    missing = [f"python package '{name}'" for name in OCR_PACKAGES if importlib.util.find_spec(name) is None]
+    arabic_models_dir = ROOT_DIR.joinpath(*ARABIC_OCR_MODELS_SUBDIR.split("/"))
+    missing.extend(
+        f"model file {ARABIC_OCR_MODELS_SUBDIR}/{filename}"
+        for filename in ARABIC_OCR_MODEL_FILES
+        if not (arabic_models_dir / filename).is_file()
+    )
+    return missing
+
+
 def build_backend():
     print("===============================================================================")
     print("        Sorour Logistics ERP - Compiling Standalone Backend Executable         ")
     print("===============================================================================")
+
+    missing = missing_ocr_bundle_inputs()
+    if missing:
+        print("[ERROR] OCR bundle inputs are missing (pip install -r requirements.txt on Python 3.12):")
+        for item in missing:
+            print(f"        - {item}")
+        return False
 
     cmd = build_pyinstaller_command()
 

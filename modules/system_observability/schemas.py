@@ -82,6 +82,8 @@ class DeepHealthCheckResponse(BaseModel):
     free_disk_space_gb: float = 0.0
     disk_status: str = "OK"
     backup_freshness: str = "OK"
+    ocr_status: str = "UNKNOWN"  # OK, PARTIAL, UNAVAILABLE (smart_document_upload.ocr_pipeline.ocr_self_check)
+    ocr_engines: List[str] = Field(default_factory=list)
     issues: List[str] = Field(default_factory=list)
 
 

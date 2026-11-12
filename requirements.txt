@@ -24,6 +24,14 @@ pymupdf>=1.24.0
 # Arabic OCR: right-to-left reordering of recognized text (modules/import_documentation/arabic_ocr_engine.py)
 python-bidi>=0.6,<0.7
 
+# OCR engine bundled into backend.exe (Universal Entity Extractor: images + scanned PDFs, no Tesseract install).
+# Exact pins = the combination verified on Python 3.12 with the Arabic rec model (all Apache-2.0 / MIT).
+# rapidocr_onnxruntime 1.4.4 supports Python < 3.13 only; on newer interpreters the pipeline falls back to
+# Tesseract / "OCR unavailable", so the marker keeps `pip install -r requirements.txt` working there.
+rapidocr_onnxruntime==1.4.4; python_version < "3.13"
+onnxruntime==1.31.1; python_version < "3.13"
+opencv-python==5.0.0.93; python_version < "3.13"
+
 # Document Parsing — Word
 python-docx>=1.1.0
 
