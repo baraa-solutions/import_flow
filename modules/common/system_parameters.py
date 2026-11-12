@@ -34,11 +34,37 @@ logger = logging.getLogger(__name__)
 AIR_VOLUMETRIC_KG_PER_CBM = "AIR_VOLUMETRIC_KG_PER_CBM"
 DEFAULT_AIR_VOLUMETRIC_KG_PER_CBM = 167.0
 
+# Air freight suite (modules/air_freight): AWB volumetric divisors, free airport storage, review tolerance.
+AIR_VOLUMETRIC_DIVISOR = "AIR_VOLUMETRIC_DIVISOR"
+DEFAULT_AIR_VOLUMETRIC_DIVISOR = 6000.0
+COURIER_VOLUMETRIC_DIVISOR = "COURIER_VOLUMETRIC_DIVISOR"
+DEFAULT_COURIER_VOLUMETRIC_DIVISOR = 5000.0
+AIR_FREE_STORAGE_DAYS = "AIR_FREE_STORAGE_DAYS"
+DEFAULT_AIR_FREE_STORAGE_DAYS = 3.0
+AIR_AWB_WEIGHT_TOLERANCE_PCT = "AIR_AWB_WEIGHT_TOLERANCE_PCT"
+DEFAULT_AIR_AWB_WEIGHT_TOLERANCE_PCT = 0.5
+
 # key -> (default value as stored text, description)
 DEFAULT_PARAMETERS: Dict[str, Tuple[str, str]] = {
     AIR_VOLUMETRIC_KG_PER_CBM: (
         f"{DEFAULT_AIR_VOLUMETRIC_KG_PER_CBM:g}",  # "167"
         "Air freight volumetric factor (kg per CBM) for chargeable weight; used by purchase orders and the CBM calculator",
+    ),
+    AIR_VOLUMETRIC_DIVISOR: (
+        f"{DEFAULT_AIR_VOLUMETRIC_DIVISOR:g}",  # "6000"
+        "IATA air freight volumetric divisor (cm3 per kg): volumetric kg = L x W x H (cm) / divisor; air AWB records",
+    ),
+    COURIER_VOLUMETRIC_DIVISOR: (
+        f"{DEFAULT_COURIER_VOLUMETRIC_DIVISOR:g}",  # "5000"
+        "Express courier volumetric divisor (cm3 per kg) for courier AWB records",
+    ),
+    AIR_FREE_STORAGE_DAYS: (
+        f"{DEFAULT_AIR_FREE_STORAGE_DAYS:g}",  # "3"
+        "Free airport storage days after cargo arrival before storage charges start (air AWB records)",
+    ),
+    AIR_AWB_WEIGHT_TOLERANCE_PCT: (
+        f"{DEFAULT_AIR_AWB_WEIGHT_TOLERANCE_PCT:g}",  # "0.5"
+        "Allowed gross / chargeable weight difference (percent) between a draft AWB and the shipment record",
     ),
     # ── Cargo insurance (04-05 shared needs) ──
     "INSURANCE_RATE_ICC_A": ("0.0025", "Cargo insurance base rate, Institute Cargo Clauses A (all risks)"),

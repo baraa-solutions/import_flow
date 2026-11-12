@@ -1562,6 +1562,61 @@ CATALOG: Dict[str, Dict[str, str]] = {
     "TRM_NOT_FOUND": {
         "note": "Trade remedy measure {measure_id} was not found.",
     },
+    # Air freight suite (modules/air_freight): AWB records, draft AWB review.
+    "AIR_AWB_FORMAT_INVALID": {
+        "note": "Air waybill number '{awb_number}' must have 11 digits (3-digit airline prefix + 8 digits).",
+    },
+    "AIR_AWB_CHECK_DIGIT_INVALID": {
+        "note": "The check digit of air waybill '{awb_number}' is wrong (last digit must equal the serial number mod 7).",
+    },
+    "AIR_MODE_INVALID": {
+        "note": "Shipment mode '{shipment_mode}' is not valid for an air waybill: use AIR or COURIER.",
+    },
+    "AIR_SUB_MODE_INVALID": {
+        "note": "Sub-mode '{shipment_sub_mode}' does not belong to shipment mode {shipment_mode}.",
+    },
+    "AIR_IMPORT_FILE_NOT_FOUND": {
+        "note": "Import file {import_file_id} was not found.",
+    },
+    "AIR_AIRPORT_NOT_FOUND": {
+        "note": "Airport {location_id} was not found or is inactive.",
+    },
+    "AIR_LOCATION_NOT_AIRPORT": {
+        "note": "Location '{location_name}' is not an airport.",
+    },
+    "AIR_SAME_AIRPORTS": {
+        "note": "The departure and arrival airports cannot be the same.",
+    },
+    "AIR_AIRLINE_NOT_FOUND": {
+        "note": "Airline / carrier {provider_id} was not found or is inactive.",
+    },
+    "AIR_DATES_INVALID": {
+        "note": "The arrival date ({arrival_date}) cannot be before the flight date ({flight_date}).",
+    },
+    "AIR_AWB_DUPLICATE": {
+        "note": "Air waybill {awb_number} is already registered in record {air_record_code}.",
+    },
+    "AIR_RECORD_NOT_FOUND": {
+        "note": "Air waybill record {air_record_id} was not found.",
+    },
+    "AIR_REVIEW_NOT_FOUND": {
+        "note": "Draft AWB review {awb_review_id} was not found.",
+    },
+    "AIR_REVIEW_ALREADY_DECIDED": {
+        "note": "This draft AWB review is already closed ({status}).",
+    },
+    "AIR_REVIEW_BLOCKING_MISMATCH": {
+        "note": "The draft AWB cannot be approved while {open_discrepancies_count} blocking discrepancies remain.",
+    },
+    "AIR_REVIEW_FIELD_MISSING": {
+        "note": "Draft AWB field {field} is missing.",
+    },
+    "AIR_REVIEW_FIELD_MISMATCH": {
+        "note": "Draft AWB field {field} is '{draft_value}' but the shipment record has '{system_value}'.",
+    },
+    "AIR_REVIEW_WEIGHT_OUT_OF_TOLERANCE": {
+        "note": "Draft AWB {field} {draft_value} kg differs from the shipment record {system_value} kg by more than {tolerance_pct}%.",
+    },
     "CT_TRADE_REMEDY_ORIGIN_MISSING": {
         "note": "Tariff item {hs_code} has a {measure_type} measure by origin: enter the origin country to compute it.",
     },
