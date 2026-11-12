@@ -4222,6 +4222,7 @@ abstract class AppLocalizations {
   String get supplierCreditOverridesTitle;
   String get supplierCreditNoOverrides;
   String get supplierCreditExceeded;
+  String get supplierCreditOpenPos;
   String supplierLedgerWarningNotValued(String file);
   String supplierAgingAsOf(String date);
   String supplierLedgerEntryTypeLabel(String code);

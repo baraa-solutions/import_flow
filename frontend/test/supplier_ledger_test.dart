@@ -101,7 +101,7 @@ const _creditJson = {
   'credit': {
     'has_limit': true, 'currency': 'USD', 'policy': 'BLOCK', 'limit_amount': 20000.0, 'utilization_amount': 15000.0,
     'requested_amount': 0.0, 'projected_amount': 15000.0, 'available_amount': 5000.0, 'utilization_pct': 75.0,
-    'exceeded': false, 'allowed': true, 'decision': 'WITHIN_LIMIT',
+    'exceeded': false, 'allowed': true, 'decision': 'WITHIN_LIMIT', 'open_po_amount': 9000.0,
   },
   'balances': [],
   'overrides': [
@@ -159,6 +159,7 @@ void main() {
       final status = SupplierCreditStatus.fromJson(Map<String, dynamic>.from(_creditJson));
       expect(status.credit.utilizationRatio, 0.75);
       expect(status.credit.availableAmount, 5000.0);
+      expect(status.credit.openPoAmount, 9000.0);
       expect(status.overrides.single.reason, 'Strategic order');
       const noLimit = SupplierCreditCheck(hasLimit: false, currency: 'USD', policy: 'BLOCK');
       expect(noLimit.utilizationRatio, isNull);

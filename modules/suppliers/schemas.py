@@ -5,6 +5,11 @@ from pydantic import BaseModel, Field
 from pydantic import ConfigDict
 
 
+# Credit limit governance fields (Trello GzFff0Pc): set only through PUT /suppliers/{id}/credit-limit
+# (trade_finance.manage + validate_credit_limit_settings); the generic create / update ignore them.
+CREDIT_GOVERNED_FIELDS: frozenset = frozenset({"credit_limit", "credit_limit_currency", "credit_limit_policy"})
+
+
 # ==================================================
 # Base Schema
 # ==================================================
@@ -194,11 +199,12 @@ class SupplierUpdate(BaseModel):
     })
 
     def to_update_dict(self) -> dict:
-        """Fields to apply on update: set values, plus explicit nulls on clearable fields."""
+        """Fields to apply on update: set values, plus explicit nulls on clearable fields. Credit limit governance
+        fields are never applied here (only PUT /suppliers/{id}/credit-limit, trade_finance.manage)."""
         data = self.model_dump(exclude_unset=True)
         return {
             field: value for field, value in data.items()
-            if value is not None or field in self.CLEARABLE_FIELDS
+            if (value is not None or field in self.CLEARABLE_FIELDS) and field not in CREDIT_GOVERNED_FIELDS
         }
 
 
@@ -390,6 +396,7 @@ class SupplierCreditCheckResponse(BaseModel):
     exceeded: bool
     allowed: bool
     decision: str
+    open_po_amount: float = 0.0
 
 
 class SupplierCreditLimitUpdate(BaseModel):

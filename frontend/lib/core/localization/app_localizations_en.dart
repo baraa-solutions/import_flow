@@ -4105,6 +4105,7 @@ class AppLocalizationsEn extends AppLocalizations {
   @override String get supplierCreditOverridesTitle => 'ADMIN overrides history';
   @override String get supplierCreditNoOverrides => 'No overrides recorded.';
   @override String get supplierCreditExceeded => 'Limit exceeded';
+  @override String get supplierCreditOpenPos => 'Of which open purchase orders (not yet invoiced)';
   @override String supplierLedgerWarningNotValued(String file) => 'File $file could not be valued (missing FX rate): its invoices are not in the statement.';
   @override String supplierAgingAsOf(String date) => 'As of $date';
   @override String supplierLedgerEntryTypeLabel(String code) => switch (code) { 'INVOICE_BILLED' => 'Invoice billed', 'ADVANCE_PAID' => 'Advance paid', 'PAYMENT_SETTLED' => 'Payment settled', 'LC_COMMITTED' => 'LC commitment', 'CAD_ACCEPTED' => 'CAD accepted', _ => code };

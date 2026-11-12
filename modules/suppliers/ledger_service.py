@@ -30,11 +30,15 @@ Due date of an invoice, by the file's exclusive payment pathway (``import_files.
 
 Aging buckets on days past due at ``as_of``: CURRENT (<= 0), 1_30, 31_60, 61_90, OVER_90 (> 90).
 
-Credit limit governance: ``suppliers.credit_limit`` <= 0 means no limit. Utilization = the sum of the positive
-per-currency balances converted to the limit currency at today's commercial rates (an advance in one currency
-does not free credit in another). A new commitment (purchase order) whose projected utilization exceeds the limit
-is refused with 409 ``SUPPLIER_CREDIT_LIMIT_EXCEEDED`` under policy BLOCK, unless an ADMIN gives an override
-reason (recorded in ``supplier_credit_overrides``); under policy WARN it goes through with the warning.
+Credit limit governance: ``suppliers.credit_limit`` <= 0 means no limit. Utilization = the positive per-currency
+balances + the open purchase orders (not CLOSED / CANCELLED) net of what is already invoiced on their linked import
+file, converted to the limit currency at today's commercial rates (an advance in one currency does not free credit
+in another). A new commitment (purchase order) whose projected utilization exceeds the limit is refused with 409
+``SUPPLIER_CREDIT_LIMIT_EXCEEDED`` under policy BLOCK, unless an ADMIN gives an override reason (recorded in
+``supplier_credit_overrides``); under policy WARN it goes through with the warning. The limit, its currency and
+policy change only through ``PUT /suppliers/{id}/credit-limit`` (the generic supplier create / update ignore them).
+PO clone (``/purchase-orders/{id}/clone``) is governed too but carries no override reason: beyond a BLOCK limit an
+ADMIN creates the PO through the normal create with ``credit_limit_override_reason``.
 """
 from __future__ import annotations
 
@@ -93,9 +97,11 @@ LEDGER_CODE_PREFIX = "SLE"
 WARNING_FILE_NOT_VALUED = "SUPPLIER_LEDGER_FILE_NOT_VALUED"
 
 _DIRECTION_ORDER = {CREDIT: 0, DEBIT: 1, MEMO: 2}
+# Explicit "N days" first (so "Plan 30 / 60 days" -> 60 and "T/T in 2 installments, 90 days" -> 90), then
+# "Net N" / "OA N" / "Open Account N" as whole words.
 _CREDIT_DAYS_RES = (
-    re.compile(r"(?:net|n|o/?a|open\s*account)\s*[-:]?\s*(\d{1,3})\b", re.IGNORECASE),
-    re.compile(r"\b(\d{1,3})\s*(?:days?|d\b|يوم|يوما|يومًا|أيام|ايام)", re.IGNORECASE),
+    re.compile(r"\b(\d{1,3})\s*(?:days?\b|d\b|يوم|يوما|يومًا|أيام|ايام)", re.IGNORECASE),
+    re.compile(r"\b(?:net|o/?a|open\s*account)\s*[-:]?\s*(\d{1,3})\b", re.IGNORECASE),
 )
 
 
@@ -183,6 +189,7 @@ class CreditCheck:
     exceeded: bool
     allowed: bool
     decision: str
+    open_po_amount: float = 0.0  # part of utilization from open, not yet invoiced purchase orders
 
 
 # ── Pure core ───────────────────────────────────────────────────────────────────
@@ -377,15 +384,18 @@ def credit_utilization(
 
 def evaluate_credit_limit(
     limit_amount: float, limit_currency: str, policy: str, utilization: float, requested: float,
+    open_po_amount: float = 0.0,
 ) -> CreditCheck:
-    """Credit decision for a new commitment of ``requested`` (in the limit currency)."""
+    """Credit decision for a new commitment of ``requested`` (in the limit currency). ``utilization`` already
+    includes ``open_po_amount`` (reported separately)."""
     limit = _r(limit_amount)
     utilization, requested = _r(utilization), _r(max(0.0, requested))
+    open_po_amount = _r(open_po_amount)
     projected = _r(utilization + requested)
     policy = (policy or POLICY_BLOCK).upper()
     if limit <= 0:
         return CreditCheck(False, limit_currency, policy, 0.0, utilization, requested, projected, None, None,
-                           False, True, DECISION_NO_LIMIT)
+                           False, True, DECISION_NO_LIMIT, open_po_amount)
     exceeded = projected > limit + MONEY_EPS
     decision = DECISION_WITHIN_LIMIT if not exceeded else (DECISION_WARN if policy == POLICY_WARN else DECISION_BLOCK)
     return CreditCheck(
@@ -401,7 +411,26 @@ def evaluate_credit_limit(
         exceeded=exceeded,
         allowed=decision != DECISION_BLOCK,
         decision=decision,
+        open_po_amount=open_po_amount,
     )
+
+
+def open_po_exposure(
+    pos: Sequence[Tuple[Optional[int], str, float]], invoiced_by_file_ccy: Dict[Tuple[int, str], float],
+) -> Dict[str, float]:
+    """Open purchase order commitments per currency, net of what is already invoiced on their linked import file
+    (those invoices are in the ledger balance: counting the PO too would double count). ``pos`` holds
+    (linked import_file_id or None, currency, PO amount)."""
+    grouped: Dict[Tuple[Optional[int], str], float] = {}
+    for file_id, ccy, amount in pos:
+        grouped[(file_id, ccy)] = grouped.get((file_id, ccy), 0.0) + max(0.0, float(amount or 0.0))
+    out: Dict[str, float] = {}
+    for (file_id, ccy), total in grouped.items():
+        invoiced = invoiced_by_file_ccy.get((file_id, ccy), 0.0) if file_id is not None else 0.0
+        open_amount = max(0.0, total - invoiced)
+        if open_amount > MONEY_EPS:
+            out[ccy] = _r(out.get(ccy, 0.0) + open_amount)
+    return out
 
 
 # ── Sources (database) ──────────────────────────────────────────────────────────
@@ -440,6 +469,37 @@ def _instrument_settlement_rate(inst, currency: str) -> Optional[float]:
     return None
 
 
+def payment_currency_and_amount(req) -> Tuple[str, float]:
+    """Currency and amount of a paid request, always taken as a pair from the same source: the SWIFT transfer
+    when its amount is known (its currency, else the request currency), else the requested amount in the request
+    currency. Never the SWIFT currency with the requested amount (wrong-currency booking)."""
+    if req.swift_transferred_amount is not None:
+        ccy = (req.swift_transferred_currency or req.currency_code or "").strip().upper()
+        return ccy, float(req.swift_transferred_amount or 0.0)
+    return (req.currency_code or "").strip().upper(), float(req.requested_amount or 0.0)
+
+
+def covered_in_currency(paid: Sequence[Tuple[str, float, float]], currency: str, rate_to_egp: float) -> float:
+    """Part of an instrument (in ``currency``) already covered by paid requests of the same file. A request paid in
+    another currency (e.g. LC cover in EGP) is converted through its EGP amount at the instrument rate."""
+    total = 0.0
+    for ccy, amount_fx, amount_egp in paid:
+        if ccy == currency:
+            total += amount_fx
+        elif rate_to_egp > 0:
+            total += amount_egp / rate_to_egp
+    return _r(total)
+
+
+def settled_by_bank(amount: float, already_covered: float, payable: Optional[float]) -> float:
+    """Debit of a bank-settled LC / CAD: never more than the instrument, never what paid requests already
+    covered, and (when the file is invoiced in that currency) never beyond the invoice payable."""
+    remaining = max(0.0, float(amount) - already_covered)
+    if payable is not None:
+        remaining = min(remaining, max(0.0, payable - already_covered))
+    return _r(remaining)
+
+
 def _payment_drafts(db: Session, supplier_id: int, files_by_id: Dict[int, object]) -> List[LedgerDraft]:
     from modules.financial_approval.model import PaymentRequestSession
     from sqlalchemy import and_, or_
@@ -459,9 +519,7 @@ def _payment_drafts(db: Session, supplier_id: int, files_by_id: Dict[int, object
     for req in rows:
         if (req.status or "").strip().lower() != "paid":
             continue
-        ccy = (req.swift_transferred_currency or req.currency_code or "").strip().upper()
-        amount = req.swift_transferred_amount if req.swift_transferred_amount is not None else req.requested_amount
-        amount = float(amount or 0.0)
+        ccy, amount = payment_currency_and_amount(req)
         if not ccy or amount <= 0:
             continue
         imp = files_by_id.get(req.import_file_id) if req.import_file_id else None
@@ -504,11 +562,10 @@ def collect_ledger_drafts(db: Session, supplier: Supplier) -> Tuple[List[LedgerD
     files_by_id = {f.import_file_id: f for f in files}
     drafts: List[LedgerDraft] = []
     payments = _payment_drafts(db, supplier.supplier_id, files_by_id)
-    paid_by_file_ccy: Dict[Tuple[int, str], float] = {}
+    paid_by_file: Dict[int, List[Tuple[str, float, float]]] = {}
     for p in payments:
         if p.import_file_id is not None:
-            key = (p.import_file_id, p.currency)
-            paid_by_file_ccy[key] = paid_by_file_ccy.get(key, 0.0) + p.amount_fx
+            paid_by_file.setdefault(p.import_file_id, []).append((p.currency, p.amount_fx, p.amount_egp))
     drafts.extend(payments)
 
     for imp in files:
@@ -585,11 +642,10 @@ def collect_ledger_drafts(db: Session, supplier: Supplier) -> Tuple[List[LedgerD
             ))
             if istatus != "SETTLED":
                 continue
-            # Bank settlement pays the supplier: debit only what paid requests have not already covered.
-            settled = amount
-            if ccy in payable_by_ccy:
-                already = paid_by_file_ccy.get((imp.import_file_id, ccy), 0.0)
-                settled = min(amount, max(0.0, payable_by_ccy[ccy] - already))
+            # Bank settlement pays the supplier: debit only what paid requests have not already covered (always,
+            # also for a file without invoices / not valued), capped at the invoice payable when invoiced.
+            already = covered_in_currency(paid_by_file.get(imp.import_file_id, []), ccy, rate)
+            settled = settled_by_bank(amount, already, payable_by_ccy.get(ccy))
             if settled <= MONEY_EPS:
                 continue
             drafts.append(LedgerDraft(
@@ -726,11 +782,41 @@ def supplier_limit_currency(supplier: Supplier) -> str:
     return (supplier.credit_limit_currency or supplier.currency or "USD").strip().upper()
 
 
+def _open_purchase_orders(db: Session, supplier_id: int) -> List[Tuple[Optional[int], str, float]]:
+    """(linked import file, currency, amount) of the supplier's active purchase orders not CLOSED / CANCELLED.
+    The linked file is ``purchase_orders.import_file_id``, else an import file listing the PO in ``po_ids``."""
+    from modules.common import enum_codes
+    from modules.currencies.model import Currency
+    from modules.import_files.model import ImportFile
+    from modules.purchase_orders.model import PurchaseOrder
+
+    rows = (
+        db.query(PurchaseOrder, Currency.currency_code)
+        .outerjoin(Currency, Currency.currency_id == PurchaseOrder.currency_id)
+        .filter(PurchaseOrder.supplier_id == supplier_id, PurchaseOrder.is_active == True)  # noqa: E712
+        .all()
+    )
+    file_of_po: Dict[int, int] = {}
+    for imp in db.query(ImportFile).filter(ImportFile.supplier_id == supplier_id,
+                                           ImportFile.is_active == True).all():  # noqa: E712
+        for pid in imp.po_ids or []:
+            if isinstance(pid, int):
+                file_of_po.setdefault(pid, imp.import_file_id)
+    out: List[Tuple[Optional[int], str, float]] = []
+    for po, ccy in rows:
+        status = str(enum_codes.normalize(enum_codes.PO_STATUS, po.status) or "").upper()
+        if status in ("CLOSED", "CANCELLED") or not ccy:
+            continue
+        out.append((po.import_file_id or file_of_po.get(po.po_id), ccy.upper(), float(po.total_amount_fob or 0.0)))
+    return out
+
+
 def check_supplier_credit_limit(
     db: Session, supplier_id: int, new_amount: float, currency: Optional[str] = None,
-    balances: Optional[Dict[str, CurrencyBalance]] = None,
+    drafts: Optional[List[LedgerDraft]] = None,
 ) -> CreditCheck:
-    """Credit decision for a new commitment of ``new_amount`` in ``currency`` (default: the limit currency)."""
+    """Credit decision for a new commitment of ``new_amount`` in ``currency`` (default: the limit currency).
+    Utilization = positive ledger balances + open purchase orders not yet invoiced, in the limit currency."""
     from modules.financial_settlement.landed_cost_engine_service import SettlementFx
 
     supplier = get_supplier_or_404(db, supplier_id)
@@ -739,11 +825,20 @@ def check_supplier_credit_limit(
     if float(supplier.credit_limit or 0.0) <= 0:
         return evaluate_credit_limit(0.0, limit_ccy, policy, 0.0, float(new_amount or 0.0))
     fx = SettlementFx(db, "commercial")
-    if balances is None:
-        balances = get_supplier_realtime_balance(db, supplier_id)
-    utilization = credit_utilization({c: b.balance_fx for c, b in balances.items()}, limit_ccy, fx.rate)
+    if drafts is None:
+        drafts, _ = collect_ledger_drafts(db, supplier)
+    balances = summarize_balances(drafts)
+    ledger_used = credit_utilization({c: b.balance_fx for c, b in balances.items()}, limit_ccy, fx.rate)
+    invoiced: Dict[Tuple[int, str], float] = {}
+    for d in drafts:
+        if d.direction == CREDIT and d.import_file_id is not None:
+            key = (d.import_file_id, d.currency)
+            invoiced[key] = invoiced.get(key, 0.0) + d.amount_fx
+    po_open = open_po_exposure(_open_purchase_orders(db, supplier_id), invoiced)
+    po_used = _r(sum(convert_amount(a, c, limit_ccy, fx.rate) for c, a in po_open.items()))
     requested = convert_amount(float(new_amount or 0.0), (currency or limit_ccy).strip().upper(), limit_ccy, fx.rate)
-    return evaluate_credit_limit(float(supplier.credit_limit), limit_ccy, policy, utilization, requested)
+    return evaluate_credit_limit(float(supplier.credit_limit), limit_ccy, policy, ledger_used + po_used, requested,
+                                 open_po_amount=po_used)
 
 
 def enforce_supplier_credit_limit(
@@ -944,9 +1039,10 @@ def supplier_credit_status_service(db: Session, supplier_id: int):
     from .repository import list_supplier_credit_overrides
     from .schemas import SupplierCreditOverrideResponse, SupplierCreditStatusResponse
 
-    get_supplier_or_404(db, supplier_id)
-    balances = get_supplier_realtime_balance(db, supplier_id)
-    check = check_supplier_credit_limit(db, supplier_id, 0.0, balances=balances)
+    supplier = get_supplier_or_404(db, supplier_id)
+    drafts, _ = collect_ledger_drafts(db, supplier)
+    balances = summarize_balances(drafts, current_rates_for(db, {d.currency for d in drafts}))
+    check = check_supplier_credit_limit(db, supplier_id, 0.0, drafts=drafts)
     return SupplierCreditStatusResponse(
         supplier_id=supplier_id, credit=_check_schema(check),
         balances=[_balance_schema(b) for _, b in sorted(balances.items())],

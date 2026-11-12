@@ -8,7 +8,7 @@ from modules.common.sequence_generator import next_global_code
 from modules.common.audit_stamp import SYSTEM_ACTOR, resolve_actor, set_updated_info
 
 from .model import Supplier
-from .schemas import SupplierCreate, SupplierUpdate
+from .schemas import CREDIT_GOVERNED_FIELDS, SupplierCreate, SupplierUpdate
 from .repository import (
     create_supplier,
     get_active_suppliers,
@@ -51,6 +51,8 @@ def create_supplier_service(db: Session, supplier_data: SupplierCreate, actor: s
 
         supplier_dict = supplier_data.model_dump()
         supplier_dict["supplier_code"] = code
+        for governed in CREDIT_GOVERNED_FIELDS:  # credit limit only via the governed endpoint
+            supplier_dict.pop(governed, None)
         supplier_dict["created_by"] = resolve_actor(actor)
         supplier_dict["updated_by"] = resolve_actor(actor)
 

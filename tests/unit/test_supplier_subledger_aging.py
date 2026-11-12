@@ -80,6 +80,7 @@ class TestDueDates:
     @pytest.mark.parametrize("terms,days", [
         ("Net 60", 60), ("OA 90", 90), ("Open Account 45", 45), ("60 days", 60), ("90 يوم", 90),
         ("30% advance, 70% against BL", 0), ("LC at Sight", 0), (None, 0),
+        ("T/T in 2 installments, 90 days", 90), ("Plan 30 / 60 days", 60), ("Net60", 60), ("N 45", 0),
     ])
     def test_credit_days_from_payment_terms(self, terms, days):
         assert parse_credit_days(terms) == days
@@ -406,12 +407,11 @@ def test_credit_limit_settings_validation(db):
     assert (updated.credit_limit, updated.credit_limit_currency, updated.credit_limit_policy) == (1000.0, "EUR", "BLOCK")
 
 
-def test_purchase_order_creation_is_governed_by_the_credit_limit(db):
+@pytest.fixture
+def po_env(db):
     from modules.import_companies.model import ImportCompany
     from modules.incoterms.model import Incoterm
     from modules.projects.model import Project
-    from modules.purchase_orders.schemas import POLineItemCreate, PurchaseOrderCreate
-    from modules.purchase_orders.service import PurchaseOrderService
 
     s = _supplier(db, limit=10000.0, limit_ccy="USD")
     company = ImportCompany(importer_name="Import Corp", address="Cairo", country="Egypt", importer_id="IMP-1",
@@ -426,18 +426,114 @@ def test_purchase_order_creation_is_governed_by_the_credit_limit(db):
     db.add(project)
     db.commit()
     usd = db.query(Currency).filter_by(currency_code="USD").one()
-    item = POLineItemCreate(item_code="X-1", description_ar="بند", quantity=100.0, unit_price=200.0)  # 20,000 USD
+    return {"supplier": s, "company": company, "incoterm": inco, "project": project, "usd": usd}
 
-    def _data(**extra):
-        return PurchaseOrderCreate(project_id=project.project_id, company_id=company.company_id,
-                                   supplier_id=s.supplier_id, incoterm_id=inco.incoterm_id,
-                                   currency_id=usd.currency_id, exchange_rate=50.0, items=[item], **extra)
 
-    with pytest.raises(HTTPException) as exc:
-        PurchaseOrderService(db).create(_data(), current_user_name="clerk")
+def _po_data(env, quantity, **extra):
+    from modules.purchase_orders.schemas import POLineItemCreate, PurchaseOrderCreate
+
+    item = POLineItemCreate(item_code="X-1", description_ar="بند", quantity=quantity, unit_price=200.0)
+    return PurchaseOrderCreate(project_id=env["project"].project_id, company_id=env["company"].company_id,
+                               supplier_id=env["supplier"].supplier_id, incoterm_id=env["incoterm"].incoterm_id,
+                               currency_id=env["usd"].currency_id, exchange_rate=50.0, items=[item], **extra)
+
+
+def test_purchase_order_creation_is_governed_by_the_credit_limit(db, po_env):
+    from modules.purchase_orders.service import PurchaseOrderService
+
+    with pytest.raises(HTTPException) as exc:  # 100 x 200 = 20,000 USD vs 10,000 limit
+        PurchaseOrderService(db).create(_po_data(po_env, 100.0), current_user_name="clerk")
     assert exc.value.detail["code"] == SUPPLIER_CREDIT_LIMIT_EXCEEDED
 
-    po = PurchaseOrderService(db).create(_data(credit_limit_override_reason="Board approved"),
+    po = PurchaseOrderService(db).create(_po_data(po_env, 100.0, credit_limit_override_reason="Board approved"),
                                          current_user_name="admin", actor_is_admin=True)
     ov = db.query(SupplierCreditOverride).one()
     assert (ov.context, ov.reference, ov.requested_amount) == ("PURCHASE_ORDER", po.po_number, 20000.0)
+
+
+def test_open_uninvoiced_purchase_orders_count_toward_the_limit(db, po_env):
+    from modules.purchase_orders.service import PurchaseOrderService
+
+    s = po_env["supplier"]
+    first = PurchaseOrderService(db).create(_po_data(po_env, 45.0), current_user_name="clerk")  # 9,000 USD
+    assert first.po_number
+    with pytest.raises(HTTPException) as exc:  # 9,000 open PO + 9,000 new > 10,000
+        PurchaseOrderService(db).create(_po_data(po_env, 45.0), current_user_name="clerk")
+    assert exc.value.detail["code"] == SUPPLIER_CREDIT_LIMIT_EXCEEDED
+    assert (exc.value.detail["utilization_amount"], exc.value.detail["projected_amount"]) == (9000.0, 18000.0)
+    status_view = supplier_credit_status_service(db, s.supplier_id)
+    assert (status_view.credit.utilization_amount, status_view.credit.open_po_amount) == (9000.0, 9000.0)
+
+    # Once the PO is invoiced on its linked import file, the invoice replaces the PO (no double count).
+    from modules.purchase_orders.model import PurchaseOrder
+    imp = _file(db, s, [{"invoice_no": "CI-PO", "amount": 9000.0, "currency": "USD", "exchange_rate": 50.0}], "IMP-LED-PO")
+    po_row = db.query(PurchaseOrder).filter_by(po_number=first.po_number).one()
+    po_row.import_file_id = imp.import_file_id
+    db.commit()
+    check = check_supplier_credit_limit(db, s.supplier_id, 0.0)
+    assert (check.utilization_amount, check.open_po_amount) == (9000.0, 0.0)
+
+
+def test_open_po_exposure_nets_invoices_of_the_linked_file():
+    pos = [(1, "USD", 9000.0), (1, "USD", 3000.0), (None, "USD", 2000.0), (2, "EUR", 1000.0)]
+    invoiced = {(1, "USD"): 10000.0, (2, "EUR"): 1500.0}
+    assert ls.open_po_exposure(pos, invoiced) == {"USD": 4000.0}  # (12,000 - 10,000) + 2,000 unlinked
+
+
+def test_generic_supplier_update_cannot_change_the_credit_limit(db):
+    from modules.suppliers.schemas import SupplierCreate, SupplierUpdate
+    from modules.suppliers.service import create_supplier_service, update_supplier_service
+
+    created = create_supplier_service(db, SupplierCreate(company_name="Brand New Exporter GmbH", credit_limit=5000.0))
+    assert created.credit_limit == 0.0  # ignored on create
+    s = _supplier(db, code="SUP-GOV", limit=1000.0, limit_ccy="USD")
+    update_supplier_service(db, s.supplier_id, SupplierUpdate(credit_limit=999999.0, notes="edited"))
+    db.refresh(s)
+    assert (s.credit_limit, s.notes) == (1000.0, "edited")
+
+
+def test_bank_settlement_without_invoices_still_subtracts_paid_requests(db):
+    # Review blocker: LC file with no invoices, paid LC request 10,000 + LC 10,000 SETTLED -> paid 10,000, not 20,000.
+    s = _supplier(db)
+    imp = _file(db, s, None, "IMP-LED-NOINV", payment_term="LC")
+    _paid(db, s, 10000.0, 500000.0, imp=imp, payment_type="Letter of Credit (L/C)")
+    db.add(ImportFinanceInstrument(instrument_type="LC", instrument_number="LC-NOINV", import_file_id=imp.import_file_id,
+                                   issuing_bank="NBE", currency="USD", amount=10000.0, status="SETTLED",
+                                   issue_date=date(2026, 2, 1)))
+    db.commit()
+    usd = ls.get_supplier_realtime_balance(db, s.supplier_id)["USD"]
+    assert (usd.billed_fx, usd.paid_fx, usd.balance_fx) == (0.0, 10000.0, -10000.0)
+    entries, _ = sync_supplier_ledger(db, s.supplier_id)
+    assert not [e for e in entries if e.source_key.endswith(":SETTLED")]
+
+
+def test_lc_cover_paid_in_egp_reduces_the_usd_bank_settlement(db):
+    s = _supplier(db)
+    imp = _file(db, s, [{"invoice_no": "CI-EGP", "amount": 10000.0, "currency": "USD", "exchange_rate": 50.0}],
+                "IMP-LED-EGP", payment_term="LC")
+    _paid(db, s, 250000.0, 250000.0, ccy="EGP", imp=imp, payment_type="Letter of Credit (L/C)")  # 5,000 USD at 50
+    inst = ImportFinanceInstrument(instrument_type="LC", instrument_number="LC-EGP", import_file_id=imp.import_file_id,
+                                   issuing_bank="NBE", currency="USD", amount=10000.0, status="SETTLED",
+                                   issue_date=date(2026, 2, 1))
+    db.add(inst)
+    db.flush()
+    db.add(FxHedgingAndVariance(finance_instrument_id=inst.id, foreign_currency="USD", original_amount=10000.0,
+                                booking_date=date(2026, 2, 1), booking_rate=50.0, booking_total_egp=500000.0,
+                                settlement_date=date(2026, 3, 1), settlement_rate=50.0, settlement_total_egp=500000.0))
+    db.commit()
+    entries, _ = sync_supplier_ledger(db, s.supplier_id)
+    bank = [e for e in entries if e.source_key.endswith(":SETTLED")]
+    assert [(b.currency, b.amount_fx, b.amount_egp) for b in bank] == [("USD", 5000.0, 250000.0)]
+
+
+def test_payment_currency_and_amount_come_from_the_same_source():
+    class Req:
+        def __init__(self, **kw):
+            self.swift_transferred_amount = kw.get("swift_amount")
+            self.swift_transferred_currency = kw.get("swift_ccy")
+            self.currency_code = kw.get("ccy", "USD")
+            self.requested_amount = kw.get("requested", 1000.0)
+
+    assert ls.payment_currency_and_amount(Req(swift_ccy="EUR")) == ("USD", 1000.0)  # no SWIFT amount: request pair
+    assert ls.payment_currency_and_amount(Req(swift_ccy="EUR", swift_amount=900.0)) == ("EUR", 900.0)
+    assert ls.payment_currency_and_amount(Req(swift_amount=990.0)) == ("USD", 990.0)

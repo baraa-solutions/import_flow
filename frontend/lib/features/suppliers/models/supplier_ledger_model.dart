@@ -329,6 +329,7 @@ class SupplierCreditCheck {
   final bool exceeded;
   final bool allowed;
   final String decision;
+  final double openPoAmount; // part of utilization from open, not yet invoiced purchase orders
 
   const SupplierCreditCheck({
     required this.hasLimit,
@@ -343,6 +344,7 @@ class SupplierCreditCheck {
     this.exceeded = false,
     this.allowed = true,
     this.decision = 'NO_LIMIT',
+    this.openPoAmount = 0,
   });
 
   /// Progress bar value 0..1 (capped), null when there is no limit.
@@ -365,6 +367,7 @@ class SupplierCreditCheck {
         exceeded: json['exceeded'] as bool? ?? false,
         allowed: json['allowed'] as bool? ?? true,
         decision: json['decision']?.toString() ?? 'NO_LIMIT',
+        openPoAmount: _num(json['open_po_amount']),
       );
 }
 

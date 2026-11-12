@@ -4105,6 +4105,7 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get supplierCreditOverridesTitle => 'سجل الاستثناءات المعتمدة من المدير';
   @override String get supplierCreditNoOverrides => 'لا توجد استثناءات مسجلة.';
   @override String get supplierCreditExceeded => 'الحد الائتماني متجاوز';
+  @override String get supplierCreditOpenPos => 'منها أوامر شراء مفتوحة (لم تُفوتر بعد)';
   @override String supplierLedgerWarningNotValued(String file) => 'تعذر تقييم الملف $file (سعر صرف غير متوفر): فواتيره غير مدرجة في الكشف.';
   @override String supplierAgingAsOf(String date) => 'حتى تاريخ $date';
   @override String supplierLedgerEntryTypeLabel(String code) => switch (code) { 'INVOICE_BILLED' => 'فاتورة مستحقة', 'ADVANCE_PAID' => 'دفعة مقدمة', 'PAYMENT_SETTLED' => 'سداد', 'LC_COMMITTED' => 'التزام اعتماد مستندي', 'CAD_ACCEPTED' => 'مستندات مقبولة (CAD)', _ => code };

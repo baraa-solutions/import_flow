@@ -437,6 +437,8 @@ class _CreditTabState extends ConsumerState<_CreditTab> {
                   const SizedBox(height: 4),
                   Text('${l10n.supplierCreditAvailable}: ${_money(c.availableAmount, c.currency)}',
                       style: TextStyle(color: barColor)),
+                  if (c.openPoAmount > 0)
+                    Text('${l10n.supplierCreditOpenPos}: ${_money(c.openPoAmount, c.currency)}'),
                 ],
                 const Divider(height: 32),
                 Form(
