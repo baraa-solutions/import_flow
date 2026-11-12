@@ -25,6 +25,7 @@ from .validators import CargoXValidators
 from .cargox_blockchain_service import CargoXBlockchainService, normalize_pki_signature
 from ..integrations.cargox_client import CargoXIntegrationClient
 from ..integrations.pki_signer import PKISignerService
+from ..integrations.integration_mode import IntegrationModeError
 from ..import_files.model import ImportFile
 from modules.common.system_messages import msg, render_en
 from modules.common.file_tracking import set_file_tracking
@@ -42,7 +43,8 @@ class CargoXEnvelopeService:
         CargoXValidators.validate_envelope_creation(payload)
 
         envelope_code = CargoXRepository.get_next_code(db)
-        client = CargoXIntegrationClient(mode=payload.mode)
+        # Mode from server settings, never from the request (Production Mock Guard, NLv0Dpj5).
+        client = CargoXIntegrationClient()
 
         # Call CargoX Integration Client
         doc_type_names = [d.doc_type for d in (payload.documents or [])]
@@ -59,6 +61,11 @@ class CargoXEnvelopeService:
                     foreign_exporter_cargox_id=payload.supplier_cargox_id or "CARGOX-EXPORTER",
                     document_types=doc_type_names,
                 )
+            except IntegrationModeError as exc:
+                # Guard refused the call (e.g. MOCK in the production build): keep the local envelope
+                # record, but without any blockchain hash or signature pretending it was sent.
+                logger.warning("CargoX envelope %s not sent: %s", envelope_code, exc.detail)
+                cx_res = {}
             except Exception:
                 cx_res = {}
 
@@ -95,6 +102,7 @@ class CargoXEnvelopeService:
             status=envelope_status,
             blockchain_tx_hash=cx_res.get("blockchain_tx_hash"),
             pki_signature=pki_sig_str,
+            integration_mode=cx_res.get("integration_mode"),
             is_acid_verified=is_verified,
             all_documents_sealed=False,
             notes=payload.notes,
@@ -190,13 +198,15 @@ class CargoXEnvelopeService:
         bl_num = request.bl_number or envelope.bl_number or f"BL-EGY-{uuid.uuid4().hex[:8].upper()}"
         envelope.bl_number = bl_num
 
-        client = CargoXIntegrationClient(mode=request.mode)
+        # Mode from server settings; the guard raises (HTTP 503) before any state change when the
+        # configured mode may not run, so a production build never seals from a mock client.
+        client = CargoXIntegrationClient()
         transfer_res = client.transfer_envelope_to_customs(
             envelope_id=envelope.envelope_code,
             bl_number=bl_num,
         )
 
-        signer = PKISignerService(mode=request.mode)
+        signer = PKISignerService()
         pki_sig = signer.sign_payload({
             "envelope_code": envelope.envelope_code,
             "acid_number": envelope.acid_number,
@@ -211,6 +221,7 @@ class CargoXEnvelopeService:
         envelope.transferred_to_customs_at = datetime.now(timezone.utc)
         envelope.customs_confirmation_receipt = transfer_res.get("confirmation_receipt", f"MTS-REC-{uuid.uuid4().hex[:8].upper()}")
         envelope.pki_signature = normalize_pki_signature(pki_sig)
+        envelope.integration_mode = client.mode
         envelope.updated_by = updated_by
 
         # Build Manifest Snapshot
@@ -234,8 +245,16 @@ class CargoXEnvelopeService:
             pki_signature=envelope.pki_signature,
             transferred_at=envelope.transferred_to_customs_at,
             customs_confirmation_receipt=envelope.customs_confirmation_receipt,
-            message="تم إغلاق وتوثيق مظروف CargoX والتوقيع الإلكتروني بنجاح وتحويل المستندات لمصلحة الجمارك المصرية (Nafeza).",
+            message=CargoXEnvelopeService._seal_message(transfer_res.get("is_simulated", False)),
+            integration_mode=client.mode,
+            is_simulated=bool(transfer_res.get("is_simulated", False)),
         )
+
+    @staticmethod
+    def _seal_message(is_simulated: bool) -> str:
+        if is_simulated:
+            return "محاكاة فقط: تم تسجيل الإغلاق محلياً ولم يتم إرسال أي شيء فعلياً إلى CargoX أو نافذة."
+        return "تم إغلاق وتوثيق مظروف CargoX والتوقيع الإلكتروني بنجاح وتحويل المستندات لمصلحة الجمارك المصرية (Nafeza)."
 
     @staticmethod
     def _handle_cargox_seal_transfer_workflow(

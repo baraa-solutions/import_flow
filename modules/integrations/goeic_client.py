@@ -4,6 +4,7 @@ from fastapi import HTTPException
 
 from modules.suppliers.model import Supplier
 from modules.customs_tariff import repository as tariff_repo
+from .integration_mode import IntegrationProvider, select_integration_mode
 from .schemas import (
     GOEICComplianceCheckRequest,
     GOEICComplianceCheckResponse,
@@ -70,8 +71,9 @@ class GOEICIntegrationClient:
     Pre-shipment Inspection Certificate (COI) compliance.
     """
 
-    def __init__(self, mode: str = "MOCK"):
-        self.mode = mode.upper()
+    def __init__(self, mode: Optional[str] = None):
+        # Compliance checks run on local master data only (no remote call), so no mock guard applies.
+        self.mode = select_integration_mode(IntegrationProvider.GOEIC, mode).value
 
     def get_accredited_inspection_bodies(self) -> List[AccreditedInspectionBody]:
         """Returns the list of accredited international inspection companies recognized by GOEIC."""

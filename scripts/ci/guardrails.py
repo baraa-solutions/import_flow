@@ -59,6 +59,7 @@ PROTECTED_PREFIXES = (
     "alembic/", "database/", "modules/auth/", "modules/customs_tariff/", "modules/customs_clearance/",
     "modules/customs_consultation/", "modules/financial_settlement/", "modules/demurrage_detention/",
     "modules/currencies/", "modules/app_update/", "modules/production_sync/", "modules/common/",
+    "modules/integrations/",
     "scripts/release/", "scripts/ci/", "installer/", ".github/", ".githooks/", ".claude/", ".agents/rules/",
     ".agents/workflows/", ".antigravityrules", ".gitattributes",
     "settings.py", "main.py", "version.json", "package_production.py", "requirements.txt", "AGENTS.md",

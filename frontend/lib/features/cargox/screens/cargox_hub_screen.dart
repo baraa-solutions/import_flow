@@ -5,6 +5,8 @@ import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/widgets.dart';
 import '../../freight_booking/providers/freight_booking_provider.dart';
+import '../../integrations/providers/integration_status_provider.dart';
+import '../../integrations/widgets/simulation_mode_banner.dart';
 import '../../import_companies/providers/import_companies_provider.dart';
 import '../../import_documentation/providers/import_documentation_provider.dart';
 import '../../import_files/providers/import_files_provider.dart';
@@ -73,6 +75,7 @@ class _CargoXHubScreenState extends ConsumerState<CargoXHubScreen> {
   }
 
   void _refreshData() {
+    ref.invalidate(integrationStatusProvider);
     if (!ref.read(cargoxEnvelopesProvider).isLoading) {
       ref.read(cargoxEnvelopesProvider.notifier).fetchEnvelopes();
     }
@@ -161,7 +164,7 @@ class _CargoXHubScreenState extends ConsumerState<CargoXHubScreen> {
       ),
     ];
 
-    final bodyContent = IndexedStack(
+    final stackContent = IndexedStack(
       index: _selectedSubTab,
       children: [
         StandardInvoiceHubTab(initialImportFileId: _selectedImportFileId),
@@ -210,6 +213,15 @@ class _CargoXHubScreenState extends ConsumerState<CargoXHubScreen> {
           envelopes: envelopes,
           onViewManifest: _viewManifest,
         ),
+      ],
+    );
+
+    // Production Mock Guard (NLv0Dpj5): CargoX / Nafeza statuses below come from a simulation
+    // whenever the backend says so; the banner makes that unmistakable.
+    final bodyContent = Column(
+      children: [
+        const IntegrationSimulationBanner(),
+        Expanded(child: stackContent),
       ],
     );
 
