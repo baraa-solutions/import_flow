@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/api_constants.dart';
+import '../../import_files/providers/payment_pathway_provider.dart';
 import '../models/lifecycle_board_model.dart';
 import '../models/timeline_snapshot_model.dart';
 import '../../../core/network/api_client.dart';
@@ -135,13 +136,21 @@ class LifecycleBoardNotifier extends StateNotifier<AsyncValue<void>> {
       );
       _lastErrorMessage = null;
       state = const AsyncValue.data(null);
-      ref.invalidate(lifecycleBoardSummaryProvider);
+      _refreshBoardViews();
       return true;
     } catch (e, st) {
       _lastErrorMessage = _extractErrorDetail(e);
       state = AsyncValue.error(e, st);
+      // A refused move may be a payment-gate hold: refresh the gate locks too.
+      ref.invalidate(paymentPathwayStatusProvider);
       return false;
     }
+  }
+
+  /// Live reload after any stage change: board counts and payment-gate locks.
+  void _refreshBoardViews() {
+    ref.invalidate(lifecycleBoardSummaryProvider);
+    ref.invalidate(paymentPathwayStatusProvider);
   }
 
   Future<bool> skipStep({
@@ -163,11 +172,13 @@ class LifecycleBoardNotifier extends StateNotifier<AsyncValue<void>> {
       );
       _lastErrorMessage = null;
       state = const AsyncValue.data(null);
-      ref.invalidate(lifecycleBoardSummaryProvider);
+      _refreshBoardViews();
       return true;
     } catch (e, st) {
       _lastErrorMessage = _extractErrorDetail(e);
       state = AsyncValue.error(e, st);
+      // A refused move may be a payment-gate hold: refresh the gate locks too.
+      ref.invalidate(paymentPathwayStatusProvider);
       return false;
     }
   }
@@ -189,11 +200,13 @@ class LifecycleBoardNotifier extends StateNotifier<AsyncValue<void>> {
       );
       _lastErrorMessage = null;
       state = const AsyncValue.data(null);
-      ref.invalidate(lifecycleBoardSummaryProvider);
+      _refreshBoardViews();
       return true;
     } catch (e, st) {
       _lastErrorMessage = _extractErrorDetail(e);
       state = AsyncValue.error(e, st);
+      // A refused move may be a payment-gate hold: refresh the gate locks too.
+      ref.invalidate(paymentPathwayStatusProvider);
       return false;
     }
   }
@@ -208,11 +221,13 @@ class LifecycleBoardNotifier extends StateNotifier<AsyncValue<void>> {
       _lastErrorMessage = null;
       state = const AsyncValue.data(null);
       ref.invalidate(timelineSnapshotsProvider(importFileId));
-      ref.invalidate(lifecycleBoardSummaryProvider);
+      _refreshBoardViews();
       return true;
     } catch (e, st) {
       _lastErrorMessage = _extractErrorDetail(e);
       state = AsyncValue.error(e, st);
+      // A refused move may be a payment-gate hold: refresh the gate locks too.
+      ref.invalidate(paymentPathwayStatusProvider);
       return false;
     }
   }

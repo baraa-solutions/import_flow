@@ -5242,6 +5242,10 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String totalActiveShipmentsCount(dynamic files, dynamic stages) => 'إجمالي الشحنات: $files ملف ($stages مرحلة)';
   @override String get showAllPhasesBtn => 'عرض كافة المراحل';
   @override String get allShipmentsAllPhases => 'كافة الشحنات في جميع المراحل';
+  @override String matrixPaymentGateLocked(String gateLabel, String fileCode) => 'بوابة السداد مغلقة ($fileCode): $gateLabel';
+  @override String matrixPendingMilestones(String milestones) => 'مراحل سداد معلقة: $milestones';
+  @override String get matrixStepWaived => 'متجاوزة (تم تخطي المرحلة لهذا الملف)';
+  @override String get matrixAllPhasesShort => 'كل المراحل';
   @override String get searchLifecycleTableHint => 'بحث بكود الشحنة، المورد، أمر الشراء، أو الملاحظات...';
   @override String shipmentsCountFormatted(dynamic count) => '$count شحنة';
   @override String get colShipmentCode => 'كود الشحنة';

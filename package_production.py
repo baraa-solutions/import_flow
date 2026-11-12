@@ -378,7 +378,9 @@ def main():
     if "--compile-all" in sys.argv or "--compile-backend" in sys.argv or not BACKEND_EXE.exists():
         print(f"[*] Compiling Standalone Backend Executable (backend.exe)...")
         import build_backend_exe
-        build_backend_exe.build_backend()
+        if build_backend_exe.build_backend() is False:
+            print("[!] Backend build refused or failed (see messages above). Aborting packaging so a stale backend.exe is not shipped.")
+            sys.exit(1)
 
     # Compile Flutter desktop release if requested or if frontend/build does not match
     if "--compile-all" in sys.argv or "--compile-flutter" in sys.argv or not DESKTOP_SRC.exists():
