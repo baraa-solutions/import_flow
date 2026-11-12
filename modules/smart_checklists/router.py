@@ -4,6 +4,7 @@ FastAPI Router for Smart Import Checklist Engine
 
 from typing import Optional
 from fastapi import APIRouter, Depends, Query, status
+from modules.auth.permissions import require_permission
 from modules.auth.router import get_current_user
 from sqlalchemy.orm import Session
 
@@ -43,7 +44,7 @@ def get_file_checklist(
     )
 
 
-@router.post("/{file_id}/checklist/auto-sync", response_model=ChecklistAutoSyncResponse)
+@router.post("/{file_id}/checklist/auto-sync", response_model=ChecklistAutoSyncResponse, dependencies=[Depends(require_permission("import_files.edit"))])
 def auto_sync_checklist(
     file_id: int,
     db: Session = Depends(get_db),
@@ -52,7 +53,7 @@ def auto_sync_checklist(
     return service.auto_sync_checklist(db=db, file_id=file_id)
 
 
-@router.patch("/{file_id}/checklist/{item_id}/toggle", response_model=ChecklistItemResponse)
+@router.patch("/{file_id}/checklist/{item_id}/toggle", response_model=ChecklistItemResponse, dependencies=[Depends(require_permission("import_files.edit"))])
 def toggle_checklist_item(
     file_id: int,
     item_id: int,
@@ -70,7 +71,7 @@ def toggle_checklist_item(
     )
 
 
-@router.post("/{file_id}/checklist/{item_id}/override", response_model=ChecklistItemResponse)
+@router.post("/{file_id}/checklist/{item_id}/override", response_model=ChecklistItemResponse, dependencies=[Depends(require_permission("import_files.close"))])
 def override_checklist_item(
     file_id: int,
     item_id: int,
@@ -101,7 +102,7 @@ def get_gatekeeper_status(
     )
 
 
-@router.post("/{file_id}/checklist/enforce-gate", response_model=GatekeeperStatusResponse)
+@router.post("/{file_id}/checklist/enforce-gate", response_model=GatekeeperStatusResponse, dependencies=[Depends(require_permission("lifecycle_board.advance"))])
 def enforce_gatekeeper_gate(
     file_id: int,
     target_phase: str = Query(..., description="Target phase to enforce: IN_TRANSIT, PORT_ARRIVAL, CLEARANCE, POST_CLEARANCE"),
@@ -118,7 +119,7 @@ def enforce_gatekeeper_gate(
     )
 
 
-@router.post("/{file_id}/checklist/resolve-all", response_model=ChecklistSummaryResponse)
+@router.post("/{file_id}/checklist/resolve-all", response_model=ChecklistSummaryResponse, dependencies=[Depends(require_permission("import_files.edit"))])
 def resolve_all_checklist_items(
     file_id: int,
     target_status: str = Query("PASSED", description="Target status: PASSED or WAIVED"),

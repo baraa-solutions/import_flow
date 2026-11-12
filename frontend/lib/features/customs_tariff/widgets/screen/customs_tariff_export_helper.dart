@@ -6,6 +6,7 @@ import '../../../../core/theme/app_theme.dart';
 import '../../../../core/widgets/widgets.dart';
 import '../../models/customs_tariff_model.dart';
 import '../../providers/customs_tariff_provider.dart';
+import '../../../../core/constants/upload_file_types.dart';
 
 class CustomsTariffExportHelper {
   const CustomsTariffExportHelper._();
@@ -93,7 +94,7 @@ class CustomsTariffExportHelper {
     try {
       final result = await FilePicker.pickFiles(
         type: FileType.custom,
-        allowedExtensions: ['csv', 'xlsx', 'xls'],
+        allowedExtensions: UploadFileTypes.tariffCsvImport,
         withData: true,
       );
 

@@ -45,11 +45,13 @@ compat_router = APIRouter(prefix="/smart-email", include_in_schema=False, depend
     response_model=ArrivalNoticeParseResult,
     status_code=status.HTTP_201_CREATED,
     summary="استلام ومعالجة إيميل إشعار وصول واستخراج البوليصة وتوليد مهمة السداد",
+    dependencies=[Depends(require_permission("import_files.edit"))],
 )
 @compat_router.post(
     "/incoming",
     response_model=ArrivalNoticeParseResult,
     status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(require_permission("import_files.edit"))],
 )
 def process_incoming_email_endpoint(req: InboundEmailCreate, db: Session = Depends(get_db)):
     return process_inbound_email_service(db, req)
@@ -59,10 +61,12 @@ def process_incoming_email_endpoint(req: InboundEmailCreate, db: Session = Depen
     "/parse-preview",
     response_model=ArrivalNoticeParseResult,
     summary="معاينة فورية لاستخراج بيانات إشعار الوصول بدون تسجيل في قاعدة البيانات",
+    dependencies=[Depends(require_permission("import_files.view"))],
 )
 @compat_router.post(
     "/parse-preview",
     response_model=ArrivalNoticeParseResult,
+    dependencies=[Depends(require_permission("import_files.view"))],
 )
 def preview_email_parse_endpoint(req: InboundEmailParsePreviewRequest):
     return preview_arrival_notice_service(req)
@@ -169,10 +173,12 @@ def test_email_connection_endpoint(req: EmailConnectionTestRequest):
     "/fetch-inbox",
     response_model=InboxFetchResult,
     summary="مزامنة فورية وفحص صندوق الوارد (IMAP) لاستخراج إشعارات الوصول وتوليد المهام",
+    dependencies=[Depends(require_permission("import_files.edit"))],
 )
 @compat_router.post(
     "/fetch-inbox",
     response_model=InboxFetchResult,
+    dependencies=[Depends(require_permission("import_files.edit"))],
 )
 def fetch_inbox_endpoint(
     req: Optional[InboxFetchRequest] = None,
@@ -210,10 +216,12 @@ def send_outbound_email_endpoint(
     "/approve-and-route-tasks",
     response_model=TasksBatchApprovalResult,
     summary="اعتماد وتوجيه المهام الذكية المستخلصة من البريد للمستخدمين أو الفرق المحددة",
+    dependencies=[Depends(require_permission("import_files.edit"))],
 )
 @compat_router.post(
     "/approve-and-route-tasks",
     response_model=TasksBatchApprovalResult,
+    dependencies=[Depends(require_permission("import_files.edit"))],
 )
 def approve_and_route_tasks_endpoint(
     req: TasksBatchApprovalRequest,

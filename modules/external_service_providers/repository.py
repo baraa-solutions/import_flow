@@ -1,4 +1,5 @@
 from typing import Any, Dict, List, Optional
+from modules.common.audit_stamp import SYSTEM_ACTOR, resolve_actor, set_created_info, set_updated_info
 from fastapi import Response
 from sqlalchemy import exists, func, or_
 from sqlalchemy.orm import Session
@@ -132,11 +133,12 @@ class ExternalServiceProviderRepository:
         last = self.db.query(ExternalServiceProvider.provider_id).order_by(ExternalServiceProvider.provider_id.desc()).first()
         return last[0] if last else 0
 
-    def create(self, partner_data: PartnerCreate, partner_code: str) -> ExternalServiceProvider:
+    def create(self, partner_data: PartnerCreate, partner_code: str, actor: str = SYSTEM_ACTOR) -> ExternalServiceProvider:
         db_obj = ExternalServiceProvider(
             partner_code=partner_code,
             **partner_data.model_dump()
         )
+        set_created_info(db_obj, actor)
         self.db.add(db_obj)
         self.db.commit()
         self.db.refresh(db_obj)
@@ -147,13 +149,13 @@ class ExternalServiceProviderRepository:
             entity_id=db_obj.provider_id,
             entity_code=db_obj.partner_code,
             action="CREATE",
-            performed_by="SYSTEM",
+            performed_by=resolve_actor(actor),
             new_data={"partner_name": db_obj.partner_name, "partner_type": db_obj.partner_type}
         )
 
         return db_obj
 
-    def update(self, provider_id: int, partner_data: PartnerUpdate) -> Optional[ExternalServiceProvider]:
+    def update(self, provider_id: int, partner_data: PartnerUpdate, actor: str = SYSTEM_ACTOR) -> Optional[ExternalServiceProvider]:
         db_obj = self.get_by_id(provider_id)
         if not db_obj:
             return None
@@ -164,6 +166,7 @@ class ExternalServiceProviderRepository:
         }
         for key, value in update_data.items():
             setattr(db_obj, key, value)
+        set_updated_info(db_obj, actor)
         self.db.commit()
         self.db.refresh(db_obj)
 
@@ -173,18 +176,19 @@ class ExternalServiceProviderRepository:
             entity_id=db_obj.provider_id,
             entity_code=db_obj.partner_code,
             action="UPDATE",
-            performed_by="SYSTEM",
+            performed_by=resolve_actor(actor),
             old_data=old_data,
             new_data=update_data,
         )
 
         return db_obj
 
-    def soft_delete(self, provider_id: int) -> bool:
+    def soft_delete(self, provider_id: int, actor: str = SYSTEM_ACTOR) -> bool:
         db_obj = self.get_by_id(provider_id)
         if not db_obj:
             return False
         db_obj.is_active = False
+        set_updated_info(db_obj, actor)
         self.db.commit()
 
         from modules.audit_logs.service import AuditLogService
@@ -193,16 +197,17 @@ class ExternalServiceProviderRepository:
             entity_id=db_obj.provider_id,
             entity_code=db_obj.partner_code,
             action="DELETE",
-            performed_by="SYSTEM",
+            performed_by=resolve_actor(actor),
         )
 
         return True
 
-    def restore(self, provider_id: int) -> bool:
+    def restore(self, provider_id: int, actor: str = SYSTEM_ACTOR) -> bool:
         db_obj = self.get_by_id(provider_id)
         if not db_obj:
             return False
         db_obj.is_active = True
+        set_updated_info(db_obj, actor)
         self.db.commit()
 
         from modules.audit_logs.service import AuditLogService
@@ -211,7 +216,7 @@ class ExternalServiceProviderRepository:
             entity_id=db_obj.provider_id,
             entity_code=db_obj.partner_code,
             action="RESTORE",
-            performed_by="SYSTEM",
+            performed_by=resolve_actor(actor),
         )
 
         return True

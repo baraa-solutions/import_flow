@@ -4,6 +4,7 @@ FastAPI Router for Logistics What-If Simulation & FX Exposure Radar (SIM-WHATIF-
 
 from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, Depends, Query, status
+from modules.auth.permissions import require_permission
 from modules.auth.router import get_current_user
 from sqlalchemy.orm import Session
 
@@ -29,6 +30,7 @@ router = APIRouter(
     response_model=WhatIfSimulationResponse,
     status_code=status.HTTP_200_OK,
     summary="Run Logistics & Currency What-If Simulation",
+    dependencies=[Depends(require_permission("shipping_scenarios.manage"))],
 )
 def run_what_if_simulation_endpoint(
     request: WhatIfSimulationRequest,
@@ -65,6 +67,7 @@ def get_fx_exposure_endpoint(
     response_model=SavedScenarioResponse,
     status_code=status.HTTP_201_CREATED,
     summary="Save a Simulation Scenario for Executive Decision & Audit",
+    dependencies=[Depends(require_permission("shipping_scenarios.manage"))],
 )
 def save_scenario_endpoint(
     payload: SavedScenarioCreate,

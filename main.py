@@ -310,8 +310,13 @@ LOCAL_ORIGIN_REGEX = CORS_ALLOWED_ORIGIN_REGEX
 
 
 def is_cors_origin_allowed(origin: str) -> bool:
-    """True only for an http(s) origin on localhost / a private network address (CORS_ALLOWED_ORIGIN_REGEX)."""
-    return bool(origin and _re.match(CORS_ALLOWED_ORIGIN_REGEX, origin))
+    """True for an origin in the configured allow-list (settings.CORS_ALLOWED_ORIGINS) or, unless disabled by
+    CORS_ALLOW_PRIVATE_NETWORK_ORIGINS=false, an http(s) origin on localhost / a private network address."""
+    if not origin:
+        return False
+    if origin.rstrip("/") in _settings.CORS_ALLOWED_ORIGINS:
+        return True
+    return bool(_settings.CORS_ALLOW_PRIVATE_NETWORK_ORIGINS and _re.match(CORS_ALLOWED_ORIGIN_REGEX, origin))
 
 
 @app.middleware("http")
@@ -376,7 +381,7 @@ async def global_exception_handler(request: Request, exc: Exception):
 
     logging.getLogger("main").error(f"Unhandled server error: {exc}", exc_info=True)
     raw_origin = request.headers.get("origin", "")
-    is_allowed = bool(raw_origin and re.match(LOCAL_ORIGIN_REGEX, raw_origin))
+    is_allowed = is_cors_origin_allowed(raw_origin)
     headers = {
         "X-Content-Type-Options": "nosniff",
         "X-Frame-Options": "DENY",

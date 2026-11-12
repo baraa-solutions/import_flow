@@ -161,7 +161,20 @@ def decode_access_token(
 # ─── Token Revocation & Server-Side Session Invalidation ─────────────────────
 
 import threading
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
+
+
+def revocation_expiry(exp_ts: Optional[int]) -> datetime:
+    """
+    How long a revoked token must stay blacklisted: until it can no longer be used anywhere, i.e. its own
+    expiry PLUS the refresh grace period (an expired token is still accepted by /auth/refresh inside that
+    window, so purging the entry at `exp` would let a refreshed or logged-out token be replayed).
+    """
+    if exp_ts:
+        base = datetime.fromtimestamp(int(exp_ts), tz=timezone.utc)
+    else:
+        base = datetime.now(timezone.utc) + timedelta(seconds=JWT_ACCESS_TOKEN_EXPIRE_SECONDS)
+    return base + timedelta(seconds=JWT_REFRESH_GRACE_PERIOD_SECONDS)
 
 
 def hash_token(token: str) -> str:

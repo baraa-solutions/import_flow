@@ -1,5 +1,7 @@
 from typing import List, Optional
 from fastapi import APIRouter, Depends, Query, status
+from modules.auth.permissions import require_permission
+from modules.users.model import User
 from sqlalchemy.orm import Session
 
 from database.database import get_db
@@ -13,7 +15,6 @@ from modules.bank_form4.schemas import (
     NafezaTransmissionUpdate,
 )
 from modules.bank_form4.service import BankForm4Service
-from modules.users.model import User
 
 router = APIRouter(
     prefix="/api/v1/bank-form4",
@@ -27,6 +28,7 @@ router = APIRouter(
     response_model=BankForm4Response,
     status_code=status.HTTP_201_CREATED,
     summary="Create a new Bank Form 4 record",
+    dependencies=[Depends(require_permission("financial_approval.manage"))],
 )
 def create_bank_form4(
     payload: BankForm4Create,
@@ -115,6 +117,7 @@ def get_bank_form4(
     "/{form4_id}",
     response_model=BankForm4Response,
     summary="Update Bank Form 4 record details",
+    dependencies=[Depends(require_permission("financial_approval.manage"))],
 )
 def update_bank_form4(
     form4_id: int,
@@ -131,6 +134,7 @@ def update_bank_form4(
     "/{form4_id}/calculate-delay-cost",
     response_model=BankForm4Response,
     summary="Calculate and update financing delay costs",
+    dependencies=[Depends(require_permission("financial_approval.manage"))],
 )
 def calculate_delay_cost(
     form4_id: int,
@@ -147,6 +151,7 @@ def calculate_delay_cost(
     "/{form4_id}/nafeza-transmission",
     response_model=BankForm4Response,
     summary="Update Nafeza transmission state (AWAITING_BANK, TRANSMITTED, VALUE_MISMATCH, ACCEPTED)",
+    dependencies=[Depends(require_permission("financial_approval.manage"))],
 )
 def update_nafeza_transmission(
     form4_id: int,
@@ -163,6 +168,7 @@ def update_nafeza_transmission(
     "/{form4_id}",
     status_code=status.HTTP_204_NO_CONTENT,
     summary="Soft delete Bank Form 4 record",
+    dependencies=[Depends(require_permission("financial_approval.manage"))],
 )
 def delete_bank_form4(
     form4_id: int,

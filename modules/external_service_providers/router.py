@@ -1,11 +1,16 @@
 from typing import List, Optional
 from fastapi import APIRouter, Depends, Query, Response, status
+from modules.common.upload_guard import EXCEL_EXTENSIONS, read_upload_bytes
 from modules.auth.router import get_current_user
+from modules.auth.permissions import require_permission
+from modules.users.model import User
 from sqlalchemy.orm import Session
 from database.database import get_db
 from modules.common.pagination import Page, PageParams
 from .schemas import PartnerCreate, PartnerResponse, PartnerUpdate, PartnerStatementOfAccountResponse, PartnerScorecardResponse
 from .service import ExternalServiceProviderService
+
+PARTNERS_MANAGE = "business_partners.manage"
 
 
 
@@ -41,10 +46,11 @@ def list_partners(
 @router.post("", response_model=PartnerResponse, status_code=status.HTTP_201_CREATED)
 def create_partner(
     partner_data: PartnerCreate,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission(PARTNERS_MANAGE)),
 ):
     service = ExternalServiceProviderService(db)
-    return service.create_partner(partner_data)
+    return service.create_partner(partner_data, actor=current_user.username)
 
 
 # ==================================================
@@ -82,8 +88,12 @@ def download_partners_excel_template():
 
 
 @router.post("/import-excel")
-async def import_excel_partners(file: UploadFile = File(...), db: Session = Depends(get_db)):
-    file_bytes = await file.read()
+async def import_excel_partners(
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission(PARTNERS_MANAGE)),
+):
+    file_bytes = await read_upload_bytes(file, EXCEL_EXTENSIONS)
     cols = ['partner_name', 'partner_type', 'tax_id', 'commercial_register']
     rows = MasterDataExportImportHelper.parse_excel_file(file_bytes, cols)
 
@@ -116,7 +126,7 @@ async def import_excel_partners(file: UploadFile = File(...), db: Session = Depe
                 country=r.get('country') or 'Egypt',
                 notes=r.get('notes'),
             )
-            service.create_partner(schema)
+            service.create_partner(schema, actor=current_user.username)
             imported_count += 1
         except Exception as e:
             errors.append(f"Row {idx}: {str(e)}")
@@ -296,25 +306,28 @@ def get_partner_scorecard(
 def update_partner(
     provider_id: int,
     partner_data: PartnerUpdate,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission(PARTNERS_MANAGE)),
 ):
     service = ExternalServiceProviderService(db)
-    return service.update_partner(provider_id, partner_data)
+    return service.update_partner(provider_id, partner_data, actor=current_user.username)
 
 
 @router.delete("/{provider_id}")
 def delete_partner(
     provider_id: int,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission(PARTNERS_MANAGE)),
 ):
     service = ExternalServiceProviderService(db)
-    return service.soft_delete_partner(provider_id)
+    return service.soft_delete_partner(provider_id, actor=current_user.username)
 
 
 @router.patch("/{provider_id}/restore")
 def restore_partner(
     provider_id: int,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission(PARTNERS_MANAGE)),
 ):
     service = ExternalServiceProviderService(db)
-    return service.restore_partner(provider_id)
+    return service.restore_partner(provider_id, actor=current_user.username)

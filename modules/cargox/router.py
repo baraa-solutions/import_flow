@@ -4,6 +4,9 @@ FastAPI Router for CargoX & ACI Dispatch Hub (CGX-001)
 
 from typing import List, Optional
 from fastapi import APIRouter, Depends, Query, status
+from modules.common.upload_guard import EXCEL_EXTENSIONS, read_upload_bytes
+from modules.auth.permissions import require_permission
+from modules.users.model import User
 from modules.auth.router import get_current_user
 from sqlalchemy.orm import Session
 from database.database import get_db
@@ -63,11 +66,12 @@ def get_cargox_envelope_by_id(
 def create_cargox_envelope(
     payload: CargoXEnvelopeCreate,
     db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("cargox_nafeza.manage")),
 ):
     """
     Create a new CargoX Blockchain Envelope with PKI Signature & initial attestation.
     """
-    return CargoXService.create_envelope(db, payload, created_by="ADMIN")
+    return CargoXService.create_envelope(db, payload, created_by=current_user.username)
 
 
 @router.put("/envelopes/{envelope_id}", response_model=CargoXEnvelopeResponse)
@@ -75,11 +79,12 @@ def update_cargox_envelope(
     envelope_id: int,
     payload: CargoXEnvelopeUpdate,
     db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("cargox_nafeza.manage")),
 ):
     """
     Update CargoX envelope details.
     """
-    return CargoXService.update_envelope(db, envelope_id, payload, updated_by="ADMIN")
+    return CargoXService.update_envelope(db, envelope_id, payload, updated_by=current_user.username)
 
 
 @router.post("/envelopes/{envelope_id}/seal-and-transfer", response_model=CargoXSealAndTransferResponse)
@@ -87,14 +92,15 @@ def seal_and_transfer_to_customs(
     envelope_id: int,
     request: CargoXSealAndTransferRequest,
     db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("cargox_nafeza.manage")),
 ):
     """
     Seal CargoX envelope, verify mandatory documents, sign with PKI, and transfer to Egyptian Customs (Nafeza).
     """
-    return CargoXService.seal_and_transfer_to_customs(db, envelope_id, request, updated_by="ADMIN")
+    return CargoXService.seal_and_transfer_to_customs(db, envelope_id, request, updated_by=current_user.username)
 
 
-@router.post("/envelopes/{envelope_id}/verify-acid", response_model=CargoXAcidVerificationReport)
+@router.post("/envelopes/{envelope_id}/verify-acid", response_model=CargoXAcidVerificationReport, dependencies=[Depends(require_permission("cargox_nafeza.manage"))])
 def verify_envelope_acid_consistency(
     envelope_id: int,
     db: Session = Depends(get_db),
@@ -120,22 +126,24 @@ def generate_digital_manifest(
 def soft_delete_cargox_envelope(
     envelope_id: int,
     db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("cargox_nafeza.manage")),
 ):
     """
     Soft delete a CargoX envelope.
     """
-    return CargoXService.soft_delete_envelope(db, envelope_id, deleted_by="ADMIN")
+    return CargoXService.soft_delete_envelope(db, envelope_id, deleted_by=current_user.username)
 
 
 @router.post("/envelopes/{envelope_id}/restore", response_model=CargoXEnvelopeResponse)
 def restore_cargox_envelope(
     envelope_id: int,
     db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("cargox_nafeza.manage")),
 ):
     """
     Restore a soft-deleted CargoX envelope.
     """
-    return CargoXService.restore_envelope(db, envelope_id, restored_by="ADMIN")
+    return CargoXService.restore_envelope(db, envelope_id, restored_by=current_user.username)
 
 
 # ============================================================================
@@ -172,7 +180,7 @@ def generate_standard_invoice_excel(
     )
 
 
-@router.post("/standard-invoice/parse", response_model=StandardInvoicePayload)
+@router.post("/standard-invoice/parse", response_model=StandardInvoicePayload, dependencies=[Depends(require_permission("cargox_nafeza.manage"))])
 async def parse_supplier_invoice_excel(
     file: UploadFile = File(...),
 ):
@@ -180,11 +188,11 @@ async def parse_supplier_invoice_excel(
     Upload and parse supplier's completed Excel Commercial Invoice template
     using openpyxl Defined Names and the InvoiceItems table.
     """
-    file_bytes = await file.read()
+    file_bytes = await read_upload_bytes(file, EXCEL_EXTENSIONS)
     return CargoXStandardInvoiceService.parse_excel_file(file_bytes)
 
 
-@router.post("/standard-invoice/compare/{import_file_id}", response_model=StandardInvoiceComparisonResponse)
+@router.post("/standard-invoice/compare/{import_file_id}", response_model=StandardInvoiceComparisonResponse, dependencies=[Depends(require_permission("cargox_nafeza.manage"))])
 def compare_standard_invoice(
     import_file_id: int,
     supplier_data: StandardInvoicePayload,
@@ -200,12 +208,13 @@ def compare_standard_invoice(
 def save_or_upsert_standard_invoice_session(
     payload: StandardInvoiceSessionCreate,
     db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("cargox_nafeza.manage")),
 ):
     """
     Create or update (Upsert) a Standard Commercial Invoice Review Session.
     Enforces mandatory override justification if approved with discrepancies.
     """
-    return CargoXStandardInvoiceService.save_or_upsert_session(db, payload, created_by="ADMIN")
+    return CargoXStandardInvoiceService.save_or_upsert_session(db, payload, created_by=current_user.username)
 
 
 @router.get("/standard-invoice/session/by-file/{import_file_id}", response_model=Optional[StandardInvoiceSessionResponse])
@@ -241,11 +250,12 @@ def update_standard_invoice_session_status(
     session_id: int,
     payload: StandardInvoiceStatusUpdateRequest,
     db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("cargox_nafeza.manage")),
 ):
     """
     Update session status (Approve, Reject, Under Review) with mandatory justification validation.
     """
-    return CargoXStandardInvoiceService.update_session_status(db, session_id, payload, updated_by="ADMIN")
+    return CargoXStandardInvoiceService.update_session_status(db, session_id, payload, updated_by=current_user.username)
 
 
 # ============================================================================
@@ -277,7 +287,7 @@ from .excel_invoice_service import (
 from .excel_packing_list_service import generate_packing_list_excel_bytes
 
 
-@router.post("/standard-invoice/extract/{import_file_id}", response_model=ExtractionResponse)
+@router.post("/standard-invoice/extract/{import_file_id}", response_model=ExtractionResponse, dependencies=[Depends(require_permission("cargox_nafeza.manage"))])
 def extract_invoice_multi_mode(
     import_file_id: int,
     request: ExtractionRequest,
@@ -295,7 +305,7 @@ def extract_invoice_multi_mode(
     return CargoXExtractionEngine.extract(db, import_file_id, request)
 
 
-@router.post("/standard-invoice/generate-zip/{import_file_id}")
+@router.post("/standard-invoice/generate-zip/{import_file_id}", dependencies=[Depends(require_permission("cargox_nafeza.manage"))])
 def generate_invoice_zip(
     import_file_id: int,
     request: ExtractionRequest,
@@ -344,12 +354,13 @@ def generate_invoice_zip(
 def create_customs_invoice_track(
     payload: CustomsInvoiceTrackCreate,
     db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("cargox_nafeza.manage")),
 ):
     """
     CGX-003: إنشاء وحفظ نسخة جمركية (Customs Invoice Track) مستقلة.
     يتم تطبيق weighted average price لكل HS Code وحفظ الـ snapshot في DB.
     """
-    return CargoXExtractionEngine.create_customs_track(db, payload, created_by="ADMIN")
+    return CargoXExtractionEngine.create_customs_track(db, payload, created_by=current_user.username)
 
 
 @router.get("/customs-track/by-file/{import_file_id}", response_model=List[CustomsInvoiceTrackResponse])
@@ -379,12 +390,13 @@ def update_customs_track_by_id(
     track_id: int,
     payload: CustomsInvoiceTrackUpdate,
     db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("cargox_nafeza.manage")),
 ):
     """
     تعديل مسار جمركي (الحالة، الملاحظات، القيم).
     """
     return CargoXExtractionEngine.update_customs_track(
-        db, track_id, payload.model_dump(exclude_unset=True), updated_by="ADMIN"
+        db, track_id, payload.model_dump(exclude_unset=True), updated_by=current_user.username
     )
 
 
@@ -392,11 +404,12 @@ def update_customs_track_by_id(
 def delete_customs_track_by_id(
     track_id: int,
     db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("cargox_nafeza.manage")),
 ):
     """
     حذف منطقي (Soft Delete) لمسار جمركي.
     """
-    CargoXExtractionEngine.delete_customs_track(db, track_id, deleted_by="ADMIN")
+    CargoXExtractionEngine.delete_customs_track(db, track_id, deleted_by=current_user.username)
     return {"status": "success", "message": f"تم حذف المسار الجمركي {track_id} بنجاح."}
 
 
@@ -529,7 +542,7 @@ def export_customs_track_packing_list_excel(
 # CGX-004: Dual Extraction Engine Endpoints
 # ============================================================================
 
-@router.post("/standard-invoice/extract-dual/{import_file_id}", response_model=DualExtractionResponse)
+@router.post("/standard-invoice/extract-dual/{import_file_id}", response_model=DualExtractionResponse, dependencies=[Depends(require_permission("cargox_nafeza.manage"))])
 def extract_dual_mode(
     import_file_id: int,
     request: DualExtractionRequest,
@@ -545,7 +558,7 @@ def extract_dual_mode(
     return CargoXDualExtractionEngine.extract_dual(db, import_file_id, request)
 
 
-@router.post("/standard-invoice/generate-dual-zip/{import_file_id}")
+@router.post("/standard-invoice/generate-dual-zip/{import_file_id}", dependencies=[Depends(require_permission("cargox_nafeza.manage"))])
 def generate_dual_zip(
     import_file_id: int,
     request: DualExtractionRequest,
@@ -597,10 +610,11 @@ def generate_dual_zip(
 def create_dual_customs_track(
     payload: DualCustomsTrackCreate,
     db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("cargox_nafeza.manage")),
 ):
     """
     CGX-004: إنشاء مسار جمركي مزدوج.
     يحفظ فاتورة جمركية + قائمة تعبئة جمركية بمسارات استخراج مستقلة في DB.
     """
-    return CargoXDualExtractionEngine.create_dual_customs_track(db, payload, created_by="ADMIN")
+    return CargoXDualExtractionEngine.create_dual_customs_track(db, payload, created_by=current_user.username)
 

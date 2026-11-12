@@ -5,6 +5,7 @@ from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 from modules.common.clock import cairo_today
 from modules.common.pagination import PageParams
+from modules.common.audit_stamp import SYSTEM_ACTOR
 from .repository import ExternalServiceProviderRepository
 from .schemas import (
     PartnerCreate,
@@ -50,25 +51,25 @@ class ExternalServiceProviderService:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Partner not found")
         return partner
 
-    def create_partner(self, data: PartnerCreate) -> PartnerResponse:
+    def create_partner(self, data: PartnerCreate, actor: str = SYSTEM_ACTOR) -> PartnerResponse:
         self.validator.validate_create(data)
         partner_code = self.generate_partner_code()
-        return self.repository.create(data, partner_code=partner_code)
+        return self.repository.create(data, partner_code=partner_code, actor=actor)
 
-    def update_partner(self, provider_id: int, data: PartnerUpdate) -> PartnerResponse:
-        partner = self.repository.update(provider_id, data)
+    def update_partner(self, provider_id: int, data: PartnerUpdate, actor: str = SYSTEM_ACTOR) -> PartnerResponse:
+        partner = self.repository.update(provider_id, data, actor=actor)
         if not partner:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Partner not found")
         return partner
 
-    def soft_delete_partner(self, provider_id: int) -> dict:
-        success = self.repository.soft_delete(provider_id)
+    def soft_delete_partner(self, provider_id: int, actor: str = SYSTEM_ACTOR) -> dict:
+        success = self.repository.soft_delete(provider_id, actor=actor)
         if not success:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Partner not found")
         return {"detail": "Partner deactivated successfully"}
 
-    def restore_partner(self, provider_id: int) -> dict:
-        success = self.repository.restore(provider_id)
+    def restore_partner(self, provider_id: int, actor: str = SYSTEM_ACTOR) -> dict:
+        success = self.repository.restore(provider_id, actor=actor)
         if not success:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Partner not found")
         return {"detail": "Partner reactivated successfully"}

@@ -97,6 +97,7 @@ PERMISSIONS_CATALOG = [
     # 15. Master Data
     {"code": "master_data.view", "module": "master_data", "action": "view", "en": "View Master Data", "ar": "عرض البيانات المرجعية والشركات والموانئ", "desc": "Can view companies, suppliers, ports, currencies, and incoterms"},
     {"code": "master_data.edit", "module": "master_data", "action": "edit", "en": "Edit Master Data", "ar": "إضافة وتعديل البيانات المرجعية الأساسية", "desc": "Can create and modify companies, suppliers, ports, and currencies"},
+    {"code": "business_partners.manage", "module": "master_data", "action": "manage", "en": "Manage Business Partners", "ar": "إدارة الشركات المستوردة والموردين ومقدمي الخدمات", "desc": "Create, edit, deactivate and restore importing companies, foreign suppliers and external service providers"},
 
     # 16. Users & Security
     {"code": "users.view", "module": "users_and_security", "action": "view", "en": "View Users & Roles", "ar": "استعراض قائمة المستخدمين والأدوار", "desc": "Can view users list and role assignments"},
@@ -203,7 +204,7 @@ ROLES_CONFIG = [
             "warehouse_receiving.view",
             "demurrage_detention.view",
             "quotations.view", "quotations.manage",
-            "master_data.view",
+            "master_data.view", "business_partners.manage",
             "users.view",
             "audit_logs.view",
             "reports.view",
@@ -231,7 +232,7 @@ ROLES_CONFIG = [
             "warehouse_receiving.view", "warehouse_receiving.receive",
             "demurrage_detention.view", "demurrage_detention.manage",
             "quotations.view", "quotations.manage",
-            "master_data.view",
+            "master_data.view", "business_partners.manage",
             "reports.view",
             "logistics_rules.view", "logistics_rules.create",
         ],
@@ -341,6 +342,8 @@ DERIVED_GRANTS: Dict[str, str] = {
     "split_shipments.manage": "import_files.edit",
     "multimodal_freight.view": "import_files.view",
     "multimodal_freight.manage": "import_files.edit",
+    # Partner master data was open to every logged-in user: custom roles that edit master data keep it.
+    "business_partners.manage": "master_data.edit",
 }
 
 

@@ -2,6 +2,8 @@ from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from modules.auth.router import get_current_user
+from modules.auth.permissions import require_permission
+from modules.users.model import User
 from sqlalchemy.orm import Session
 
 from database.database import get_db
@@ -44,6 +46,8 @@ from .service import (
 # Router
 # ==================================================
 
+MASTER_DATA_EDIT = "master_data.edit"
+
 incoterms_router = APIRouter(prefix="/api/v1", tags=["Incoterms"], dependencies=[Depends(get_current_user)])
 
 
@@ -53,9 +57,9 @@ incoterms_router = APIRouter(prefix="/api/v1", tags=["Incoterms"], dependencies=
 
 @incoterms_router.post("/incoterms", response_model=IncotermResponse)
 @incoterms_router.post("/incoterms/", response_model=IncotermResponse, include_in_schema=False)
-def create_incoterm(data: IncotermCreate, db: Session = Depends(get_db)):
+def create_incoterm(data: IncotermCreate, db: Session = Depends(get_db), current_user: User = Depends(require_permission(MASTER_DATA_EDIT))):
     try:
-        res = create_incoterm_service(db, data)
+        res = create_incoterm_service(db, data, actor=current_user.username)
         memory_cache.clear_prefix("incoterms:")
         return res
     except ValueError as e:
@@ -146,9 +150,9 @@ def get_incoterm(incoterm_id: int, db: Session = Depends(get_db)):
 
 
 @incoterms_router.put("/incoterms/{incoterm_id}", response_model=IncotermResponse)
-def update_incoterm(incoterm_id: int, data: IncotermUpdate, db: Session = Depends(get_db)):
+def update_incoterm(incoterm_id: int, data: IncotermUpdate, db: Session = Depends(get_db), current_user: User = Depends(require_permission(MASTER_DATA_EDIT))):
     try:
-        res = update_incoterm_service(db, incoterm_id, data)
+        res = update_incoterm_service(db, incoterm_id, data, actor=current_user.username)
         memory_cache.clear_prefix("incoterms:")
         return res
     except ValueError as e:
@@ -156,15 +160,15 @@ def update_incoterm(incoterm_id: int, data: IncotermUpdate, db: Session = Depend
 
 
 @incoterms_router.delete("/incoterms/{incoterm_id}", response_model=IncotermResponse)
-def delete_incoterm(incoterm_id: int, db: Session = Depends(get_db)):
-    res = delete_incoterm_service(db, incoterm_id)
+def delete_incoterm(incoterm_id: int, db: Session = Depends(get_db), current_user: User = Depends(require_permission(MASTER_DATA_EDIT))):
+    res = delete_incoterm_service(db, incoterm_id, actor=current_user.username)
     memory_cache.clear_prefix("incoterms:")
     return res
 
 
 @incoterms_router.patch("/incoterms/{incoterm_id}/restore", response_model=IncotermResponse)
-def restore_incoterm(incoterm_id: int, db: Session = Depends(get_db)):
-    res = restore_incoterm_service(db, incoterm_id)
+def restore_incoterm(incoterm_id: int, db: Session = Depends(get_db), current_user: User = Depends(require_permission(MASTER_DATA_EDIT))):
+    res = restore_incoterm_service(db, incoterm_id, actor=current_user.username)
     memory_cache.clear_prefix("incoterms:")
     return res
 
@@ -175,9 +179,9 @@ def restore_incoterm(incoterm_id: int, db: Session = Depends(get_db)):
 
 @incoterms_router.post("/cost-items", response_model=CostItemResponse)
 @incoterms_router.post("/cost-items/", response_model=CostItemResponse, include_in_schema=False)
-def create_cost_item(data: CostItemCreate, db: Session = Depends(get_db)):
+def create_cost_item(data: CostItemCreate, db: Session = Depends(get_db), current_user: User = Depends(require_permission(MASTER_DATA_EDIT))):
     try:
-        return create_cost_item_service(db, data)
+        return create_cost_item_service(db, data, actor=current_user.username)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -200,9 +204,9 @@ def get_cost_item(cost_item_id: int, db: Session = Depends(get_db)):
 
 
 @incoterms_router.put("/cost-items/{cost_item_id}", response_model=CostItemResponse)
-def update_cost_item(cost_item_id: int, data: CostItemUpdate, db: Session = Depends(get_db)):
+def update_cost_item(cost_item_id: int, data: CostItemUpdate, db: Session = Depends(get_db), current_user: User = Depends(require_permission(MASTER_DATA_EDIT))):
     try:
-        res = update_cost_item_service(db, cost_item_id, data)
+        res = update_cost_item_service(db, cost_item_id, data, actor=current_user.username)
         memory_cache.clear_prefix("incoterms:")
         return res
     except ValueError as e:
@@ -210,15 +214,15 @@ def update_cost_item(cost_item_id: int, data: CostItemUpdate, db: Session = Depe
 
 
 @incoterms_router.delete("/cost-items/{cost_item_id}", response_model=CostItemResponse)
-def delete_cost_item(cost_item_id: int, db: Session = Depends(get_db)):
-    res = delete_cost_item_service(db, cost_item_id)
+def delete_cost_item(cost_item_id: int, db: Session = Depends(get_db), current_user: User = Depends(require_permission(MASTER_DATA_EDIT))):
+    res = delete_cost_item_service(db, cost_item_id, actor=current_user.username)
     memory_cache.clear_prefix("incoterms:")
     return res
 
 
 @incoterms_router.patch("/cost-items/{cost_item_id}/restore", response_model=CostItemResponse)
-def restore_cost_item(cost_item_id: int, db: Session = Depends(get_db)):
-    res = restore_cost_item_service(db, cost_item_id)
+def restore_cost_item(cost_item_id: int, db: Session = Depends(get_db), current_user: User = Depends(require_permission(MASTER_DATA_EDIT))):
+    res = restore_cost_item_service(db, cost_item_id, actor=current_user.username)
     memory_cache.clear_prefix("incoterms:")
     return res
 
@@ -234,10 +238,12 @@ def restore_cost_item(cost_item_id: int, db: Session = Depends(get_db)):
     "/incoterm-responsibilities/", response_model=IncotermResponsibilityResponse, include_in_schema=False
 )
 def create_responsibility(
-    data: IncotermResponsibilityCreate, db: Session = Depends(get_db)
+    data: IncotermResponsibilityCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission(MASTER_DATA_EDIT)),
 ):
     try:
-        res = create_responsibility_service(db, data)
+        res = create_responsibility_service(db, data, actor=current_user.username)
         memory_cache.clear_prefix("incoterms:")
         return res
     except ValueError as e:
@@ -279,9 +285,10 @@ def update_responsibility(
     responsibility_id: int,
     data: IncotermResponsibilityUpdate,
     db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission(MASTER_DATA_EDIT)),
 ):
     try:
-        res = update_responsibility_service(db, responsibility_id, data)
+        res = update_responsibility_service(db, responsibility_id, data, actor=current_user.username)
         memory_cache.clear_prefix("incoterms:")
         return res
     except ValueError as e:
@@ -292,7 +299,7 @@ def update_responsibility(
     "/incoterm-responsibilities/{responsibility_id}",
     response_model=IncotermResponsibilityResponse,
 )
-def delete_responsibility(responsibility_id: int, db: Session = Depends(get_db)):
+def delete_responsibility(responsibility_id: int, db: Session = Depends(get_db), current_user: User = Depends(require_permission(MASTER_DATA_EDIT))):
     res = delete_responsibility_service(db, responsibility_id)
     memory_cache.clear_prefix("incoterms:")
     return res
