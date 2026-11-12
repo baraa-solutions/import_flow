@@ -174,6 +174,15 @@ class SuppliersDataTable extends StatelessWidget {
                       l10n.supplierRowMeta(supplier.foreignExporterId, supplier.cargoxPlatformId, supplier.address, supplier.brands),
                       style: TextStyle(fontSize: 13, color: AppTheme.textMutedOf(context)),
                     ),
+                    if (supplier.soonestCertificateExpiry != null) ...[
+                      const SizedBox(height: 4),
+                      CertificateExpiryBadge(
+                        key: ValueKey('supplierCertExpiry_${supplier.supplierId}'),
+                        expiry: supplier.soonestCertificateExpiry,
+                        isArabic: Localizations.localeOf(context).languageCode == 'ar',
+                        prefix: Localizations.localeOf(context).languageCode == 'ar' ? 'الشهادات' : 'Certificates',
+                      ),
+                    ],
                   ],
                 ),
               ),

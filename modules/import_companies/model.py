@@ -173,6 +173,13 @@ class ImportCompany(Base):
         nullable=True
     )
 
+    # Expiry dates (Trello TJ6Guorp): nullable — rows saved before the feature have none.
+    nafeza_token_expiry = Column(Date, nullable=True)
+    wipo_expiry = Column(Date, nullable=True)
+    euipo_expiry = Column(Date, nullable=True)
+    global_brand_expiry = Column(Date, nullable=True)
+    iso_9001_expiry = Column(Date, nullable=True)
+
     # ==================================================
     # System Fields
     # ==================================================
@@ -219,4 +226,4 @@ class ImportCompany(Base):
         if not self.has_nafeza_token:
             return None
         from utils.crypto_utils import mask_secret_token
-        return mask_secret_token(self.nafeza_token)
+        return mask_secret_token(self.nafeza_token)

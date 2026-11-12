@@ -91,6 +91,11 @@ def create_company(
         global_brand_number=company_data.global_brand_number,
         has_iso_9001=company_data.has_iso_9001,
         iso_9001_number=company_data.iso_9001_number,
+        nafeza_token_expiry=company_data.nafeza_token_expiry,
+        wipo_expiry=company_data.wipo_expiry,
+        euipo_expiry=company_data.euipo_expiry,
+        global_brand_expiry=company_data.global_brand_expiry,
+        iso_9001_expiry=company_data.iso_9001_expiry,
         notes=company_data.notes,
         created_by=company_data.created_by
     )

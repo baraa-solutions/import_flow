@@ -136,7 +136,7 @@ def update_supplier_service(
         return None
     # The audit actor comes from the authenticated user, never from the request body.
     supplier_data = supplier_data.model_copy(update={"updated_by": None})
-    update_data = supplier_data.model_dump(exclude_unset=True, exclude_none=True)
+    update_data = supplier_data.to_update_dict()
     old_data = {
         k: getattr(supplier, k, None)
         for k in update_data.keys()

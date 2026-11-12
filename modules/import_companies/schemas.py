@@ -44,6 +44,11 @@ class ImportCompanyBase(BaseModel):
     global_brand_number: str | None = None
     has_iso_9001: bool = False
     iso_9001_number: str | None = None
+    nafeza_token_expiry: date | None = None
+    wipo_expiry: date | None = None
+    euipo_expiry: date | None = None
+    global_brand_expiry: date | None = None
+    iso_9001_expiry: date | None = None
 
     notes: str | None = None
 
@@ -94,6 +99,11 @@ class ImportCompanyUpdate(BaseModel):
     global_brand_number: str | None = None
     has_iso_9001: bool | None = None
     iso_9001_number: str | None = None
+    nafeza_token_expiry: date | None = None
+    wipo_expiry: date | None = None
+    euipo_expiry: date | None = None
+    global_brand_expiry: date | None = None
+    iso_9001_expiry: date | None = None
 
     notes: str | None = None
 
@@ -142,4 +152,4 @@ class ImportCompanyResponse(ImportCompanyBase):
         elif self.masked_nafeza_token:
             self.has_nafeza_token = True
         self.nafeza_token = None
-        return self
+        return self

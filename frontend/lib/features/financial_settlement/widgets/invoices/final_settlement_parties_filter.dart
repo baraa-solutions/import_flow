@@ -34,6 +34,7 @@ class FinalSettlementPartiesFilter extends StatelessWidget {
       MapEntry('BROKER', l10n.settlementClo01PartyBroker),
       MapEntry('TRANSPORT', l10n.settlementClo01PartyTransport),
       MapEntry('DEMURRAGE', l10n.settlementClo01PartyDemurrage),
+      MapEntry('BANK', l10n.settlementClo01PartyBank),
     ];
 
     return SingleChildScrollView(

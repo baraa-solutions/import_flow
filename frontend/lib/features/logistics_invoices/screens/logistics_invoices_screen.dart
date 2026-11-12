@@ -89,7 +89,7 @@ class _LogisticsInvoicesScreenState extends ConsumerState<LogisticsInvoicesScree
       context: context,
       barrierDismissible: false,
       builder: (ctx) => AdvancePaymentDialog(
-        defaultShipmentId: widget.initialShipmentId ?? 1,
+        defaultShipmentId: widget.initialShipmentId,
         defaultBlNumber: widget.initialBlNumber,
       ),
     );
@@ -100,7 +100,7 @@ class _LogisticsInvoicesScreenState extends ConsumerState<LogisticsInvoicesScree
       context: context,
       barrierDismissible: false,
       builder: (ctx) => InsurancePolicyDialog(
-        defaultShipmentId: widget.initialShipmentId ?? 1,
+        defaultShipmentId: widget.initialShipmentId,
         defaultBlNumber: widget.initialBlNumber,
       ),
     );
