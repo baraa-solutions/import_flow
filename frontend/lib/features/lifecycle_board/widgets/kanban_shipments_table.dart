@@ -337,28 +337,33 @@ class KanbanShipmentsTable extends StatelessWidget {
                     },
                   ),
                   const SizedBox(width: 4),
-                  ElevatedButton.icon(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: stepColor,
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(5)),
-                    ),
-                    onPressed: () {
-                      showDialog(
-                        context: context,
-                        builder: (_) => StepActionDialog(
-                          shipment: s,
-                          allPhases: phases,
+                  // Flexible + ellipsis: a long localized label must never overflow the fixed 300px cell.
+                  Flexible(
+                    child: ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: stepColor,
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(5)),
+                      ),
+                      onPressed: () {
+                        showDialog(
+                          context: context,
+                          builder: (_) => StepActionDialog(
+                            shipment: s,
+                            allPhases: phases,
+                          ),
+                        );
+                      },
+                      icon: const Icon(Icons.play_circle_outline, size: 13, color: Colors.white),
+                      label: Text(
+                        l10n.executeAndAdvanceStepBtn,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 11.0,
                         ),
-                      );
-                    },
-                    icon: const Icon(Icons.play_circle_outline, size: 13, color: Colors.white),
-                    label: Text(
-                      l10n.executeAndAdvanceStepBtn,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 11.0,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
                   ),

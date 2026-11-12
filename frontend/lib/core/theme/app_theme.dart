@@ -121,6 +121,8 @@ class AppTheme {
   static const Color white = Color(0xFFFFFFFF);
   /// Pure black: shadows and scrims only (use `.withOpacity`/alpha).
   static const Color black = Color(0xFF000000);
+  /// Fully transparent fill/border (keeps widgets free of raw `Colors.transparent`).
+  static const Color transparent = Color(0x00000000);
   /// LEGACY raw secondary grey (grey 600). Kept at its original value because
   /// many call sites use it directly without dark-mode awareness; darkening it
   /// would collapse their contrast in dark mode. New code: use

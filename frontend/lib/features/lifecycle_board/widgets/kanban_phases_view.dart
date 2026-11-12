@@ -5,16 +5,19 @@ import '../../../core/localization/app_localizations.dart';
 import '../../../core/services/display_name_resolver.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/widgets.dart';
+import '../../import_files/models/import_file_model.dart';
 import '../../import_files/providers/import_files_provider.dart';
+import '../../import_files/providers/payment_pathway_provider.dart';
 import '../models/lifecycle_board_model.dart';
 import '../providers/lifecycle_board_provider.dart';
 import '../providers/live_polling_provider.dart';
 import 'kanban_shipments_table.dart';
 import 'kanban_table_top_bar.dart';
 import 'lifecycle_board_helpers.dart';
-import 'lifecycle_phase_card.dart';
+import 'matrix/lifecycle_matrix_layout.dart';
+import 'matrix/lifecycle_phase_matrix.dart';
 
-/// 6-Phase Kanban Board view of the Lifecycle Board.
+/// 6-Phase Kanban Board view of the Lifecycle Board (capped 3-step matrix + execution table).
 class KanbanPhasesView extends ConsumerStatefulWidget {
   final VoidCallback onRefresh;
 
@@ -33,12 +36,10 @@ class _KanbanPhasesViewState extends ConsumerState<KanbanPhasesView> {
   int? _selectedPhaseId;
 
   final TextEditingController _searchController = TextEditingController();
-  final ScrollController _topPhasesScrollController = ScrollController();
 
   @override
   void dispose() {
     _searchController.dispose();
-    _topPhasesScrollController.dispose();
     super.dispose();
   }
 
@@ -73,7 +74,6 @@ class _KanbanPhasesViewState extends ConsumerState<KanbanPhasesView> {
         data: (boardData) {
           final allShipments = boardData.allShipments;
           final isAr = Directionality.of(context) == TextDirection.rtl;
-          final isDark = Theme.of(context).brightness == Brightness.dark;
           final allImportFiles = ref.watch(importFilesProvider).valueOrNull ?? [];
 
           final filteredShipments = allShipments.where((s) {
@@ -111,102 +111,32 @@ class _KanbanPhasesViewState extends ConsumerState<KanbanPhasesView> {
 
           return Column(
             children: [
-              // UPPER 1/3: Compact 6 Phase Overview Cards
+              // UPPER STRIP: capped 3-step symmetrical phase matrix (no horizontal scroll at 1366px)
               Container(
-                color: isDark ? AppTheme.darkCardBackground : Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    SingleChildScrollView(
-                      controller: _topPhasesScrollController,
-                      scrollDirection: Axis.horizontal,
-                      child: Row(
-                        children: [
-                          ...boardData.phases.map(
-                            (phase) => LifecyclePhaseCard(
-                              phase: phase,
-                              width: 195,
-                              isPhaseSelected: _selectedPhaseId == phase.phaseId && _selectedStepCode == null,
-                              selectedStepCode: _selectedPhaseId == phase.phaseId ? _selectedStepCode : null,
-                              onSelectPhase: (phaseId) {
-                                setState(() {
-                                  _selectedPhaseId = phaseId;
-                                  _selectedStepCode = null;
-                                });
-                              },
-                              onSelectStep: (phaseId, stepCode) {
-                                setState(() {
-                                  _selectedPhaseId = phaseId;
-                                  _selectedStepCode = stepCode;
-                                });
-                              },
-                            ),
-                          ),
-                          // "All Shipments" Reset Card
-                          Container(
-                            width: 130,
-                            margin: const EdgeInsetsDirectional.only(end: 8),
-                            child: OutlinedButton(
-                              style: OutlinedButton.styleFrom(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
-                                side: BorderSide(
-                                  color: (_selectedPhaseId == null && _selectedStepCode == null)
-                                      ? AppTheme.cobalt
-                                      : (isDark ? AppTheme.darkBorder : Colors.grey.shade300),
-                                  width: (_selectedPhaseId == null && _selectedStepCode == null) ? 2 : 1,
-                                ),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
-                                backgroundColor: (_selectedPhaseId == null && _selectedStepCode == null)
-                                    ? AppTheme.cobalt.withValues(alpha: 0.08)
-                                    : (isDark ? AppTheme.darkSurface : Colors.white),
-                              ),
-                              onPressed: () {
-                                setState(() {
-                                  _selectedPhaseId = null;
-                                  _selectedStepCode = null;
-                                });
-                              },
-                              child: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(
-                                    Icons.all_inclusive,
-                                    size: 20,
-                                    color: (_selectedPhaseId == null && _selectedStepCode == null)
-                                        ? AppTheme.cobalt
-                                        : Colors.grey,
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    l10n.allShipmentsAllPhases,
-                                    style: TextStyle(
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.bold,
-                                      color: (_selectedPhaseId == null && _selectedStepCode == null)
-                                          ? AppTheme.cobalt
-                                          : (isDark ? AppTheme.darkTextPrimary : Colors.black87),
-                                    ),
-                                    textAlign: TextAlign.center,
-                                  ),
-                                  const SizedBox(height: 2),
-                                  AppStatusBadge(
-                                    label: '${boardData.totalActiveFiles}',
-                                    severity: AppSeverity.info,
-                                    size: AppStatusBadgeSize.small,
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
+                color: AppTheme.surfaceOf(context),
+                padding: const EdgeInsetsDirectional.symmetric(horizontal: 12, vertical: 6),
+                child: LifecyclePhaseMatrix(
+                  phases: boardData.phases,
+                  totalActiveFiles: boardData.totalActiveFiles,
+                  selectedPhaseId: _selectedPhaseId,
+                  selectedStepCode: _selectedStepCode,
+                  gateState: _focusedGateState(filteredShipments, allImportFiles),
+                  onSelectPhase: (phaseId) => setState(() {
+                    _selectedPhaseId = phaseId;
+                    _selectedStepCode = null;
+                  }),
+                  onSelectStep: (phaseId, stepCode) => setState(() {
+                    _selectedPhaseId = phaseId;
+                    _selectedStepCode = stepCode;
+                  }),
+                  onShowAll: () => setState(() {
+                    _selectedPhaseId = null;
+                    _selectedStepCode = null;
+                  }),
                 ),
               ),
 
-              const Divider(height: 1, color: Colors.black12),
+              Divider(height: 1, color: AppTheme.borderOf(context)),
 
               // LOWER 2/3: Shipment Stage Execution Table
               Expanded(
@@ -241,6 +171,24 @@ class _KanbanPhasesViewState extends ConsumerState<KanbanPhasesView> {
     );
   }
 
+  /// Payment gates / waived stages of the single shipment in focus (the filter
+  /// narrowed to one file); empty otherwise. The pathway provider is autoDispose,
+  /// so it refetches live whenever a file comes into focus.
+  LifecycleMatrixGateState _focusedGateState(
+    List<ShipmentStageCardModel> filteredShipments,
+    List<ImportFileModel> allImportFiles,
+  ) {
+    if (filteredShipments.length != 1) return LifecycleMatrixGateState.empty;
+    final shipment = filteredShipments.single;
+    final file = allImportFiles.where((f) => f.importFileCode == shipment.importFileCode).firstOrNull;
+    final pathway = file == null ? null : ref.watch(paymentPathwayStatusProvider(file.importFileId)).valueOrNull;
+    return LifecycleMatrixGateState(
+      importFileCode: shipment.importFileCode,
+      pathway: pathway,
+      skippedStepCodes: shipment.skippedStepCodes.toSet(),
+    );
+  }
+
   Widget _buildEmptyState(AppLocalizations l10n) {
     return Center(
       child: Padding(
@@ -248,16 +196,16 @@ class _KanbanPhasesViewState extends ConsumerState<KanbanPhasesView> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.folder_open_outlined, size: 44, color: Colors.grey.shade300),
+            Icon(Icons.folder_open_outlined, size: 44, color: AppTheme.textMutedOf(context)),
             const SizedBox(height: 8),
             Text(
               l10n.noShipmentsInStage,
-              style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.grey.shade600),
+              style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.textSecondaryOf(context)),
             ),
             const SizedBox(height: 3),
             Text(
               l10n.noShipmentsInStageDesc,
-              style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
+              style: TextStyle(fontSize: 11, color: AppTheme.textMutedOf(context)),
             ),
           ],
         ),

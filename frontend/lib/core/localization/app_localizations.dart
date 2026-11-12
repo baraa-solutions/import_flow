@@ -5258,6 +5258,10 @@ abstract class AppLocalizations {
   String totalActiveShipmentsCount(dynamic files, dynamic stages);
   String get showAllPhasesBtn;
   String get allShipmentsAllPhases;
+  String matrixPaymentGateLocked(String gateLabel, String fileCode);
+  String matrixPendingMilestones(String milestones);
+  String get matrixStepWaived;
+  String get matrixAllPhasesShort;
   String get searchLifecycleTableHint;
   String shipmentsCountFormatted(dynamic count);
   String get colShipmentCode;
