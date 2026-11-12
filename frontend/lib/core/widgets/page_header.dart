@@ -39,6 +39,21 @@ class PageHeader extends ConsumerWidget implements PreferredSizeWidget {
   @override
   Size get preferredSize => Size.fromHeight(subtitle != null && subtitle!.isNotEmpty ? 66.0 : 54.0);
 
+  /// 2 title lines when they fit the fixed header height at the current text scale, else 1.
+  static int _titleMaxLines(
+    BuildContext context, {
+    required double availableHeight,
+    required double titleFontSize,
+    required double titleLineHeight,
+    double? subtitleFontSize,
+  }) {
+    if (!availableHeight.isFinite) return 2;
+    final scaler = MediaQuery.textScalerOf(context);
+    final lineHeight = scaler.scale(titleFontSize) * titleLineHeight;
+    final subtitleHeight = subtitleFontSize == null ? 0.0 : scaler.scale(subtitleFontSize) * 1.15 + 1;
+    return (availableHeight - subtitleHeight) >= lineHeight * 2 ? 2 : 1;
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final density = ref.watch(displayDensityProvider);
@@ -104,37 +119,52 @@ class PageHeader extends ConsumerWidget implements PreferredSizeWidget {
                     const SizedBox(width: 12),
                   ],
                   Flexible(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          title,
-                          style: TextStyle(
-                            color: AppTheme.white,
-                            fontSize: density.headerTitleFontSize,
-                            fontWeight: FontWeight.w700,
-                            // No tracking: it breaks Arabic letter joining.
-                            letterSpacing: 0,
-                            height: hasSubtitle ? 1.1 : 1.15,
-                          ),
-                          softWrap: true,
-                          maxLines: 2,
-                        ),
-                        if (subtitle != null) ...[
-                          const SizedBox(height: 1),
-                          Text(
-                            subtitle!,
-                            style: TextStyle(
-                              color: AppTheme.cloudWhite.withValues(alpha: 0.72),
-                              fontSize: density.headerSubtitleFontSize,
-                              height: 1.15,
+                    // The header has a fixed height: the title wraps to a second line only
+                    // when two lines fit at the current text scale, else it ellipsizes.
+                    child: LayoutBuilder(
+                      builder: (context, titleConstraints) {
+                        final titleMaxLines = _titleMaxLines(
+                          context,
+                          availableHeight: titleConstraints.maxHeight,
+                          titleFontSize: density.headerTitleFontSize,
+                          titleLineHeight: hasSubtitle ? 1.1 : 1.15,
+                          subtitleFontSize: hasSubtitle ? density.headerSubtitleFontSize : null,
+                        );
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              title,
+                              style: TextStyle(
+                                color: AppTheme.white,
+                                fontSize: density.headerTitleFontSize,
+                                fontWeight: FontWeight.w700,
+                                // No tracking: it breaks Arabic letter joining.
+                                letterSpacing: 0,
+                                height: hasSubtitle ? 1.1 : 1.15,
+                              ),
+                              softWrap: true,
+                              maxLines: titleMaxLines,
+                              // Full title on two lines whenever they fit; ellipsis only when squeezed to one.
+                              overflow: titleMaxLines == 1 ? TextOverflow.ellipsis : null,
                             ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ],
-                      ],
+                            if (subtitle != null) ...[
+                              const SizedBox(height: 1),
+                              Text(
+                                subtitle!,
+                                style: TextStyle(
+                                  color: AppTheme.cloudWhite.withValues(alpha: 0.72),
+                                  fontSize: density.headerSubtitleFontSize,
+                                  height: 1.15,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ],
+                          ],
+                        );
+                      },
                     ),
                   ),
                 ],

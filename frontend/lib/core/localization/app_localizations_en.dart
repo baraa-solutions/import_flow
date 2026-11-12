@@ -5195,6 +5195,10 @@ class AppLocalizationsEn extends AppLocalizations {
   @override String totalActiveShipmentsCount(dynamic files, dynamic stages) => 'Total Active Shipments: $files Files ($stages Stages)';
   @override String get showAllPhasesBtn => 'Show All Phases';
   @override String get allShipmentsAllPhases => 'All Shipments Across All Phases';
+  @override String matrixPaymentGateLocked(String gateLabel, String fileCode) => 'Payment gate locked ($fileCode): $gateLabel';
+  @override String matrixPendingMilestones(String milestones) => 'Pending payment milestones: $milestones';
+  @override String get matrixStepWaived => 'Waived (stage skipped for this file)';
+  @override String get matrixAllPhasesShort => 'All Phases';
   @override String get searchLifecycleTableHint => 'Search by file code, supplier, PO, or notes...';
   @override String shipmentsCountFormatted(dynamic count) => '$count Shipments';
   @override String get colShipmentCode => 'File Code';

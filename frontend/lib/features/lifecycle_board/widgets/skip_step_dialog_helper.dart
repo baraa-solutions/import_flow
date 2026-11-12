@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../import_files/providers/import_files_provider.dart';
+import '../../import_files/providers/payment_pathway_provider.dart';
 import '../../operational_dashboard/providers/operational_dashboard_provider.dart';
 import '../providers/lifecycle_board_provider.dart';
 
@@ -206,6 +207,7 @@ class SkipStepDialogHelper {
       ref.invalidate(operationalDashboardProvider);
       ref.invalidate(paginatedImportFilesProvider);
       ref.invalidate(importFilesProvider);
+      ref.invalidate(paymentPathwayStatusProvider);
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(

@@ -5,6 +5,7 @@ import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/density_provider.dart';
 import '../../../core/widgets/widgets.dart';
+import '../../import_files/providers/payment_pathway_provider.dart';
 import '../../notifications/providers/notifications_provider.dart';
 import '../providers/lifecycle_board_provider.dart';
 import '../providers/live_polling_provider.dart';
@@ -29,6 +30,7 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
       ref.invalidate(lifecycleBoardSummaryProvider);
       ref.invalidate(liveLogisticsTrackingProvider);
       ref.invalidate(livePollingProvider);
+      ref.invalidate(paymentPathwayStatusProvider);
     });
   }
 
@@ -36,6 +38,7 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
     ref.invalidate(lifecycleBoardSummaryProvider);
     ref.invalidate(liveLogisticsTrackingProvider);
     ref.invalidate(livePollingProvider);
+    ref.invalidate(paymentPathwayStatusProvider);
     // CL-006: تشغيل فحص التنبيهات الحرجة عند كل تحديث يدوي
     ref.read(notificationsProvider.notifier).triggerExpiryCheck();
   }
