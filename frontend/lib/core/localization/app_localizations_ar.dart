@@ -13393,6 +13393,7 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get settlementClo01PartyBroker => 'المخلص والميناء';
   @override String get settlementClo01PartyTransport => 'النقل الداخلي';
   @override String get settlementClo01PartyDemurrage => 'غرامات التأخير';
+  @override String get settlementClo01PartyBank => 'البنك والتمويل';
   @override String get settlementClo01NoInvoices => 'لا توجد فواتير مسجلة ضمن هذه الجهة';
   @override String get settlementClo01ColInvoice => 'رقم الفاتورة / المرجع';
   @override String get settlementClo01ColParty => 'الجهة والدائن';
