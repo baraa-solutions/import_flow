@@ -200,7 +200,7 @@ class SupplierModel {
       'white_list_registered': whiteListRegistered,
       'brands': brands,
       if (paymentTerms != null) 'payment_terms': paymentTerms,
-      'credit_limit': creditLimit,
+      // credit_limit is read-only here: it changes only from the Credit Limit tab (PUT /suppliers/{id}/credit-limit).
       'rating': rating,
       'notes': notes,
       'is_active': isActive,

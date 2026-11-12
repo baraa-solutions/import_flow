@@ -671,6 +671,7 @@ class PurchaseOrderService:
             actor=user,
             actor_is_admin=actor_is_admin,
             override_reason=getattr(data, "credit_limit_override_reason", None),
+            import_file_id=po.import_file_id,
         )
 
     def _create(

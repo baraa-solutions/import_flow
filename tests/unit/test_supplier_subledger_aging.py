@@ -537,3 +537,106 @@ def test_payment_currency_and_amount_come_from_the_same_source():
     assert ls.payment_currency_and_amount(Req(swift_ccy="EUR")) == ("USD", 1000.0)  # no SWIFT amount: request pair
     assert ls.payment_currency_and_amount(Req(swift_ccy="EUR", swift_amount=900.0)) == ("EUR", 900.0)
     assert ls.payment_currency_and_amount(Req(swift_amount=990.0)) == ("USD", 990.0)
+
+
+# ── Review round 2: prepaid POs, netting of the new PO, cross-currency netting, EGP payments ────────────────
+
+def _link_po(db, env, quantity, imp, **extra):
+    from modules.purchase_orders.service import PurchaseOrderService
+
+    return PurchaseOrderService(db).create(_po_data(env, quantity, import_file_id=imp.import_file_id, **extra),
+                                           current_user_name="clerk")
+
+
+def test_fully_prepaid_po_does_not_consume_credit(db, po_env):
+    from modules.purchase_orders.service import PurchaseOrderService
+
+    s = po_env["supplier"]
+    s.credit_limit = 150000.0
+    db.commit()
+    imp = _file(db, s, None, "IMP-LED-ADV", payment_term="ADVANCE_PAYMENT")
+    _link_po(db, po_env, 500.0, imp)  # 100,000 USD
+    _paid(db, s, 100000.0, 5000000.0, imp=imp, payment_type="Advance Payment")
+    check = check_supplier_credit_limit(db, s.supplier_id, 60000.0, "USD")
+    assert (check.utilization_amount, check.open_po_amount, check.decision) == (0.0, 0.0, "WITHIN_LIMIT")
+    PurchaseOrderService(db).create(_po_data(po_env, 300.0), current_user_name="clerk")  # 60,000: not blocked
+
+
+def test_partially_prepaid_po_counts_only_the_unpaid_part(db, po_env):
+    s = po_env["supplier"]
+    s.credit_limit = 150000.0
+    db.commit()
+    imp = _file(db, s, None, "IMP-LED-ADV2", payment_term="ADVANCE_PAYMENT")
+    _link_po(db, po_env, 500.0, imp)  # 100,000 USD
+    _paid(db, s, 40000.0, 2000000.0, imp=imp, payment_type="Advance Payment")
+    ok = check_supplier_credit_limit(db, s.supplier_id, 60000.0, "USD")
+    assert (ok.utilization_amount, ok.open_po_amount, ok.projected_amount, ok.decision) == (
+        60000.0, 60000.0, 120000.0, "WITHIN_LIMIT")
+    blocked = check_supplier_credit_limit(db, s.supplier_id, 100000.0, "USD")
+    assert (blocked.projected_amount, blocked.decision) == (160000.0, "BLOCK")
+
+
+def test_advance_in_another_currency_never_frees_credit():
+    rates = {"USD": 50.0, "EUR": 55.0}.__getitem__
+    assert ls.credit_exposure({"EUR": -50000.0}, {"USD": 9000.0}, "USD", rates) == (9000.0, 9000.0)
+
+
+def test_new_po_on_an_already_invoiced_file_is_netted(db, po_env):
+    s = po_env["supplier"]  # limit 10,000 USD
+    imp = _file(db, s, [{"invoice_no": "CI-N", "amount": 9000.0, "currency": "USD", "exchange_rate": 50.0}],
+                "IMP-LED-NET")
+    linked = check_supplier_credit_limit(db, s.supplier_id, 9000.0, "USD", import_file_id=imp.import_file_id)
+    assert (linked.utilization_amount, linked.requested_amount, linked.decision) == (9000.0, 0.0, "WITHIN_LIMIT")
+    unlinked = check_supplier_credit_limit(db, s.supplier_id, 9000.0, "USD")
+    assert (unlinked.requested_amount, unlinked.decision) == (9000.0, "BLOCK")
+    _link_po(db, po_env, 45.0, imp)  # 9,000 USD on the invoiced file: goes through
+
+
+def test_po_netting_converts_an_invoice_in_another_currency():
+    rates = {"USD": 50.0, "EUR": 55.0}.__getitem__
+    # 5,000 EUR invoiced = 5,500 USD at today's rates -> a 10,000 USD PO keeps 4,500 open.
+    assert ls.open_po_exposure([(1, "USD", 10000.0)], {(1, "EUR"): 5000.0}, rates) == {"USD": 4500.0}
+    # Each invoice amount nets one PO only.
+    assert ls.open_po_exposure([(1, "USD", 3000.0), (1, "EUR", 3000.0)], {(1, "USD"): 3000.0}, rates) == {"EUR": 3000.0}
+
+
+def test_egp_payment_on_usd_file_is_booked_in_usd_at_the_file_rate(db):
+    s = _supplier(db)
+    imp = _file(db, s, [{"invoice_no": "CI-1", "amount": 10000.0, "currency": "USD", "exchange_rate": 50.0}],
+                "IMP-LED-E1")
+    _paid(db, s, 500000.0, 500000.0, ccy="EGP", imp=imp)
+    entries, warnings = sync_supplier_ledger(db, s.supplier_id)
+    pay = next(e for e in entries if e.payment_id is not None)
+    assert (pay.currency, pay.amount_fx, pay.amount_egp, pay.exchange_rate, pay.status) == (
+        "USD", 10000.0, 500000.0, 50.0, "SETTLED")
+    assert "EGP 500,000.00 @ 50" in pay.description
+    balances = ls.get_supplier_realtime_balance(db, s.supplier_id)
+    assert list(balances) == ["USD"] and balances["USD"].balance_fx == 0.0 and warnings == []
+
+
+def test_egp_payment_uses_the_instrument_fx_rate_first(db):
+    s = _supplier(db)
+    imp = _file(db, s, [{"invoice_no": "CI-1", "amount": 10000.0, "currency": "USD", "exchange_rate": 50.0}],
+                "IMP-LED-E2", payment_term="CAD")
+    inst = ImportFinanceInstrument(instrument_type="CAD", instrument_number="CAD-E2", import_file_id=imp.import_file_id,
+                                   issuing_bank="NBE", currency="USD", amount=10000.0, status="ACCEPTED")
+    db.add(inst)
+    db.flush()
+    db.add(FxHedgingAndVariance(finance_instrument_id=inst.id, foreign_currency="USD", original_amount=10000.0,
+                                booking_date=date(2026, 2, 1), booking_rate=51.0, booking_total_egp=510000.0))
+    db.commit()
+    _paid(db, s, 255000.0, 255000.0, ccy="EGP", imp=imp)  # 5,000 USD at the CAD booking rate 51
+    entries, _ = sync_supplier_ledger(db, s.supplier_id)
+    pay = next(e for e in entries if e.payment_id is not None)
+    assert (pay.currency, pay.amount_fx, pay.exchange_rate) == ("USD", 5000.0, 51.0)
+
+
+def test_egp_payment_without_a_rate_stays_in_egp_with_a_warning(db):
+    s = _supplier(db)
+    imp = _file(db, s, None, "IMP-LED-E3")
+    imp.estimated_cost, imp.estimated_cost_currency = 1000.0, "GBP"  # no GBP rate registered
+    db.commit()
+    _paid(db, s, 50000.0, 50000.0, ccy="EGP", imp=imp)
+    entries, warnings = sync_supplier_ledger(db, s.supplier_id)
+    assert [(e.currency, e.amount_fx) for e in entries] == [("EGP", 50000.0)]
+    assert ls.WARNING_EGP_PAYMENT_NOT_CONVERTED in [w["code"] for w in warnings]

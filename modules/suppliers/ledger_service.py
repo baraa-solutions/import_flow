@@ -128,9 +128,12 @@ class LedgerDraft:
     open_amount_fx: float = 0.0
     status: str = STATUS_OPEN
     entry_code: Optional[str] = None  # set once persisted
+    rate_used: Optional[float] = None  # explicit EGP rate (e.g. an EGP payment converted to the invoice currency)
 
     @property
     def exchange_rate(self) -> Optional[float]:
+        if self.rate_used:
+            return round(self.rate_used, 6)
         if self.amount_fx <= 0:
             return None
         return round(self.amount_egp / self.amount_fx, 6)
@@ -416,21 +419,63 @@ def evaluate_credit_limit(
 
 
 def open_po_exposure(
-    pos: Sequence[Tuple[Optional[int], str, float]], invoiced_by_file_ccy: Dict[Tuple[int, str], float],
+    pos: Sequence[Tuple[Optional[int], str, float]],
+    invoiced_by_file_ccy: Dict[Tuple[int, str], float],
+    rate_to_egp: Optional[Callable[[str], float]] = None,
 ) -> Dict[str, float]:
     """Open purchase order commitments per currency, net of what is already invoiced on their linked import file
     (those invoices are in the ledger balance: counting the PO too would double count). ``pos`` holds
-    (linked import_file_id or None, currency, PO amount)."""
+    (linked import_file_id or None, currency, PO amount). Invoices in the PO currency are netted first; an invoice
+    in another currency is converted at ``rate_to_egp`` (today's rate) and each invoice amount nets one PO only."""
     grouped: Dict[Tuple[Optional[int], str], float] = {}
     for file_id, ccy, amount in pos:
         grouped[(file_id, ccy)] = grouped.get((file_id, ccy), 0.0) + max(0.0, float(amount or 0.0))
+    remaining_inv: Dict[int, Dict[str, float]] = {}
+    for (file_id, ccy), amount in invoiced_by_file_ccy.items():
+        remaining_inv.setdefault(file_id, {})[ccy] = remaining_inv.get(file_id, {}).get(ccy, 0.0) + float(amount)
+    open_by_group: Dict[Tuple[Optional[int], str], float] = {}
+    for (file_id, ccy), total in sorted(grouped.items(), key=lambda kv: (kv[0][0] or 0, kv[0][1])):
+        open_amount = total
+        pool = remaining_inv.get(file_id, {}) if file_id is not None else {}
+        take = min(open_amount, pool.get(ccy, 0.0))  # same currency: exact
+        if take > 0:
+            open_amount -= take
+            pool[ccy] -= take
+        open_by_group[(file_id, ccy)] = open_amount
+    if rate_to_egp is not None:  # other invoice currencies, converted at today's rate
+        for (file_id, ccy), open_amount in sorted(open_by_group.items(), key=lambda kv: (kv[0][0] or 0, kv[0][1])):
+            pool = remaining_inv.get(file_id, {}) if file_id is not None else {}
+            for inv_ccy in sorted(pool):
+                if open_amount <= MONEY_EPS or inv_ccy == ccy or pool[inv_ccy] <= MONEY_EPS:
+                    continue
+                available = convert_amount(pool[inv_ccy], inv_ccy, ccy, rate_to_egp)
+                take = min(open_amount, available)
+                open_amount -= take
+                pool[inv_ccy] = max(0.0, pool[inv_ccy] - convert_amount(take, ccy, inv_ccy, rate_to_egp))
+            open_by_group[(file_id, ccy)] = open_amount
     out: Dict[str, float] = {}
-    for (file_id, ccy), total in grouped.items():
-        invoiced = invoiced_by_file_ccy.get((file_id, ccy), 0.0) if file_id is not None else 0.0
-        open_amount = max(0.0, total - invoiced)
+    for (_file_id, ccy), open_amount in open_by_group.items():
         if open_amount > MONEY_EPS:
             out[ccy] = _r(out.get(ccy, 0.0) + open_amount)
     return out
+
+
+def credit_exposure(
+    balances: Dict[str, float], open_pos: Dict[str, float], limit_currency: str,
+    rate_to_egp: Callable[[str], float],
+) -> Tuple[float, float]:
+    """(utilization, of which open POs) in the limit currency. Per currency the ledger balance and the open POs are
+    netted first: an unapplied advance covers a prepaid PO of the same currency (ADVANCE_PAYMENT flow) but never
+    frees credit in another currency (negative currencies count 0)."""
+    used = po_used = 0.0
+    for ccy in set(balances) | set(open_pos):
+        po_amount = max(0.0, open_pos.get(ccy, 0.0))
+        exposure = max(0.0, balances.get(ccy, 0.0) + po_amount)
+        if exposure <= MONEY_EPS:
+            continue
+        used += convert_amount(exposure, ccy, limit_currency, rate_to_egp)
+        po_used += convert_amount(min(po_amount, exposure), ccy, limit_currency, rate_to_egp)
+    return _r(used), _r(po_used)
 
 
 # ── Sources (database) ──────────────────────────────────────────────────────────
@@ -543,6 +588,50 @@ def _payment_drafts(db: Session, supplier_id: int, files_by_id: Dict[int, object
     return drafts
 
 
+WARNING_EGP_PAYMENT_NOT_CONVERTED = "SUPPLIER_LEDGER_EGP_PAYMENT_NOT_CONVERTED"
+
+
+def file_foreign_currency(imp, lines, inst) -> Optional[str]:
+    """Foreign (invoice) currency of an import file: its single invoice currency, else the primary instrument
+    currency, else the estimated cost currency; None for an EGP / undetermined file."""
+    invoice_ccys = sorted({ln.currency for ln in lines if ln.currency != "EGP" and ln.payable_foreign > 0})
+    inst_ccy = (getattr(inst, "currency", None) or "").upper() if inst is not None else ""
+    if len(invoice_ccys) == 1:
+        return invoice_ccys[0]
+    if invoice_ccys:
+        return inst_ccy if inst_ccy in invoice_ccys else None
+    if inst_ccy and inst_ccy != "EGP":
+        return inst_ccy
+    est = (getattr(imp, "estimated_cost_currency", None) or "").strip().upper()
+    return est if est and est != "EGP" else None
+
+
+def _book_egp_payments_in_file_currency(payments, imp, lines, inst, fx, warnings: List[dict]) -> None:
+    """A supplier payment made in EGP on a foreign-currency file is booked in the invoice currency (user decision,
+    PR #224): amount = EGP / rate, keeping the original EGP amount and the rate used on the entry. Rate source:
+    instrument FX record (settlement, else booking) -> file invoice rate -> commercial rate on the payment date.
+    Without a rate the EGP booking stays and a warning is raised."""
+    target = None
+    for p in payments:
+        if p.currency != "EGP" or p.amount_egp <= 0:
+            continue
+        target = target or file_foreign_currency(imp, lines, inst)
+        if target is None:
+            return
+        rate = (_instrument_settlement_rate(inst, target) if inst is not None else None) \
+            or _file_rate(lines, target) or fx.rate_or_none(target, p.entry_date)
+        if not rate:
+            warnings.append({"code": WARNING_EGP_PAYMENT_NOT_CONVERTED, "import_file_id": imp.import_file_id,
+                             "import_file_code": imp.import_file_code, "reason": f"{target}_RATE_MISSING"})
+            continue
+        original_egp = p.amount_egp
+        p.currency = target
+        p.amount_fx = _r(original_egp / rate)
+        p.rate_used = float(rate)
+        note = f"EGP {original_egp:,.2f} @ {rate:g}"
+        p.description = f"{p.description} ({note})" if p.description else note
+
+
 def collect_ledger_drafts(db: Session, supplier: Supplier) -> Tuple[List[LedgerDraft], List[dict]]:
     """All movements of the supplier from the sources of truth, allocated (open amounts / statuses set)."""
     from modules.financial_settlement.fob_valuation_service import BASIS_INVOICE, resolve_fob_valuation
@@ -562,10 +651,6 @@ def collect_ledger_drafts(db: Session, supplier: Supplier) -> Tuple[List[LedgerD
     files_by_id = {f.import_file_id: f for f in files}
     drafts: List[LedgerDraft] = []
     payments = _payment_drafts(db, supplier.supplier_id, files_by_id)
-    paid_by_file: Dict[int, List[Tuple[str, float, float]]] = {}
-    for p in payments:
-        if p.import_file_id is not None:
-            paid_by_file.setdefault(p.import_file_id, []).append((p.currency, p.amount_fx, p.amount_egp))
     drafts.extend(payments)
 
     for imp in files:
@@ -586,6 +671,8 @@ def collect_ledger_drafts(db: Session, supplier: Supplier) -> Tuple[List[LedgerD
                              "import_file_code": imp.import_file_code, "reason": detail.get("code") or "ERROR"})
             valuation = None
         lines = valuation.lines if valuation is not None and valuation.basis == BASIS_INVOICE else []
+        file_payments = [p for p in payments if p.import_file_id == imp.import_file_id]
+        _book_egp_payments_in_file_currency(file_payments, imp, lines, inst, fx, warnings)
 
         payable_by_ccy: Dict[str, float] = {}
         for ln in lines:
@@ -644,7 +731,8 @@ def collect_ledger_drafts(db: Session, supplier: Supplier) -> Tuple[List[LedgerD
                 continue
             # Bank settlement pays the supplier: debit only what paid requests have not already covered (always,
             # also for a file without invoices / not valued), capped at the invoice payable when invoiced.
-            already = covered_in_currency(paid_by_file.get(imp.import_file_id, []), ccy, rate)
+            already = covered_in_currency(
+                [(p.currency, p.amount_fx, p.amount_egp) for p in file_payments], ccy, rate)
             settled = settled_by_bank(amount, already, payable_by_ccy.get(ccy))
             if settled <= MONEY_EPS:
                 continue
@@ -684,7 +772,7 @@ def _draft_from_entry(e: SupplierLedgerEntry) -> LedgerDraft:
         due_date=e.due_date, import_file_id=e.import_file_id, payment_id=e.payment_id,
         finance_instrument_id=e.finance_instrument_id, payment_pathway=e.payment_pathway, reference=e.reference,
         description=e.description, open_amount_fx=float(e.open_amount_fx or 0.0), status=e.status,
-        entry_code=e.entry_code,
+        entry_code=e.entry_code, rate_used=e.exchange_rate,
     )
 
 
@@ -813,31 +901,38 @@ def _open_purchase_orders(db: Session, supplier_id: int) -> List[Tuple[Optional[
 
 def check_supplier_credit_limit(
     db: Session, supplier_id: int, new_amount: float, currency: Optional[str] = None,
-    drafts: Optional[List[LedgerDraft]] = None,
+    drafts: Optional[List[LedgerDraft]] = None, import_file_id: Optional[int] = None,
 ) -> CreditCheck:
     """Credit decision for a new commitment of ``new_amount`` in ``currency`` (default: the limit currency).
-    Utilization = positive ledger balances + open purchase orders not yet invoiced, in the limit currency."""
+    Utilization = per currency max(0, ledger balance + open POs not yet invoiced), in the limit currency. A new PO
+    linked to ``import_file_id`` is netted like the open POs (only its part not already invoiced / prepaid counts)."""
     from modules.financial_settlement.landed_cost_engine_service import SettlementFx
 
     supplier = get_supplier_or_404(db, supplier_id)
     limit_ccy = supplier_limit_currency(supplier)
     policy = supplier.credit_limit_policy or POLICY_BLOCK
+    new_ccy = (currency or limit_ccy).strip().upper()
     if float(supplier.credit_limit or 0.0) <= 0:
         return evaluate_credit_limit(0.0, limit_ccy, policy, 0.0, float(new_amount or 0.0))
     fx = SettlementFx(db, "commercial")
     if drafts is None:
         drafts, _ = collect_ledger_drafts(db, supplier)
-    balances = summarize_balances(drafts)
-    ledger_used = credit_utilization({c: b.balance_fx for c, b in balances.items()}, limit_ccy, fx.rate)
+    balances = {c: b.balance_fx for c, b in summarize_balances(drafts).items()}
     invoiced: Dict[Tuple[int, str], float] = {}
     for d in drafts:
         if d.direction == CREDIT and d.import_file_id is not None:
             key = (d.import_file_id, d.currency)
             invoiced[key] = invoiced.get(key, 0.0) + d.amount_fx
-    po_open = open_po_exposure(_open_purchase_orders(db, supplier_id), invoiced)
-    po_used = _r(sum(convert_amount(a, c, limit_ccy, fx.rate) for c, a in po_open.items()))
-    requested = convert_amount(float(new_amount or 0.0), (currency or limit_ccy).strip().upper(), limit_ccy, fx.rate)
-    return evaluate_credit_limit(float(supplier.credit_limit), limit_ccy, policy, ledger_used + po_used, requested,
+    pos = _open_purchase_orders(db, supplier_id)
+    used, po_used = credit_exposure(balances, open_po_exposure(pos, invoiced, fx.rate), limit_ccy, fx.rate)
+    new_amount = max(0.0, float(new_amount or 0.0))
+    if new_amount > 0:
+        with_new = pos + [(import_file_id, new_ccy, new_amount)]
+        used_with, _ = credit_exposure(balances, open_po_exposure(with_new, invoiced, fx.rate), limit_ccy, fx.rate)
+        requested = max(0.0, used_with - used)
+    else:
+        requested = 0.0
+    return evaluate_credit_limit(float(supplier.credit_limit), limit_ccy, policy, used, requested,
                                  open_po_amount=po_used)
 
 
@@ -852,10 +947,11 @@ def enforce_supplier_credit_limit(
     actor: Optional[str],
     actor_is_admin: bool = False,
     override_reason: Optional[str] = None,
+    import_file_id: Optional[int] = None,
 ) -> CreditCheck:
     """Governance guard for a new commitment. BLOCK beyond the limit -> 409 unless an ADMIN gives a reason; the
     override is added to the session (committed with the caller's transaction)."""
-    check = check_supplier_credit_limit(db, supplier_id, new_amount, currency)
+    check = check_supplier_credit_limit(db, supplier_id, new_amount, currency, import_file_id=import_file_id)
     if check.decision != DECISION_BLOCK:
         return check
     reason = (override_reason or "").strip()
