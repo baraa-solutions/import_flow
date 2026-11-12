@@ -6,6 +6,7 @@ import '../domain_enum_labels.dart';
 import 'system_message_catalog_ar.dart';
 import 'system_message_catalog_en.dart';
 import '../../utils/bidi_text.dart';
+import '../../utils/app_format.dart';
 
 /// Parts a system message can have (see docs/system_message_codes.json).
 class SystemMessagePart {
@@ -179,26 +180,8 @@ class SystemMessageRenderer {
 
   /// Grouped number with at most two decimals and no trailing zeros; Western
   /// digits in both languages (the app never uses Arabic-Indic digits).
-  static String formatNumber(num value) {
-    if (!value.isFinite) return value.toString();
-    final negative = value < 0;
-    final rounded = (value.abs() * 100).round();
-    final whole = rounded ~/ 100;
-    final cents = rounded % 100;
-    final digits = whole.toString();
-    final buf = StringBuffer();
-    for (var i = 0; i < digits.length; i++) {
-      if (i > 0 && (digits.length - i) % 3 == 0) buf.write(',');
-      buf.write(digits[i]);
-    }
-    var text = buf.toString();
-    if (cents != 0) {
-      var frac = cents.toString().padLeft(2, '0');
-      if (frac.endsWith('0')) frac = frac.substring(0, 1);
-      text = '$text.$frac';
-    }
-    return negative ? '-$text' : text;
-  }
+  static String formatNumber(num value) =>
+      AppFormat.number(value, decimals: 2, trimZeros: true);
 
   static const List<String> _monthsEn = [
     'January', 'February', 'March', 'April', 'May', 'June',

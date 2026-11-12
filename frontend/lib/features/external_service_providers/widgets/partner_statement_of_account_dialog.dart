@@ -7,6 +7,7 @@ import '../providers/partners_provider.dart';
 import 'soa/partner_soa_balance_cards.dart';
 import 'soa/partner_soa_dialog_header.dart';
 import 'soa/partner_soa_ledger_table.dart';
+import '../../../core/utils/app_format.dart';
 
 class PartnerStatementOfAccountDialog extends ConsumerWidget {
   final PartnerModel partner;
@@ -21,12 +22,7 @@ class PartnerStatementOfAccountDialog extends ConsumerWidget {
     );
   }
 
-  static String formatNumber(double val) {
-    final parts = val.toStringAsFixed(2).split('.');
-    final reg = RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))');
-    final intPart = parts[0].replaceAllMapped(reg, (Match m) => '${m[1]},');
-    return '$intPart.${parts[1]}';
-  }
+  static String formatNumber(double val) => AppFormat.number(val, decimals: 2);
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
