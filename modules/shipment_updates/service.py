@@ -75,6 +75,7 @@ def create_update_log_service(db: Session, schema: ShipmentUpdateLogCreate, user
     if schema.update_category == MILESTONE_CATEGORY:
         board_phase = val.BOARD_PHASE_BY_BUSINESS[_phase_number(schema.target_phase)]
         if import_file.current_phase_id is None or board_phase > import_file.current_phase_id:
+            # set_file_tracking refuses (409) to cross an unsatisfied payment-pathway gate.
             set_file_tracking(import_file, phase_id=board_phase)
 
     # Q8 (safe default): append to the file notes instead of overwriting them

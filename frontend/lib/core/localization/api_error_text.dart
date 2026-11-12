@@ -73,6 +73,10 @@ class ApiErrorText {
         final rendered = SystemMessageRenderer.tryRender(code: c, params: d, part: part, l10n: l10n);
         if (rendered != null) return rendered;
       }
+      // Bilingual errors without a catalog entry (e.g. PAYMENT_MILESTONE_GATE_BLOCKED) carry `message`
+      // (Arabic) and `message_en`.
+      final messageEn = d['message_en']?.toString();
+      if (!l10n.isArabic && messageEn != null && messageEn.isNotEmpty) return messageEn;
       final message = d['message']?.toString();
       if (message != null && message.isNotEmpty) return message;
     }

@@ -1093,8 +1093,12 @@ def record_empty_container_return_service(
             tb.tracking_notes = f"{tb.tracking_notes or ''}\n[TR-05] Empty containers returned to the carrier under EIR #{payload.eir_number}".strip()
         imp_file.inland_transport_status = "COMPLETED"
         if not _file_past_step(imp_file, "STEP_20"):
-            imp_file.progress_percent = max(float(imp_file.progress_percent or 0.0), 98.0)
-            set_file_tracking(imp_file, step_code="STEP_20", next_action=msg("NA_CLO_SETTLE_FINAL_INVOICES"))
+            from modules.import_files.import_file_payment_pathway_service import advance_tracking_or_hold
+
+            if advance_tracking_or_hold(
+                db, imp_file, step_code="STEP_20", next_action=msg("NA_CLO_SETTLE_FINAL_INVOICES")
+            ):
+                imp_file.progress_percent = max(float(imp_file.progress_percent or 0.0), 98.0)
 
     # 5. Auto-close pending TR-05 SmartTasks once every container is back (a partial return leaves them open)
     if all_returned:

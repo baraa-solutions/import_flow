@@ -13,6 +13,7 @@ import 'overview_containers_seal_matrix_card.dart';
 import 'overview_linked_pos_table.dart';
 import 'overview_product_quantity_summary.dart';
 import 'overview_cargo_stacking_card.dart';
+import 'payment_pathway_guard.dart';
 
 /// 🌐 Overview tab for Import File Details
 /// Displays key logistics metrics, ACID number, linked POs, products summary,
@@ -171,6 +172,14 @@ class FileDetailsOverviewTab extends ConsumerWidget {
               file: file,
               isDark: isDark,
               isAr: isAr,
+            ),
+            const SizedBox(height: 14),
+
+            // ── Payment Pathway Guard (banking milestone gates) ──────────────
+            PaymentPathwayGuard(
+              importFileId: file.importFileId,
+              isAr: isAr,
+              isDark: isDark,
             ),
             const SizedBox(height: 14),
 

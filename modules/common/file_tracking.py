@@ -87,6 +87,26 @@ def step_tracking_columns(step_code: Optional[str]) -> dict:
     return {"current_step_code": step_code, "current_phase_id": phase, "current_stage_code": f"PHASE_{phase}"}
 
 
+def _enforce_payment_gate(file_rec, step_code, phase_id, stage_code) -> None:
+    """Single choke point of forward lifecycle moves: refuse to cross an unsatisfied payment-pathway gate."""
+    if not getattr(file_rec, "payment_term", None) or getattr(file_rec, "import_file_id", None) is None:
+        return
+    target_phase = phase_id
+    if target_phase is None and stage_code and stage_code.upper().startswith("PHASE"):
+        target_phase = _parse_phase_id(stage_code)
+    if not step_code and target_phase is None:
+        return
+    from sqlalchemy.orm import object_session
+
+    db = object_session(file_rec)
+    if db is None:
+        return
+    # Lazy import: import_files imports half the application; common helpers must not.
+    from modules.import_files.import_file_payment_pathway_service import enforce_payment_pathway_gate
+
+    enforce_payment_pathway_gate(db, file_rec, to_step=step_code, to_phase=target_phase)
+
+
 def set_file_tracking(
     file_rec,
     *,
@@ -94,6 +114,7 @@ def set_file_tracking(
     phase_id: str | None = None,
     next_action: "SysMsg | None" = None,
     stage_code: str | None = None,
+    enforce_payment_gate: bool = True,
 ) -> None:
     """Write the structured tracking columns plus their English legacy text (see the module docstring).
 
@@ -105,11 +126,17 @@ def set_file_tracking(
       and ``current_stage`` = its English label.
     - ``next_action``: a ``SysMsg`` (``NA_*``); sets ``next_action_code`` / ``next_action_params`` +
       ``next_action``.
+    - ``enforce_payment_gate``: every forward step / phase move is checked against the file's payment pathway
+      milestone gates (modules/import_files/payment_milestones.py) and refused with 409
+      ``PAYMENT_MILESTONE_GATE_BLOCKED`` before anything is written. Only callers that already checked the
+      gate (``advance_tracking_or_hold``) pass ``False``.
     """
     if file_rec is None:
         return
 
     resolved_phase = _parse_phase_id(phase_id)
+    if enforce_payment_gate and (step_code or resolved_phase or stage_code):
+        _enforce_payment_gate(file_rec, step_code, resolved_phase, stage_code)
     if step_code:
         _, step_to_phase, _ = _step_catalog()
         file_rec.current_step_code = step_code

@@ -650,6 +650,11 @@ def create_booking_service(db: Session, payload: ShipmentBookingCreate, user: st
     validators.validate_no_duplicate_booking_for_file(db, payload.import_file_id)
     validators.validate_charges(payload.cost_charges_data)
     validators.validate_charge_currencies(db, payload.cost_charges_data)
+    initial_status = payload.status or validators.STATUS_DRAFT
+    if initial_status in (validators.STATUS_DRAFT, validators.STATUS_REQUESTED):
+        validators.validate_payment_pathway_allows_booking(
+            db, _active_import_file(db, payload.import_file_id), "STEP_06"
+        )
     owner = payload.owner if "owner" in payload.model_fields_set and payload.owner else user
 
     def build() -> ShipmentBooking:
@@ -706,6 +711,12 @@ def update_booking_service(db: Session, booking_id: int, payload: ShipmentBookin
         validators.validate_charges(payload.cost_charges_data)
         validators.validate_charge_currencies(db, payload.cost_charges_data)
 
+    eff_status = payload.status if ("status" in payload.model_fields_set and payload.status) else booking.status
+    if eff_status in (validators.STATUS_DRAFT, validators.STATUS_REQUESTED):
+        validators.validate_payment_pathway_allows_booking(
+            db, _active_import_file(db, payload.import_file_id or booking.import_file_id), "STEP_06"
+        )
+
     update_data = payload.model_dump(mode="json", exclude_unset=True, exclude_none=True)
     old_data = {k: getattr(booking, k, None) for k in update_data.keys()}
 
@@ -724,6 +735,7 @@ def update_booking_service(db: Session, booking_id: int, payload: ShipmentBookin
 def confirm_booking_service(db: Session, booking_id: int, payload: ShipmentBookingConfirm, user: str = "system") -> ShipmentBooking:
     booking = get_booking_service(db, booking_id)
     validators.validate_can_confirm(booking)
+    validators.validate_payment_pathway_allows_booking(db, _active_import_file(db, booking.import_file_id), "STEP_07")
 
     booking.status = validators.STATUS_CONFIRMED
     booking.booking_confirmation_no = payload.booking_confirmation_no
