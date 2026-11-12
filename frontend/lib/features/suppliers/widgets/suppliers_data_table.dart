@@ -15,6 +15,7 @@ class SuppliersDataTable extends StatelessWidget {
   final void Function(SupplierModel supplier) onHistory;
   final void Function(SupplierModel supplier)? onRouteIntelligence;
   final void Function(SupplierModel supplier)? onScorecard;
+  final void Function(SupplierModel supplier)? onLedger;
   final void Function(SupplierModel supplier)? onGoeicVerification;
 
   const SuppliersDataTable({
@@ -27,6 +28,7 @@ class SuppliersDataTable extends StatelessWidget {
     required this.onHistory,
     this.onRouteIntelligence,
     this.onScorecard,
+    this.onLedger,
     this.onGoeicVerification,
   });
 
@@ -85,6 +87,12 @@ class SuppliersDataTable extends StatelessWidget {
                     icon: const Icon(Icons.workspace_premium_outlined, color: Colors.amber, size: 20),
                     tooltip: l10n.supplierScorecardBtnTooltip,
                     onPressed: () => onScorecard!(supplier),
+                  ),
+                if (onLedger != null)
+                  IconButton(
+                    icon: const Icon(Icons.account_balance_wallet_outlined, color: AppTheme.charcoal, size: 20),
+                    tooltip: l10n.supplierLedgerBtnTooltip,
+                    onPressed: () => onLedger!(supplier),
                   ),
                 if (onGoeicVerification != null)
                   IconButton(

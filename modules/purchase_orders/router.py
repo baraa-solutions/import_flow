@@ -5,7 +5,7 @@ from modules.auth.router import get_current_user
 from sqlalchemy.orm import Session
 
 from database.database import get_db
-from modules.auth.permissions import require_permission
+from modules.auth.permissions import is_admin_user, require_permission
 from modules.common.pagination import PageParams
 from modules.users.model import User
 from modules.purchase_orders.schemas import (
@@ -114,7 +114,7 @@ def create_purchase_order(
     current_user: User = Depends(require_permission("purchase_orders.create")),
 ):
     service = PurchaseOrderService(db)
-    return service.create(data, current_user_name=current_user.username)
+    return service.create(data, current_user_name=current_user.username, actor_is_admin=is_admin_user(current_user))
 
 
 @router.put("/{po_id}", response_model=PurchaseOrderResponse)

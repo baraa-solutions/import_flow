@@ -211,6 +211,9 @@ class PurchaseOrderCreate(PurchaseOrderBase):
     _po_number = field_validator("po_number")(lambda cls, v: _upper_code(v))
     items: List[POLineItemCreate] = Field(default_factory=list)
     packing_list_items: List[PackingListItemCreate] = Field(default_factory=list)
+    # Supplier credit limit governance (Trello GzFff0Pc): reason of an ADMIN override when the supplier's BLOCK
+    # credit limit would be exceeded. Ignored when the PO stays within the limit.
+    credit_limit_override_reason: Optional[str] = Field(None, max_length=500)
 
 
 class PurchaseOrderUpdate(BaseModel):

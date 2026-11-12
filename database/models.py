@@ -57,7 +57,7 @@ from modules.smart_document_upload.model import UploadSession
 from modules.smart_email_listener.model import EmailSettings, InboundEmailLog
 from modules.smart_tasks.model import SmartTask
 from modules.stage_notes.model import StageNote, StageNoteAttachment
-from modules.suppliers.model import Supplier
+from modules.suppliers.model import Supplier, SupplierCreditOverride, SupplierLedgerEntry
 from modules.transport_locations.model import City, Country, TransportLocation
 from modules.users.model import Permission, Role, RolePermission, User, UserPermission
 from modules.vessel_tracking.model import ShipmentVesselTracking, Vessel, VesselPositionLog

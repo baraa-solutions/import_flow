@@ -26,7 +26,7 @@ from utils.migration_linter import MigrationLinter
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 PREVIOUS_HEAD = "d3e4f5a6b7c8"
-HEAD_REVISION = "c4a8e2f6b1d3"
+HEAD_REVISION = "d5f1a3c7e9b2"
 
 
 class _SpyMasterData:
@@ -391,7 +391,9 @@ def test_11_single_head_follows_the_baseline_and_linter_passes():
     # -> b3d5f7a9c1e2 (certificate expiry dates) -> b8d2f4a6c1e3 (CargoX integration mode)
     # -> c4e8a2f6b1d9 (net FOB valuation snapshot)
     # -> c4a8e2f6b1d3 (air shipment records & draft AWB reviews)
-    assert script.get_revision(HEAD_REVISION).down_revision == "c4e8a2f6b1d9"
+    # -> d5f1a3c7e9b2 (supplier sub-ledger, credit limit governance)
+    assert script.get_revision(HEAD_REVISION).down_revision == "c4a8e2f6b1d3"
+    assert script.get_revision("c4a8e2f6b1d3").down_revision == "c4e8a2f6b1d9"
     assert script.get_revision("c4e8a2f6b1d9").down_revision == "b8d2f4a6c1e3"
     assert script.get_revision("b8d2f4a6c1e3").down_revision == "b3d5f7a9c1e2"
     assert script.get_revision("b3d5f7a9c1e2").down_revision == "a7c1e9d3f5b2"

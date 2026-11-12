@@ -13,6 +13,7 @@ import '../widgets/route_intelligence_dialog.dart';
 import '../widgets/supplier_details_dialog.dart';
 import '../widgets/supplier_form_dialog.dart';
 import '../widgets/supplier_scorecard_dialog.dart';
+import '../widgets/supplier_ledger_dialog.dart';
 import '../widgets/suppliers_data_table.dart';
 import '../widgets/suppliers_filter_toolbar.dart';
 
@@ -189,6 +190,13 @@ class _SuppliersScreenState extends ConsumerState<SuppliersScreen> {
                           supplierId: s.supplierId!,
                           supplierName: s.companyName,
                           country: s.foreignExporterCountry,
+                        );
+                      },
+                      onLedger: (s) {
+                        showSupplierLedgerDialog(
+                          context,
+                          supplierId: s.supplierId!,
+                          supplierName: s.companyName,
                         );
                       },
                       onGoeicVerification: (s) {
