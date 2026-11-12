@@ -183,3 +183,41 @@ def restore_supplier(db: Session, supplier: Supplier) -> Supplier:
     db.refresh(supplier)
 
     return supplier
+
+# ==================================================
+# Sub-Ledger & Credit Overrides (Trello GzFff0Pc)
+# ==================================================
+
+def list_supplier_ledger_entries(db: Session, supplier_id: int, include_inactive: bool = False) -> List[Any]:
+    from .model import SupplierLedgerEntry
+
+    query = db.query(SupplierLedgerEntry).filter(SupplierLedgerEntry.supplier_id == supplier_id)
+    if not include_inactive:
+        query = query.filter(SupplierLedgerEntry.is_active == True)  # noqa: E712
+    return query.order_by(SupplierLedgerEntry.entry_date.asc(), SupplierLedgerEntry.entry_id.asc()).all()
+
+
+def list_supplier_credit_overrides(db: Session, supplier_id: int) -> List[Any]:
+    from .model import SupplierCreditOverride
+
+    return (
+        db.query(SupplierCreditOverride)
+        .filter(SupplierCreditOverride.supplier_id == supplier_id, SupplierCreditOverride.is_active == True)  # noqa: E712
+        .order_by(SupplierCreditOverride.created_at.desc(), SupplierCreditOverride.override_id.desc())
+        .all()
+    )
+
+
+def list_suppliers_with_activity(db: Session) -> List[Supplier]:
+    """Active suppliers that have at least one import file or payment request (candidates for the aging report)."""
+    from modules.financial_approval.model import PaymentRequestSession
+    from modules.import_files.model import ImportFile
+
+    has_file = exists().where(ImportFile.supplier_id == Supplier.supplier_id)
+    has_payment = exists().where(PaymentRequestSession.supplier_id == Supplier.supplier_id)
+    return (
+        db.query(Supplier)
+        .filter(Supplier.is_active == True, or_(has_file, has_payment))  # noqa: E712
+        .order_by(Supplier.company_name.asc())
+        .all()
+    )

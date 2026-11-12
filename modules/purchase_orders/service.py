@@ -652,11 +652,33 @@ class PurchaseOrderService:
         ))
         return po
 
+    def _enforce_supplier_credit_limit(
+        self, po: PurchaseOrder, data: PurchaseOrderCreate, user: Optional[str], actor_is_admin: bool,
+    ) -> None:
+        """Supplier credit limit governance (Trello GzFff0Pc): a new PO beyond a BLOCK limit needs an ADMIN
+        override reason (recorded with the PO in the same transaction)."""
+        from modules.currencies.model import Currency
+        from modules.suppliers.ledger_service import enforce_supplier_credit_limit
+
+        currency = self.db.get(Currency, po.currency_id)
+        enforce_supplier_credit_limit(
+            self.db,
+            po.supplier_id,
+            float(po.total_amount_fob or 0.0),
+            currency.currency_code if currency else None,
+            context="PURCHASE_ORDER",
+            reference=po.po_number,
+            actor=user,
+            actor_is_admin=actor_is_admin,
+            override_reason=getattr(data, "credit_limit_override_reason", None),
+        )
+
     def _create(
         self,
         data: PurchaseOrderCreate,
         user: Optional[str],
         decorate: Optional[Callable[[PurchaseOrder], None]] = None,
+        actor_is_admin: bool = False,
     ) -> PurchaseOrder:
         self.validator.validate_foreign_keys(
             project_id=data.project_id,
@@ -678,6 +700,7 @@ class PurchaseOrderService:
             po = self._build(data, number, user, kg_per_cbm)
             if decorate:
                 decorate(po)
+            self._enforce_supplier_credit_limit(po, data, user, actor_is_admin)
             try:
                 self.repo.add(po)
                 self._link_import_file(po)
@@ -701,8 +724,10 @@ class PurchaseOrderService:
             return po
         raise AssertionError("unreachable")  # pragma: no cover
 
-    def create(self, data: PurchaseOrderCreate, current_user_name: Optional[str] = None) -> PurchaseOrderResponse:
-        return self._to_response(self._create(data, current_user_name))
+    def create(
+        self, data: PurchaseOrderCreate, current_user_name: Optional[str] = None, actor_is_admin: bool = False,
+    ) -> PurchaseOrderResponse:
+        return self._to_response(self._create(data, current_user_name, actor_is_admin=actor_is_admin))
 
     def clone_purchase_order(
         self, po_id: int, payload: ClonePurchaseOrderRequest, current_user_name: Optional[str] = None

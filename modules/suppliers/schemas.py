@@ -1,7 +1,7 @@
 from datetime import date, datetime
-from typing import ClassVar
+from typing import ClassVar, List
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from pydantic import ConfigDict
 
 
@@ -224,6 +224,11 @@ class SupplierResponse(SupplierBase):
 
     updated_by: str | None = None
 
+    # Credit limit governance (set through PUT /suppliers/{id}/credit-limit)
+    credit_limit_currency: str | None = None
+
+    credit_limit_policy: str | None = "BLOCK"
+
 
     model_config = ConfigDict(
         from_attributes=True
@@ -246,3 +251,171 @@ class SupplierScorecardResponse(BaseModel):
     star_rating: float
     tier_badge: str
     executive_summary_ar: str
+
+
+# ==================================================
+# Sub-Ledger, Aging & Credit Limit (Trello GzFff0Pc)
+# ==================================================
+
+class SupplierLedgerWarning(BaseModel):
+    code: str
+    import_file_id: int | None = None
+    import_file_code: str | None = None
+    reason: str | None = None
+
+
+class SupplierLedgerEntryResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    entry_code: str | None = None
+    source_key: str
+    entry_type: str
+    direction: str
+    payment_pathway: str | None = None
+    reference: str | None = None
+    description: str | None = None
+    import_file_id: int | None = None
+    payment_id: int | None = None
+    finance_instrument_id: int | None = None
+    entry_date: date
+    due_date: date | None = None
+    currency: str
+    amount_fx: float
+    exchange_rate: float | None = None
+    amount_egp: float
+    open_amount_fx: float
+    status: str
+    balance_fx: float
+    balance_egp: float
+
+
+class SupplierCurrencyBalanceResponse(BaseModel):
+    currency: str
+    billed_fx: float
+    paid_fx: float
+    balance_fx: float
+    open_payable_fx: float
+    unapplied_fx: float
+    open_commitments_fx: float
+    book_balance_egp: float
+    current_rate: float | None = None
+    current_balance_egp: float | None = None
+
+
+class SupplierCurrencyStatementResponse(BaseModel):
+    currency: str
+    opening_balance_fx: float
+    opening_balance_egp: float
+    closing_balance_fx: float
+    closing_balance_egp: float
+    lines: List[SupplierLedgerEntryResponse]
+
+
+class SupplierStatementResponse(BaseModel):
+    supplier_id: int
+    supplier_code: str
+    company_name: str
+    date_from: date | None = None
+    date_to: date | None = None
+    balances: List[SupplierCurrencyBalanceResponse]
+    statements: List[SupplierCurrencyStatementResponse]
+    warnings: List[SupplierLedgerWarning] = []
+
+
+class SupplierAgingItemResponse(BaseModel):
+    entry_code: str | None = None
+    reference: str | None = None
+    import_file_id: int | None = None
+    payment_pathway: str | None = None
+    entry_date: date
+    due_date: date | None = None
+    amount_fx: float
+    open_amount_fx: float
+    days_past_due: int
+    bucket: str
+
+
+class SupplierCurrencyAgingResponse(BaseModel):
+    currency: str
+    current: float
+    days_1_30: float
+    days_31_60: float
+    days_61_90: float
+    over_90: float
+    total_open_fx: float
+    unapplied_fx: float
+    current_rate: float | None = None
+    total_open_egp: float | None = None
+    items: List[SupplierAgingItemResponse] = []
+
+
+class SupplierAgingResponse(BaseModel):
+    supplier_id: int
+    supplier_code: str
+    company_name: str
+    as_of: date
+    currencies: List[SupplierCurrencyAgingResponse]
+    total_open_egp: float | None = None
+    warnings: List[SupplierLedgerWarning] = []
+
+
+class SupplierAgingReportRow(BaseModel):
+    supplier_id: int
+    supplier_code: str
+    company_name: str
+    currencies: List[SupplierCurrencyAgingResponse]
+    total_open_egp: float | None = None
+
+
+class SupplierAgingReportResponse(BaseModel):
+    as_of: date
+    rows: List[SupplierAgingReportRow]
+
+
+class SupplierCreditCheckRequest(BaseModel):
+    amount: float = Field(..., ge=0)
+    currency: str | None = Field(None, max_length=10)
+
+
+class SupplierCreditCheckResponse(BaseModel):
+    has_limit: bool
+    currency: str
+    policy: str
+    limit_amount: float
+    utilization_amount: float
+    requested_amount: float
+    projected_amount: float
+    available_amount: float | None = None
+    utilization_pct: float | None = None
+    exceeded: bool
+    allowed: bool
+    decision: str
+
+
+class SupplierCreditLimitUpdate(BaseModel):
+    credit_limit: float = Field(..., ge=0)
+    credit_limit_currency: str | None = Field(None, max_length=10)
+    credit_limit_policy: str = Field("BLOCK", max_length=10)
+
+
+class SupplierCreditOverrideResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    override_id: int
+    context: str
+    reference: str | None = None
+    currency: str
+    limit_amount: float
+    utilization_amount: float
+    requested_amount: float
+    projected_amount: float
+    reason: str
+    created_at: datetime
+    created_by: str
+
+
+class SupplierCreditStatusResponse(BaseModel):
+    supplier_id: int
+    credit: SupplierCreditCheckResponse
+    balances: List[SupplierCurrencyBalanceResponse]
+    overrides: List[SupplierCreditOverrideResponse] = []

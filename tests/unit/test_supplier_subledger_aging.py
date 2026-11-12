@@ -1,0 +1,443 @@
+"""
+Foreign Vendor Multi-Currency Sub-Ledger, Credit Limit Governance & 30/60/90 Aging (Trello GzFff0Pc).
+
+Concrete numbers: multi-currency balances with EGP equivalents, partial payments and allocation, aging bucket
+boundaries (30/31/60/61/90/91 days), LC commitments (memo) and bank settlement, credit-limit breach / WARN /
+ADMIN override (also through purchase order creation) and no double counting against the net FOB engine.
+"""
+from datetime import date, timedelta
+from decimal import Decimal
+
+import pytest
+from fastapi import HTTPException
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+from sqlalchemy.pool import StaticPool
+
+from database.database import Base
+from modules.currencies.model import Currency, ExchangeRate
+from modules.currencies.service import clear_currency_cache
+from modules.financial_approval.model import PaymentRequestSession
+from modules.financial_settlement.fob_valuation_service import resolve_fob_valuation
+from modules.import_files.model import ImportFile
+from modules.suppliers import ledger_service as ls
+from modules.suppliers.ledger_service import (
+    BUCKET_1_30,
+    BUCKET_31_60,
+    BUCKET_61_90,
+    BUCKET_CURRENT,
+    BUCKET_OVER_90,
+    CREDIT,
+    DEBIT,
+    INVOICE_BILLED,
+    PAYMENT_SETTLED,
+    LedgerDraft,
+    aging_bucket,
+    allocate_payments,
+    build_aging,
+    build_statement,
+    check_supplier_credit_limit,
+    credit_utilization,
+    enforce_supplier_credit_limit,
+    evaluate_credit_limit,
+    invoice_due_date,
+    parse_credit_days,
+    summarize_balances,
+    supplier_aging_service,
+    supplier_credit_status_service,
+    supplier_statement_service,
+    sync_supplier_ledger,
+    update_supplier_credit_limit,
+)
+from modules.suppliers.model import Supplier, SupplierCreditOverride, SupplierLedgerEntry
+from modules.suppliers.validators import (
+    SUPPLIER_CREDIT_LIMIT_EXCEEDED,
+    SUPPLIER_CREDIT_LIMIT_INVALID,
+    SUPPLIER_CREDIT_OVERRIDE_FORBIDDEN,
+)
+from modules.trade_finance.model import FxHedgingAndVariance, ImportFinanceInstrument
+
+
+# ── Pure core ───────────────────────────────────────────────────────────────────
+
+def _d(key, direction, amount, ccy="USD", egp=None, entry_date=date(2026, 1, 1), due=None, file_id=None):
+    return LedgerDraft(source_key=key, entry_type=INVOICE_BILLED if direction == CREDIT else PAYMENT_SETTLED,
+                       direction=direction, currency=ccy, amount_fx=amount,
+                       amount_egp=egp if egp is not None else amount * 50.0, entry_date=entry_date, due_date=due,
+                       import_file_id=file_id)
+
+
+class TestAgingBuckets:
+    @pytest.mark.parametrize("days,bucket", [
+        (-5, BUCKET_CURRENT), (0, BUCKET_CURRENT), (1, BUCKET_1_30), (30, BUCKET_1_30), (31, BUCKET_31_60),
+        (60, BUCKET_31_60), (61, BUCKET_61_90), (90, BUCKET_61_90), (91, BUCKET_OVER_90), (400, BUCKET_OVER_90),
+    ])
+    def test_bucket_boundaries(self, days, bucket):
+        assert aging_bucket(days) == bucket
+
+
+class TestDueDates:
+    @pytest.mark.parametrize("terms,days", [
+        ("Net 60", 60), ("OA 90", 90), ("Open Account 45", 45), ("60 days", 60), ("90 يوم", 90),
+        ("30% advance, 70% against BL", 0), ("LC at Sight", 0), (None, 0),
+    ])
+    def test_credit_days_from_payment_terms(self, terms, days):
+        assert parse_credit_days(terms) == days
+
+    def test_due_date_per_pathway(self):
+        inv = date(2026, 8, 1)
+        assert invoice_due_date("ADVANCE_PAYMENT", inv, 60) == inv
+        assert invoice_due_date(None, inv, 60) == inv
+        assert invoice_due_date("OPEN_ACCOUNT", inv, 60) == date(2026, 9, 30)
+        assert invoice_due_date("LC", inv, lc_shipment_deadline=date(2026, 8, 20), lc_presentation_days=21) == date(2026, 9, 10)
+        assert invoice_due_date("LC", inv, instrument_expiry=date(2026, 10, 1)) == date(2026, 10, 1)
+        assert invoice_due_date("CAD", inv, instrument_expiry=date(2026, 9, 15)) == date(2026, 9, 15)
+        assert invoice_due_date("CAD", inv) == inv  # D/P at sight
+
+
+class TestAllocationAndStatement:
+    def test_payment_settles_its_own_file_first_then_oldest_due(self):
+        a = _d("INV:A", CREDIT, 10000.0, due=date(2026, 1, 1), file_id=1)
+        b = _d("INV:B", CREDIT, 5000.0, due=date(2026, 2, 1), file_id=2)
+        pay = _d("PAY:1", DEBIT, 12000.0, entry_date=date(2026, 3, 1), file_id=2)
+        eur = _d("PAY:2", DEBIT, 1000.0, ccy="EUR", entry_date=date(2026, 3, 2))
+        allocate_payments([a, b, pay, eur])
+        assert (b.open_amount_fx, b.status) == (0.0, "SETTLED")  # own file first
+        assert (a.open_amount_fx, a.status) == (3000.0, "PARTIAL")  # 10,000 - 7,000
+        assert (pay.open_amount_fx, pay.status) == (0.0, "SETTLED")
+        assert (eur.open_amount_fx, eur.status) == (1000.0, "UNAPPLIED")  # an advance: no EUR invoice yet
+
+    def test_running_balance_per_currency_never_nets_currencies(self):
+        drafts = [
+            _d("INV:A", CREDIT, 10000.0, egp=500000.0, entry_date=date(2026, 1, 1)),
+            _d("PAY:1", DEBIT, 4000.0, egp=204000.0, entry_date=date(2026, 2, 1)),
+            _d("INV:E", CREDIT, 3000.0, ccy="EUR", egp=165000.0, entry_date=date(2026, 1, 15)),
+        ]
+        allocate_payments(drafts)
+        st = build_statement(drafts)
+        assert [(ln.balance_fx, ln.balance_egp) for ln in st["USD"]] == [(10000.0, 500000.0), (6000.0, 296000.0)]
+        assert [ln.balance_fx for ln in st["EUR"]] == [3000.0]
+        bal = summarize_balances(drafts, {"USD": 52.0, "EUR": None})
+        assert (bal["USD"].balance_fx, bal["USD"].book_balance_egp, bal["USD"].current_balance_egp) == (6000.0, 296000.0, 312000.0)
+        assert bal["EUR"].current_balance_egp is None  # no rate: never guessed
+
+    def test_aging_uses_open_amount_and_days_past_due(self):
+        drafts = [
+            _d("INV:1", CREDIT, 1000.0, due=date(2026, 10, 1)),   # 30 days -> 1_30
+            _d("INV:2", CREDIT, 2000.0, due=date(2026, 9, 30)),   # 31 days -> 31_60
+            _d("INV:3", CREDIT, 3000.0, due=date(2026, 8, 1)),    # 91 days -> OVER_90
+            _d("INV:4", CREDIT, 4000.0, due=date(2026, 11, 15)),  # not due -> CURRENT
+        ]
+        allocate_payments(drafts)
+        aging = build_aging(drafts, date(2026, 10, 31), {"USD": 50.0})["USD"]
+        assert aging.buckets == {BUCKET_CURRENT: 4000.0, BUCKET_1_30: 1000.0, BUCKET_31_60: 2000.0,
+                                 BUCKET_61_90: 0.0, BUCKET_OVER_90: 3000.0}
+        assert (aging.total_open_fx, aging.total_open_egp) == (10000.0, 500000.0)
+
+
+class TestCreditPure:
+    def test_utilization_converts_positive_balances_to_the_limit_currency(self):
+        rates = {"USD": 50.0, "EUR": 55.0}
+        # USD 30,000 owed; EUR -2,000 is an advance and never frees USD credit.
+        assert credit_utilization({"USD": 30000.0, "EUR": -2000.0}, "EUR", rates.__getitem__) == 27272.73
+        assert credit_utilization({"USD": 30000.0, "EGP": 50000.0}, "USD", rates.__getitem__) == 31000.0
+
+    def test_limit_boundaries_and_policies(self):
+        within = evaluate_credit_limit(50000.0, "USD", "BLOCK", 45000.0, 5000.0)
+        assert (within.exceeded, within.allowed, within.decision) == (False, True, "WITHIN_LIMIT")  # exactly at limit
+        breach = evaluate_credit_limit(50000.0, "USD", "BLOCK", 45000.0, 5000.01)
+        assert (breach.exceeded, breach.allowed, breach.decision) == (True, False, "BLOCK")
+        assert (breach.available_amount, breach.utilization_pct) == (5000.0, 90.0)
+        warn = evaluate_credit_limit(50000.0, "USD", "WARN", 45000.0, 9000.0)
+        assert (warn.exceeded, warn.allowed, warn.decision) == (True, True, "WARN")
+        none = evaluate_credit_limit(0.0, "USD", "BLOCK", 999999.0, 1.0)
+        assert (none.has_limit, none.allowed, none.decision) == (False, True, "NO_LIMIT")
+
+
+# ── Database scenarios ──────────────────────────────────────────────────────────
+
+@pytest.fixture
+def db():
+    engine = create_engine("sqlite:///:memory:", connect_args={"check_same_thread": False}, poolclass=StaticPool)
+    Base.metadata.create_all(bind=engine)
+    session = sessionmaker(autocommit=False, autoflush=False, bind=engine)()
+    usd = Currency(currency_code="USD", currency_name="USD", currency_symbol="$", is_active=True)
+    eur = Currency(currency_code="EUR", currency_name="EUR", currency_symbol="E", is_active=True)
+    session.add_all([usd, eur])
+    session.flush()
+    session.add_all([
+        ExchangeRate(currency_id=usd.currency_id, customs_rate=Decimal("49"), commercial_rate=Decimal("50"),
+                     effective_date=date(2020, 1, 1), is_active=True),
+        ExchangeRate(currency_id=usd.currency_id, customs_rate=Decimal("51"), commercial_rate=Decimal("52"),
+                     effective_date=date(2026, 6, 1), is_active=True),
+        ExchangeRate(currency_id=eur.currency_id, customs_rate=Decimal("54"), commercial_rate=Decimal("55"),
+                     effective_date=date(2020, 1, 1), is_active=True),
+    ])
+    session.commit()
+    clear_currency_cache()
+    yield session
+    session.close()
+    clear_currency_cache()
+
+
+def _supplier(db, code="SUP-LED-1", payment_terms=None, limit=0.0, limit_ccy=None, policy="BLOCK") -> Supplier:
+    s = Supplier(supplier_code=code, company_name=f"Milano Industrial {code}", supplier_type="Manufacturer",
+                 registration_type="Factory", foreign_exporter_id=f"EXP-{code}", foreign_exporter_country="Italy",
+                 foreign_exporter_country_code="IT", address="Milan", currency="USD", payment_terms=payment_terms,
+                 credit_limit=limit, credit_limit_currency=limit_ccy, credit_limit_policy=policy, is_active=True)
+    db.add(s)
+    db.commit()
+    return s
+
+
+def _file(db, supplier, invoices, code, payment_term=None) -> ImportFile:
+    imp = ImportFile(import_file_code=code, company_name="Sorour Logistics", supplier_id=supplier.supplier_id,
+                     supplier_name=supplier.company_name, invoices_data=invoices, payment_term=payment_term,
+                     is_active=True)
+    db.add(imp)
+    db.commit()
+    return imp
+
+
+_PAY_SEQ = [0]
+
+
+def _paid(db, supplier, amount, egp, ccy="USD", imp=None, day=date(2026, 3, 1), payment_type="Final Settlement",
+          status="Paid"):
+    _PAY_SEQ[0] += 1
+    req = PaymentRequestSession(
+        payment_code=f"PAY-T-{_PAY_SEQ[0]}", title="Supplier payment", supplier_id=supplier.supplier_id,
+        supplier_name=supplier.company_name, import_file_id=imp.import_file_id if imp else None,
+        payment_type=payment_type, requested_amount=amount, currency_code=ccy, exchange_rate=egp / amount,
+        requested_amount_egp=egp, paid_amount_egp=egp, due_date=day, request_date=day, swift_receipt_date=day,
+        status=status, is_active=True,
+    )
+    db.add(req)
+    db.commit()
+    return req
+
+
+def _active_entries(db, supplier):
+    return db.query(SupplierLedgerEntry).filter_by(supplier_id=supplier.supplier_id, is_active=True).all()
+
+
+def test_multi_currency_balances_with_egp_equivalent_and_no_double_counting(db):
+    s = _supplier(db)
+    usd_file = _file(db, s, [{"invoice_no": "CI-1", "amount": 10000.0, "currency": "USD", "exchange_rate": 50.0,
+                               "invoice_date": "2026-02-01", "financing_markup_amount": 1000.0}], "IMP-LED-01",
+                     payment_term="ADVANCE_PAYMENT")
+    _file(db, s, [{"invoice_no": "CI-E", "amount": 4000.0, "currency": "EUR", "exchange_rate": 55.0,
+                   "invoice_date": "2026-02-10"}], "IMP-LED-02")
+    _paid(db, s, 6000.0, 306000.0, imp=usd_file, payment_type="Advance Payment")  # bank debit at 51
+
+    balances = ls.get_supplier_realtime_balance(db, s.supplier_id)
+    usd, eur = balances["USD"], balances["EUR"]
+    # Payable = net FOB 9,000 + markup 1,000; 6,000 anchored at 51 + 4,000 at the invoice rate 50.
+    assert (usd.billed_fx, usd.paid_fx, usd.balance_fx) == (10000.0, 6000.0, 4000.0)
+    assert usd.book_balance_egp == 506000.0 - 306000.0
+    assert (usd.current_rate, usd.current_balance_egp) == (52.0, 208000.0)  # today's commercial rate
+    assert (eur.balance_fx, eur.book_balance_egp, eur.current_balance_egp) == (4000.0, 220000.0, 220000.0)
+
+    # Single source of truth: the billed EGP is exactly the FOB engine payable of the file.
+    valuation = resolve_fob_valuation(db, usd_file.import_file_id)
+    entries, _ = sync_supplier_ledger(db, s.supplier_id, "tester")
+    billed = [e for e in entries if e.entry_type == INVOICE_BILLED and e.currency == "USD"]
+    assert sum(e.amount_egp for e in billed) == valuation.payable_total_egp == 506000.0
+    advance = [e for e in entries if e.entry_type == "ADVANCE_PAID"]
+    assert [(a.amount_fx, a.amount_egp, a.status) for a in advance] == [(6000.0, 306000.0, "SETTLED")]
+
+    # Idempotent: a second sync updates in place (same codes, no extra rows).
+    codes = sorted(e.entry_code for e in entries)
+    again, _ = sync_supplier_ledger(db, s.supplier_id, "tester")
+    assert sorted(e.entry_code for e in again) == codes
+    assert db.query(SupplierLedgerEntry).filter_by(supplier_id=s.supplier_id).count() == 3
+
+
+def test_duplicated_invoice_is_billed_once(db):
+    s = _supplier(db)
+    inv = {"invoice_no": "PI-9", "amount": 10000.0, "currency": "USD", "exchange_rate": 50.0}
+    _file(db, s, [inv, dict(inv)], "IMP-LED-DUP")
+    entries, _ = sync_supplier_ledger(db, s.supplier_id)
+    assert [(e.amount_fx, e.amount_egp) for e in entries] == [(10000.0, 500000.0)]
+
+
+def test_estimate_only_file_bills_nothing(db):
+    s = _supplier(db)
+    imp = _file(db, s, None, "IMP-LED-EST")
+    imp.estimated_cost, imp.estimated_cost_currency = 25000.0, "USD"
+    db.commit()
+    entries, _ = sync_supplier_ledger(db, s.supplier_id)
+    assert entries == []
+
+
+@pytest.mark.parametrize("as_of,bucket", [
+    (date(2026, 9, 30), BUCKET_CURRENT),   # due today
+    (date(2026, 10, 30), BUCKET_1_30),     # 30 days
+    (date(2026, 10, 31), BUCKET_31_60),    # 31
+    (date(2026, 11, 29), BUCKET_31_60),    # 60
+    (date(2026, 11, 30), BUCKET_61_90),    # 61
+    (date(2026, 12, 29), BUCKET_61_90),    # 90
+    (date(2026, 12, 30), BUCKET_OVER_90),  # 91
+])
+def test_open_account_partial_payment_ages_from_net_60_due_date(db, as_of, bucket):
+    s = _supplier(db, payment_terms="Net 60")
+    imp = _file(db, s, [{"invoice_no": "OA-1", "amount": 10000.0, "currency": "USD", "exchange_rate": 50.0,
+                          "invoice_date": "2026-08-01"}], "IMP-LED-OA", payment_term="OPEN_ACCOUNT")
+    _paid(db, s, 4000.0, 208000.0, imp=imp, day=date(2026, 9, 1))
+    aging = supplier_aging_service(db, s.supplier_id, "tester", as_of)
+    usd = aging.currencies[0]
+    item = usd.items[0]
+    assert (item.due_date, item.amount_fx, item.open_amount_fx) == (date(2026, 9, 30), 10000.0, 6000.0)
+    assert item.bucket == bucket
+    buckets = {BUCKET_CURRENT: usd.current, BUCKET_1_30: usd.days_1_30, BUCKET_31_60: usd.days_31_60,
+               BUCKET_61_90: usd.days_61_90, BUCKET_OVER_90: usd.over_90}
+    assert buckets[bucket] == 6000.0 and sum(buckets.values()) == 6000.0
+
+
+def test_lc_commitment_is_memo_and_bank_settlement_covers_only_the_unpaid_part(db):
+    s = _supplier(db)
+    imp = _file(db, s, [{"invoice_no": "CI-LC", "amount": 10000.0, "currency": "USD", "exchange_rate": 50.0,
+                          "invoice_date": "2026-03-01"}], "IMP-LED-LC", payment_term="LC")
+    inst = ImportFinanceInstrument(instrument_type="LC", instrument_number="LC-LED-1", import_file_id=imp.import_file_id,
+                                   issuing_bank="NBE", currency="USD", amount=10000.0, status="ISSUED",
+                                   issue_date=date(2026, 2, 1), expiry_date=date(2026, 5, 1),
+                                   shipment_deadline=date(2026, 3, 20), presentation_period_days=21)
+    db.add(inst)
+    db.commit()
+
+    st = supplier_statement_service(db, s.supplier_id, "tester")
+    usd = st.statements[0]
+    memo = [ln for ln in usd.lines if ln.entry_type == "LC_COMMITTED"]
+    assert [(m.direction, m.amount_fx, m.status) for m in memo] == [("MEMO", 10000.0, "OPEN")]
+    assert usd.closing_balance_fx == 10000.0  # the commitment never doubles the liability
+    inv = next(ln for ln in usd.lines if ln.entry_type == INVOICE_BILLED)
+    assert inv.due_date == date(2026, 4, 10)  # shipment deadline + 21 days presentation
+    assert st.balances[0].open_commitments_fx == 10000.0
+
+    # 2,000 paid by SWIFT, then the bank settles the LC: only the remaining 8,000 is debited.
+    _paid(db, s, 2000.0, 100000.0, imp=imp, day=date(2026, 3, 5))
+    inst.status = "SETTLED"
+    db.add(FxHedgingAndVariance(finance_instrument_id=inst.id, foreign_currency="USD", original_amount=10000.0,
+                                booking_date=date(2026, 2, 1), booking_rate=50.0, booking_total_egp=500000.0,
+                                settlement_date=date(2026, 4, 12), settlement_rate=51.0,
+                                settlement_total_egp=510000.0))
+    db.commit()
+    st = supplier_statement_service(db, s.supplier_id, "tester")
+    usd = st.statements[0]
+    bank = [ln for ln in usd.lines if ln.source_key.endswith(":SETTLED")]
+    assert [(b.amount_fx, b.amount_egp, b.entry_date) for b in bank] == [(8000.0, 408000.0, date(2026, 4, 12))]
+    assert usd.closing_balance_fx == 0.0
+    assert st.balances[0].open_commitments_fx == 0.0
+
+
+def test_cancelled_payment_is_soft_deleted_and_balance_restored(db):
+    s = _supplier(db)
+    imp = _file(db, s, [{"invoice_no": "CI-1", "amount": 5000.0, "currency": "USD", "exchange_rate": 50.0}],
+                "IMP-LED-RJ")
+    req = _paid(db, s, 5000.0, 250000.0, imp=imp)
+    sync_supplier_ledger(db, s.supplier_id)
+    assert ls.get_supplier_realtime_balance(db, s.supplier_id)["USD"].balance_fx == 0.0
+    req.status = "Rejected"
+    db.commit()
+    sync_supplier_ledger(db, s.supplier_id, "tester")
+    gone = db.query(SupplierLedgerEntry).filter_by(payment_id=req.payment_id).one()
+    assert (gone.is_active, gone.deleted_by) == (False, "tester")
+    assert [e.status for e in _active_entries(db, s)] == ["OPEN"]
+
+
+def test_statement_opening_balance_before_date_from(db):
+    s = _supplier(db)
+    imp = _file(db, s, [{"invoice_no": "CI-1", "amount": 10000.0, "currency": "USD", "exchange_rate": 50.0,
+                          "invoice_date": "2026-01-10"}], "IMP-LED-OB")
+    _paid(db, s, 3000.0, 153000.0, imp=imp, day=date(2026, 2, 10))
+    _paid(db, s, 2000.0, 104000.0, imp=imp, day=date(2026, 4, 10))
+    st = supplier_statement_service(db, s.supplier_id, "tester", currency="usd", date_from=date(2026, 3, 1))
+    usd = st.statements[0]
+    assert usd.opening_balance_fx == 7000.0
+    assert [(ln.amount_fx, ln.balance_fx) for ln in usd.lines] == [(2000.0, 5000.0)]
+    assert usd.closing_balance_fx == 5000.0
+
+
+def test_credit_limit_block_warn_and_admin_override(db):
+    s = _supplier(db, limit=20000.0, limit_ccy="USD", policy="BLOCK")
+    _file(db, s, [{"invoice_no": "CI-1", "amount": 15000.0, "currency": "USD", "exchange_rate": 50.0}], "IMP-LED-CL")
+
+    ok = enforce_supplier_credit_limit(db, s.supplier_id, 5000.0, "USD", context="PURCHASE_ORDER", reference="PO-1",
+                                       actor="clerk")
+    assert (ok.utilization_amount, ok.projected_amount, ok.decision) == (15000.0, 20000.0, "WITHIN_LIMIT")
+
+    with pytest.raises(HTTPException) as exc:
+        enforce_supplier_credit_limit(db, s.supplier_id, 6000.0, "USD", context="PURCHASE_ORDER", reference="PO-2",
+                                      actor="clerk")
+    assert exc.value.status_code == 409 and exc.value.detail["code"] == SUPPLIER_CREDIT_LIMIT_EXCEEDED
+    assert exc.value.detail["projected_amount"] == 21000.0
+
+    with pytest.raises(HTTPException) as exc:
+        enforce_supplier_credit_limit(db, s.supplier_id, 6000.0, "USD", context="PURCHASE_ORDER", reference="PO-2",
+                                      actor="clerk", override_reason="urgent")
+    assert exc.value.status_code == 403 and exc.value.detail["code"] == SUPPLIER_CREDIT_OVERRIDE_FORBIDDEN
+
+    # 6,000 EUR at 55 = 6,346.15 USD at 52 (cross through EGP).
+    res = enforce_supplier_credit_limit(db, s.supplier_id, 6000.0, "EUR", context="PURCHASE_ORDER", reference="PO-3",
+                                        actor="admin", actor_is_admin=True, override_reason="Strategic order")
+    db.commit()
+    assert (res.decision, res.requested_amount) == ("OVERRIDDEN", 6346.15)
+    ov = db.query(SupplierCreditOverride).one()
+    assert (ov.reference, ov.created_by, ov.reason, ov.limit_amount, ov.utilization_amount) == (
+        "PO-3", "admin", "Strategic order", 20000.0, 15000.0)
+    status_view = supplier_credit_status_service(db, s.supplier_id)
+    assert status_view.credit.utilization_pct == 75.0 and len(status_view.overrides) == 1
+
+    update_supplier_credit_limit(db, s.supplier_id, 20000.0, "USD", "warn", "admin")
+    warn = check_supplier_credit_limit(db, s.supplier_id, 9000.0, "USD")
+    assert (warn.decision, warn.allowed, warn.exceeded) == ("WARN", True, True)
+
+
+def test_credit_limit_settings_validation(db):
+    s = _supplier(db)
+    with pytest.raises(HTTPException) as exc:
+        update_supplier_credit_limit(db, s.supplier_id, 1000.0, "XYZ", "BLOCK", "admin")
+    assert exc.value.detail["code"] == SUPPLIER_CREDIT_LIMIT_INVALID
+    with pytest.raises(HTTPException):
+        update_supplier_credit_limit(db, s.supplier_id, 1000.0, "USD", "MAYBE", "admin")
+    with pytest.raises(HTTPException):
+        update_supplier_credit_limit(db, s.supplier_id, -1.0, "USD", "BLOCK", "admin")
+    updated = update_supplier_credit_limit(db, s.supplier_id, 1000.0, "eur", "block", "admin")
+    assert (updated.credit_limit, updated.credit_limit_currency, updated.credit_limit_policy) == (1000.0, "EUR", "BLOCK")
+
+
+def test_purchase_order_creation_is_governed_by_the_credit_limit(db):
+    from modules.import_companies.model import ImportCompany
+    from modules.incoterms.model import Incoterm
+    from modules.projects.model import Project
+    from modules.purchase_orders.schemas import POLineItemCreate, PurchaseOrderCreate
+    from modules.purchase_orders.service import PurchaseOrderService
+
+    s = _supplier(db, limit=10000.0, limit_ccy="USD")
+    company = ImportCompany(importer_name="Import Corp", address="Cairo", country="Egypt", importer_id="IMP-1",
+                            importer_id_expiry=date.today() + timedelta(days=120), vat_id="VAT-1",
+                            vat_id_expiry=date.today() + timedelta(days=90), registration_number="REG-1",
+                            registration_expiry=date.today() + timedelta(days=60), is_active=True)
+    inco = Incoterm(incoterm_code="FOB", incoterm_name="Free on Board", is_active=True)
+    db.add_all([company, inco])
+    db.flush()
+    project = Project(project_name="Alpha", project_code="PRJ-LED", project_owner="Eng", company_id=company.company_id,
+                      supplier_id=s.supplier_id, incoterm_id=inco.incoterm_id, is_active=True)
+    db.add(project)
+    db.commit()
+    usd = db.query(Currency).filter_by(currency_code="USD").one()
+    item = POLineItemCreate(item_code="X-1", description_ar="بند", quantity=100.0, unit_price=200.0)  # 20,000 USD
+
+    def _data(**extra):
+        return PurchaseOrderCreate(project_id=project.project_id, company_id=company.company_id,
+                                   supplier_id=s.supplier_id, incoterm_id=inco.incoterm_id,
+                                   currency_id=usd.currency_id, exchange_rate=50.0, items=[item], **extra)
+
+    with pytest.raises(HTTPException) as exc:
+        PurchaseOrderService(db).create(_data(), current_user_name="clerk")
+    assert exc.value.detail["code"] == SUPPLIER_CREDIT_LIMIT_EXCEEDED
+
+    po = PurchaseOrderService(db).create(_data(credit_limit_override_reason="Board approved"),
+                                         current_user_name="admin", actor_is_admin=True)
+    ov = db.query(SupplierCreditOverride).one()
+    assert (ov.context, ov.reference, ov.requested_amount) == ("PURCHASE_ORDER", po.po_number, 20000.0)

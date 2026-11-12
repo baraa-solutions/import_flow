@@ -1,3 +1,4 @@
+from datetime import date
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from modules.auth.router import get_current_user
@@ -5,7 +6,29 @@ from sqlalchemy.orm import Session
 
 from database.database import get_db
 from modules.common.pagination import Page, PageParams
-from .schemas import SupplierCreate, SupplierUpdate, SupplierResponse, SupplierScorecardResponse
+from modules.auth.permissions import require_permission
+from modules.users.model import User
+from .ledger_service import (
+    supplier_aging_report_service,
+    supplier_aging_service,
+    supplier_credit_check_service,
+    supplier_credit_status_service,
+    supplier_statement_service,
+    update_supplier_credit_limit,
+)
+from .schemas import (
+    SupplierAgingReportResponse,
+    SupplierAgingResponse,
+    SupplierCreate,
+    SupplierCreditCheckRequest,
+    SupplierCreditCheckResponse,
+    SupplierCreditLimitUpdate,
+    SupplierCreditStatusResponse,
+    SupplierResponse,
+    SupplierScorecardResponse,
+    SupplierStatementResponse,
+    SupplierUpdate,
+)
 from .service import (
     create_supplier_service,
     get_all_suppliers_service,
@@ -295,6 +318,90 @@ def export_suppliers_pdf(
     content = MasterDataExportImportHelper.export_to_pdf(title, headers, rows, lang=lang)
     filename = MasterDataExportImportHelper.standard_export_filename("Foreign_Suppliers", "pdf")
     return MasterDataExportImportHelper.as_pdf_response(filename, content)
+
+
+# ==================================================
+# Sub-Ledger, Aging & Credit Limit Governance (Trello GzFff0Pc)
+# ==================================================
+
+can_view_ledger = require_permission("trade_finance.view")
+can_manage_ledger = require_permission("trade_finance.manage")
+
+
+@supplier_router.get("/ledger/aging-report", response_model=SupplierAgingReportResponse)
+def get_vendor_aging_report(
+    as_of: Optional[date] = Query(None),
+    db: Session = Depends(get_db),
+    _user: User = Depends(can_view_ledger),
+):
+    """30/60/90 aging of every active supplier with an open foreign balance."""
+    return supplier_aging_report_service(db, as_of)
+
+
+@supplier_router.get("/{supplier_id}/ledger/statement", response_model=SupplierStatementResponse)
+def get_supplier_statement(
+    supplier_id: int,
+    currency: Optional[str] = Query(None, max_length=10),
+    date_from: Optional[date] = Query(None),
+    date_to: Optional[date] = Query(None),
+    db: Session = Depends(get_db),
+    user: User = Depends(can_view_ledger),
+):
+    """Statement of account per currency (sub-ledger refreshed from the sources on read)."""
+    return supplier_statement_service(db, supplier_id, user.username, currency, date_from, date_to)
+
+
+@supplier_router.post("/{supplier_id}/ledger/sync", response_model=SupplierStatementResponse)
+def sync_supplier_ledger_endpoint(
+    supplier_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(can_manage_ledger),
+):
+    return supplier_statement_service(db, supplier_id, user.username)
+
+
+@supplier_router.get("/{supplier_id}/ledger/aging", response_model=SupplierAgingResponse)
+def get_supplier_aging(
+    supplier_id: int,
+    as_of: Optional[date] = Query(None),
+    db: Session = Depends(get_db),
+    user: User = Depends(can_view_ledger),
+):
+    return supplier_aging_service(db, supplier_id, user.username, as_of)
+
+
+@supplier_router.get("/{supplier_id}/credit-limit", response_model=SupplierCreditStatusResponse)
+def get_supplier_credit_status(
+    supplier_id: int,
+    db: Session = Depends(get_db),
+    _user: User = Depends(can_view_ledger),
+):
+    """Credit limit, utilization, per-currency balances and the ADMIN override history."""
+    return supplier_credit_status_service(db, supplier_id)
+
+
+@supplier_router.post("/{supplier_id}/credit-limit/check", response_model=SupplierCreditCheckResponse)
+def check_supplier_credit_endpoint(
+    supplier_id: int,
+    payload: SupplierCreditCheckRequest,
+    db: Session = Depends(get_db),
+    _user: User = Depends(can_view_ledger),
+):
+    """Read-only what-if: would a new commitment of ``amount`` stay within the credit limit?"""
+    return supplier_credit_check_service(db, supplier_id, payload.amount, payload.currency)
+
+
+@supplier_router.put("/{supplier_id}/credit-limit", response_model=SupplierResponse)
+def update_supplier_credit_limit_endpoint(
+    supplier_id: int,
+    payload: SupplierCreditLimitUpdate,
+    db: Session = Depends(get_db),
+    user: User = Depends(can_manage_ledger),
+):
+    return update_supplier_credit_limit(
+        db, supplier_id, payload.credit_limit, payload.credit_limit_currency, payload.credit_limit_policy,
+        user.username,
+    )
 
 
 # ==================================================
