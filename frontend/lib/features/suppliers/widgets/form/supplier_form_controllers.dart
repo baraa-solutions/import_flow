@@ -39,6 +39,9 @@ class SupplierFormControllers {
   bool hasIso9001;
   final TextEditingController iso9001Ctrl;
 
+  /// Certificate expiry dates keyed by 'wipo', 'euipo', 'global_brand', 'iso_9001'.
+  final Map<String, DateTime?> expiries;
+
   SupplierFormControllers._({
     required this.nameCtrl,
     required this.selectedSupplierType,
@@ -71,6 +74,7 @@ class SupplierFormControllers {
     required this.globalBrandCtrl,
     required this.hasIso9001,
     required this.iso9001Ctrl,
+    required this.expiries,
   });
 
   factory SupplierFormControllers.fromSupplier(SupplierModel? s) {
@@ -106,6 +110,12 @@ class SupplierFormControllers {
       globalBrandCtrl: TextEditingController(text: s?.globalBrandNumber ?? ''),
       hasIso9001: s?.hasIso9001 ?? false,
       iso9001Ctrl: TextEditingController(text: s?.iso9001Number ?? ''),
+      expiries: {
+        'wipo': s?.wipoExpiry,
+        'euipo': s?.euipoExpiry,
+        'global_brand': s?.globalBrandExpiry,
+        'iso_9001': s?.iso9001Expiry,
+      },
     );
   }
 
@@ -182,6 +192,10 @@ class SupplierFormControllers {
       globalBrandNumber: hasGlobalBrand && globalBrandCtrl.text.trim().isNotEmpty ? globalBrandCtrl.text.trim() : null,
       hasIso9001: hasIso9001,
       iso9001Number: hasIso9001 && iso9001Ctrl.text.trim().isNotEmpty ? iso9001Ctrl.text.trim() : null,
+      wipoExpiry: hasWipo ? expiries['wipo'] : null,
+      euipoExpiry: hasEuipo ? expiries['euipo'] : null,
+      globalBrandExpiry: hasGlobalBrand ? expiries['global_brand'] : null,
+      iso9001Expiry: hasIso9001 ? expiries['iso_9001'] : null,
       brands: brandsCtrl.text.trim().isEmpty ? null : brandsCtrl.text.trim(),
       notes: notesCtrl.text.trim().isEmpty ? null : notesCtrl.text.trim(),
       isActive: supplierToEdit?.isActive ?? true,

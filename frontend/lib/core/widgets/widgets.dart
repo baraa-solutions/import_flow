@@ -8,6 +8,7 @@
 library;
 
 // ── Buttons & Action Controls ────────────────────────────────────────────────
+export 'certificate_expiry.dart';
 export 'buttons/app_button.dart';
 export 'buttons/buttons.dart';
 export 'buttons/icon_action_button.dart';

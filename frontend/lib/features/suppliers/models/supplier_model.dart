@@ -1,3 +1,4 @@
+import '../../../core/utils/certificate_expiry.dart';
 class SupplierModel {
   final int? supplierId;
   final String supplierCode;
@@ -41,6 +42,10 @@ class SupplierModel {
   final String? globalBrandNumber;
   final bool hasIso9001;
   final String? iso9001Number;
+  final DateTime? wipoExpiry;
+  final DateTime? euipoExpiry;
+  final DateTime? globalBrandExpiry;
+  final DateTime? iso9001Expiry;
 
   String get country => foreignExporterCountry;
 
@@ -87,6 +92,10 @@ class SupplierModel {
     this.globalBrandNumber,
     this.hasIso9001 = false,
     this.iso9001Number,
+    this.wipoExpiry,
+    this.euipoExpiry,
+    this.globalBrandExpiry,
+    this.iso9001Expiry,
   });
 
   factory SupplierModel.fromJson(Map<String, dynamic> json) {
@@ -144,8 +153,20 @@ class SupplierModel {
       globalBrandNumber: json['global_brand_number']?.toString(),
       hasIso9001: parseBool(json['has_iso_9001']),
       iso9001Number: json['iso_9001_number']?.toString(),
+      wipoExpiry: CertificateExpiry.parse(json['wipo_expiry']),
+      euipoExpiry: CertificateExpiry.parse(json['euipo_expiry']),
+      globalBrandExpiry: CertificateExpiry.parse(json['global_brand_expiry']),
+      iso9001Expiry: CertificateExpiry.parse(json['iso_9001_expiry']),
     );
   }
+
+  /// Soonest expiry among the certificates that are enabled (and the Nafeza token), for one table badge.
+  DateTime? get soonestCertificateExpiry => CertificateExpiry.soonest([
+        if (hasWipo) wipoExpiry,
+        if (hasEuipo) euipoExpiry,
+        if (hasGlobalBrand) globalBrandExpiry,
+        if (hasIso9001) iso9001Expiry,
+      ]);
 
   Map<String, dynamic> toJson() {
     return {
@@ -191,6 +212,10 @@ class SupplierModel {
       'global_brand_number': globalBrandNumber,
       'has_iso_9001': hasIso9001,
       'iso_9001_number': iso9001Number,
+      'wipo_expiry': CertificateExpiry.toJsonDate(wipoExpiry),
+      'euipo_expiry': CertificateExpiry.toJsonDate(euipoExpiry),
+      'global_brand_expiry': CertificateExpiry.toJsonDate(globalBrandExpiry),
+      'iso_9001_expiry': CertificateExpiry.toJsonDate(iso9001Expiry),
     };
   }
 }

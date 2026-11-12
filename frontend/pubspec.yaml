@@ -76,8 +76,13 @@ flutter:
   uses-material-design: true
 
   # Application assets
+  # Only the runtime PNGs are bundled; sorour_logo.svg (print master, 4.4 MB)
+  # and README.md stay in the repo but out of the installer.
   assets:
-    - assets/brand/
+    - assets/brand/sorour_logo_full.png
+    - assets/brand/sorour_logo_dark.png
+    - assets/brand/sorour_logo_icon.png
+    - assets/brand/sorour_logo_watermark.png
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images
