@@ -132,7 +132,6 @@ router = APIRouter(
     response_model=SmartUploadResponse,
     status_code=status.HTTP_200_OK,
     summary="Upload a document and extract fields (module_name passed in form data)",
-    dependencies=[Depends(require_permission("import_documentation.upload"))],
 )
 def upload_document_form(
     file: UploadFile = File(..., description="PDF, Word, or image file"),
@@ -161,7 +160,6 @@ def upload_document_form(
     response_model=SmartUploadResponse,
     status_code=status.HTTP_200_OK,
     summary="Upload a document with module in path",
-    dependencies=[Depends(require_permission("import_documentation.upload"))],
 )
 def upload_document_path(
     module: str,
@@ -190,7 +188,6 @@ def upload_document_path(
     response_model=SmartUploadResponse,
     status_code=status.HTTP_200_OK,
     summary="Upload a document and extract fields for a specific module",
-    dependencies=[Depends(require_permission("import_documentation.view"))],
 )
 def parse_document_for_module(
     module: str,
@@ -244,7 +241,6 @@ def parse_document_for_module(
     response_model=SmartUploadResponse,
     status_code=status.HTTP_200_OK,
     summary="Upload multiple documents (e.g., Commercial Invoice + Packing List) and merge extracted fields",
-    dependencies=[Depends(require_permission("import_documentation.view"))],
 )
 def parse_multiple_documents_for_module(
     module: str,
@@ -285,7 +281,6 @@ def parse_multiple_documents_for_module(
     response_model=SmartUploadResponse,
     status_code=status.HTTP_200_OK,
     summary="Parse raw text directly to extract structured entity or document fields",
-    dependencies=[Depends(require_permission("import_documentation.view"))],
 )
 def parse_text_for_module(
     module: str,

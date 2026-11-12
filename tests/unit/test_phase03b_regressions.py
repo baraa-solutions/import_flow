@@ -344,7 +344,10 @@ def test_final_session_failure_before_lifecycle_rolls_back(db, imp, customs_offi
     def fail_tracking(*args, **kwargs):
         raise RuntimeError("simulated set_file_tracking failure")
 
+    # The final save moves the file through advance_tracking_or_hold (payment pathway gate, #220),
+    # which wraps set_file_tracking: fail there to simulate the tracking write failing before commit.
     monkeypatch.setattr(dca_service, "set_file_tracking", fail_tracking)
+    monkeypatch.setattr(dca_service, "advance_tracking_or_hold", fail_tracking)
 
 
     with pytest.raises(RuntimeError, match="simulated set_file_tracking failure"):
