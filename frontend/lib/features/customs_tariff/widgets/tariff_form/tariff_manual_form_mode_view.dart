@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../../../../core/localization/app_localizations.dart';
@@ -19,6 +20,12 @@ class TariffManualFormModeView extends StatelessWidget {
   final TextEditingController authCtrl;
   final TextEditingController priorApprovalCtrl;
   final TextEditingController notesCtrl;
+  /// Decree validity window as yyyy-MM-dd text (effective_from required, effective_to optional).
+  final TextEditingController effectiveFromCtrl;
+  final TextEditingController effectiveToCtrl;
+  /// True while an edit changes a rate/requirement: Effective From then shows that a new version
+  /// starts on that date (the backend closes the current one the day before).
+  final ValueListenable<bool>? rateChangeNotice;
   final bool isNewTariff;
   final bool requiresAcid;
   final bool requiresCoo;
@@ -42,6 +49,9 @@ class TariffManualFormModeView extends StatelessWidget {
     required this.authCtrl,
     required this.priorApprovalCtrl,
     required this.notesCtrl,
+    required this.effectiveFromCtrl,
+    required this.effectiveToCtrl,
+    this.rateChangeNotice,
     required this.isNewTariff,
     required this.requiresAcid,
     required this.requiresCoo,
@@ -51,6 +61,55 @@ class TariffManualFormModeView extends StatelessWidget {
     required this.onRequiresInspectionChanged,
     required this.onCategoryChanged,
   });
+
+  static Future<void> _pickDate(BuildContext context, TextEditingController ctrl) async {
+    final current = DateTime.tryParse(ctrl.text.trim());
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: current ?? DateTime.now(),
+      firstDate: DateTime(2000),
+      lastDate: DateTime(2100),
+    );
+    if (picked != null) ctrl.text = picked.toIso8601String().split('T').first;
+  }
+
+  Widget _dateField(BuildContext context, TextEditingController ctrl, String label,
+      {required String? Function(String?) validator, bool clearable = false, String? helperText}) {
+    return TextFormField(
+      controller: ctrl,
+      readOnly: true,
+      textDirection: TextDirection.ltr,
+      decoration: InputDecoration(
+        labelText: label,
+        hintText: 'YYYY-MM-DD',
+        helperText: helperText,
+        helperMaxLines: 2,
+        helperStyle: helperText == null ? null : const TextStyle(color: AppTheme.orange),
+        prefixIcon: const Icon(Icons.event, size: 18),
+        suffixIcon: clearable
+            ? IconButton(icon: const Icon(Icons.clear, size: 16), onPressed: () => ctrl.clear())
+            : null,
+      ),
+      onTap: () => _pickDate(context, ctrl),
+      validator: validator,
+    );
+  }
+
+  Widget _effectiveFromField(BuildContext context, AppLocalizations l10n) {
+    Widget field(bool rateChanged) => _dateField(
+          context,
+          effectiveFromCtrl,
+          '${l10n.tariffEffectiveFromLabel} *',
+          helperText: rateChanged ? l10n.tariffRateChangeNewVersionHint : null,
+          validator: (v) => DateTime.tryParse(v?.trim() ?? '') == null ? l10n.fieldRequired : null,
+        );
+    final notice = rateChangeNotice;
+    if (notice == null) return field(false);
+    return ValueListenableBuilder<bool>(
+      valueListenable: notice,
+      builder: (context, rateChanged, _) => field(rateChanged),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -270,6 +329,31 @@ class TariffManualFormModeView extends StatelessWidget {
                 ),
               ),
               maxLines: 2,
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(
+                  child: _effectiveFromField(context, l10n),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _dateField(
+                    context,
+                    effectiveToCtrl,
+                    l10n.tariffEffectiveToLabel,
+                    clearable: true,
+                    validator: (v) {
+                      final to = DateTime.tryParse(v?.trim() ?? '');
+                      final from = DateTime.tryParse(effectiveFromCtrl.text.trim());
+                      if (to != null && from != null && !to.isAfter(from)) {
+                        return l10n.tariffEffectiveToAfterFromError;
+                      }
+                      return null;
+                    },
+                  ),
+                ),
+              ],
             ),
             const SizedBox(height: 8),
             TextFormField(

@@ -3,6 +3,12 @@ import uuid
 from datetime import datetime, timezone
 from typing import Dict, Any, List, Optional
 from .pki_signer import PKISignerService
+from .integration_mode import (
+    IntegrationProvider,
+    ensure_mode_allowed,
+    select_integration_mode,
+    simulation_flags,
+)
 
 
 class CargoXIntegrationClient:
@@ -11,10 +17,12 @@ class CargoXIntegrationClient:
     Handles Envelope Creation, Document Attestation, B/L Transfer, and Customs Dispatch.
     """
 
-    def __init__(self, mode: str = "MOCK", api_token: Optional[str] = None):
-        self.mode = mode.upper()  # MOCK, STAGING, PRODUCTION
-        self.api_token = api_token or os.getenv("CARGOX_API_TOKEN", "CARGOX_DEMO_TOKEN_2026")
-        self.signer = PKISignerService(mode=self.mode)
+    def __init__(self, mode: Optional[str] = None, api_token: Optional[str] = None):
+        # Mode comes from settings (CARGOX_INTEGRATION_MODE); ``mode`` is an override for code/tests only.
+        self.integration_mode = select_integration_mode(IntegrationProvider.CARGOX, mode)
+        self.mode = self.integration_mode.value
+        self.api_token = api_token or os.getenv("CARGOX_API_TOKEN")
+        self.signer = PKISignerService(mode=mode)
 
     def create_envelope(
         self,
@@ -24,8 +32,9 @@ class CargoXIntegrationClient:
         document_types: List[str],
     ) -> Dict[str, Any]:
         """
-        Creates a new CargoX Blockchain Envelope for document transfer.
+        Creates a new CargoX Blockchain Envelope for document transfer (simulated in MOCK mode).
         """
+        ensure_mode_allowed(IntegrationProvider.CARGOX, self.integration_mode)
         envelope_id = f"CGX-ENV-{uuid.uuid4().hex[:10].upper()}"
         payload = {
             "envelope_id": envelope_id,
@@ -45,7 +54,8 @@ class CargoXIntegrationClient:
             "blockchain_tx_hash": f"0x{uuid.uuid4().hex}{uuid.uuid4().hex[:16]}",
             "pki_signature": pki_sig,
             "mode": self.mode,
-            "message": "CargoX Envelope created. Ready for foreign supplier document upload.",
+            **simulation_flags(self.integration_mode),
+            "message": "SIMULATED CargoX envelope - nothing was sent to CargoX.",
         }
 
     def transfer_envelope_to_customs(
@@ -54,13 +64,15 @@ class CargoXIntegrationClient:
         bl_number: str,
     ) -> Dict[str, Any]:
         """
-        Transfers CargoX Envelope to Egyptian Customs System (Nafeza).
+        Transfers CargoX Envelope to Egyptian Customs System (Nafeza) (simulated in MOCK mode).
         """
+        ensure_mode_allowed(IntegrationProvider.CARGOX, self.integration_mode)
         return {
             "status": "TRANSFERRED_TO_EGYPTIAN_CUSTOMS",
             "envelope_id": envelope_id,
             "bl_number": bl_number,
             "transferred_at": datetime.now(timezone.utc).isoformat(),
             "confirmation_receipt": f"CGX-REC-{uuid.uuid4().hex[:8].upper()}",
-            "message": "CargoX Envelope & Bill of Lading successfully transferred to Egyptian Customs.",
+            **simulation_flags(self.integration_mode),
+            "message": "SIMULATED transfer - nothing was sent to CargoX or Egyptian Customs.",
         }

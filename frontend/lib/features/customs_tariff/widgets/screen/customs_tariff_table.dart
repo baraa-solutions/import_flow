@@ -60,6 +60,33 @@ class CustomsTariffTable extends StatelessWidget {
     );
   }
 
+  static String _formatDate(DateTime d) =>
+      '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
+
+  /// Validity window badge: in force since / expired on / starts on.
+  static Widget validityBadge(AppLocalizations l10n, CustomsTariffModel tariff, [DateTime? today]) {
+    switch (tariff.validityOn(today)) {
+      case TariffValidity.upcoming:
+        return AppStatusBadge(
+          label: l10n.tariffStartsOn(_formatDate(tariff.effectiveFrom)),
+          severity: AppSeverity.warning,
+          size: AppStatusBadgeSize.small,
+        );
+      case TariffValidity.expired:
+        return AppStatusBadge(
+          label: l10n.tariffExpiredOn(_formatDate(tariff.effectiveTo!)),
+          severity: AppSeverity.danger,
+          size: AppStatusBadgeSize.small,
+        );
+      case TariffValidity.active:
+        return AppStatusBadge(
+          label: l10n.tariffValidSince(_formatDate(tariff.effectiveFrom)),
+          severity: AppSeverity.success,
+          size: AppStatusBadgeSize.small,
+        );
+    }
+  }
+
   static Widget _reqIcon(String label, bool active) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
@@ -110,7 +137,7 @@ class CustomsTariffTable extends StatelessWidget {
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        final tableWidth = constraints.maxWidth < 1180 ? 1180.0 : constraints.maxWidth;
+        final tableWidth = constraints.maxWidth < 1260 ? 1260.0 : constraints.maxWidth;
 
         return Container(
           width: double.infinity,
@@ -143,7 +170,7 @@ class CustomsTariffTable extends StatelessWidget {
                       3: FixedColumnWidth(140),
                       4: FixedColumnWidth(180),
                       5: FixedColumnWidth(140),
-                      6: FixedColumnWidth(90),
+                      6: FixedColumnWidth(170),
                     },
                     children: [
                       // Header Row
@@ -354,10 +381,18 @@ class CustomsTariffTable extends StatelessWidget {
                             _cell(
                               value: tariff.isActive ? l10n.statusActive : l10n.statusInactive,
                               rowSummary: rowSummary,
-                              child: AppStatusBadge(
-                                label: tariff.isActive ? l10n.statusActive : l10n.statusInactive,
-                                severity: tariff.isActive ? AppSeverity.success : AppSeverity.danger,
-                                size: AppStatusBadgeSize.small,
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  AppStatusBadge(
+                                    label: tariff.isActive ? l10n.statusActive : l10n.statusInactive,
+                                    severity: tariff.isActive ? AppSeverity.success : AppSeverity.danger,
+                                    size: AppStatusBadgeSize.small,
+                                  ),
+                                  const SizedBox(height: 4),
+                                  validityBadge(l10n, tariff),
+                                ],
                               ),
                             ),
                           ],

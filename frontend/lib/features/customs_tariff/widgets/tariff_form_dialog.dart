@@ -40,11 +40,69 @@ void showTariffDialog(BuildContext context, WidgetRef ref,
   final priorApprovalCtrl =
       TextEditingController(text: tariff?.priorApprovalNote ?? '');
   final notesCtrl = TextEditingController(text: tariff?.notes ?? '');
+  String isoDate(DateTime? d) => d == null ? '' : d.toIso8601String().split('T').first;
+  final effectiveFromCtrl = TextEditingController(text: isoDate(tariff?.effectiveFrom ?? DateTime.now()));
+  final effectiveToCtrl = TextEditingController(text: isoDate(tariff?.effectiveTo));
   final rawTextCtrl = TextEditingController();
 
   bool requiresCoo = tariff?.requiresCoo ?? false;
   bool requiresInspection = tariff?.requiresInspection ?? false;
   bool requiresAcid = tariff?.requiresAcid ?? true;
+
+  // Validity window as loaded, so an edit sends only the dates the user actually changed.
+  final originalFrom = isoDate(tariff?.effectiveFrom);
+  final originalTo = isoDate(tariff?.effectiveTo);
+  final rateChangeNotice = ValueNotifier<bool>(false);
+  bool effectiveFromDefaultedToToday = false;
+
+  bool rateOrRequirementChanged() {
+    final t = tariff;
+    if (t == null) return false;
+    bool rateDiffers(TextEditingController ctrl, double stored) {
+      final value = double.tryParse(ctrl.text.trim());
+      return value != null && (value - stored).abs() > 1e-9;
+    }
+
+    String text(String? value) => (value ?? '').trim();
+    return rateDiffers(dutyCtrl, t.customsDutyRate) ||
+        rateDiffers(vatCtrl, t.vatRate) ||
+        rateDiffers(schedCtrl, t.scheduleTaxRate) ||
+        rateDiffers(devCtrl, t.developmentFeeRate) ||
+        rateDiffers(importFeeCtrl, t.importFeeRate) ||
+        requiresCoo != t.requiresCoo ||
+        requiresInspection != t.requiresInspection ||
+        requiresAcid != t.requiresAcid ||
+        text(authCtrl.text) != text(t.regulatoryAuthority) ||
+        text(priorApprovalCtrl.text) != text(t.priorApprovalNote);
+  }
+
+  // A rate change on an in-force version starts a new version: default Effective From to today
+  // (and put the original back if the change is undone), and show the hint on the field.
+  void syncEffectiveFromWithRateChange() {
+    if (tariff == null) return;
+    final changed = rateOrRequirementChanged();
+    final now = DateTime.now();
+    final todayIso = isoDate(now);
+    if (shouldDefaultEffectiveFromToToday(
+      rateChanged: changed,
+      currentFrom: effectiveFromCtrl.text,
+      originalFrom: originalFrom,
+      today: now,
+    )) {
+      effectiveFromCtrl.text = todayIso;
+      effectiveFromDefaultedToToday = true;
+    } else if (!changed && effectiveFromDefaultedToToday && effectiveFromCtrl.text.trim() == todayIso) {
+      effectiveFromCtrl.text = originalFrom;
+      effectiveFromDefaultedToToday = false;
+    }
+    rateChangeNotice.value = changed;
+  }
+
+  if (tariff != null) {
+    for (final ctrl in [dutyCtrl, vatCtrl, schedCtrl, devCtrl, importFeeCtrl, authCtrl, priorApprovalCtrl]) {
+      ctrl.addListener(syncEffectiveFromWithRateChange);
+    }
+  }
 
   int activeModeIndex = tariff != null ? 1 : initialModeIndex;
   final formKey = GlobalKey<FormState>();
@@ -172,13 +230,25 @@ void showTariffDialog(BuildContext context, WidgetRef ref,
                             authCtrl: authCtrl,
                             priorApprovalCtrl: priorApprovalCtrl,
                             notesCtrl: notesCtrl,
+                            effectiveFromCtrl: effectiveFromCtrl,
+                            effectiveToCtrl: effectiveToCtrl,
+                            rateChangeNotice: rateChangeNotice,
                             isNewTariff: tariff == null,
                             requiresAcid: requiresAcid,
                             requiresCoo: requiresCoo,
                             requiresInspection: requiresInspection,
-                            onRequiresAcidChanged: (val) => setDialogState(() => requiresAcid = val),
-                            onRequiresCooChanged: (val) => setDialogState(() => requiresCoo = val),
-                            onRequiresInspectionChanged: (val) => setDialogState(() => requiresInspection = val),
+                            onRequiresAcidChanged: (val) => setDialogState(() {
+                              requiresAcid = val;
+                              syncEffectiveFromWithRateChange();
+                            }),
+                            onRequiresCooChanged: (val) => setDialogState(() {
+                              requiresCoo = val;
+                              syncEffectiveFromWithRateChange();
+                            }),
+                            onRequiresInspectionChanged: (val) => setDialogState(() {
+                              requiresInspection = val;
+                              syncEffectiveFromWithRateChange();
+                            }),
                             onCategoryChanged: (v) => setDialogState(() => catCtrl.text = v ?? ''),
                           ),
                   ),
@@ -288,6 +358,12 @@ void showTariffDialog(BuildContext context, WidgetRef ref,
                             'regulatory_authority': authCtrl.text.trim().isEmpty ? null : authCtrl.text.trim(),
                             'prior_approval_note': priorApprovalCtrl.text.trim().isEmpty ? null : priorApprovalCtrl.text.trim(),
                             'notes': notesCtrl.text.trim().isEmpty ? null : notesCtrl.text.trim(),
+                            ...tariffValidityPayload(
+                              from: effectiveFromCtrl.text,
+                              to: effectiveToCtrl.text,
+                              originalFrom: tariff == null ? null : originalFrom,
+                              originalTo: tariff == null ? null : originalTo,
+                            ),
                           };
 
                           if (tariff == null) {
@@ -395,6 +471,9 @@ void showTariffDialog(BuildContext context, WidgetRef ref,
     authCtrl.dispose();
     priorApprovalCtrl.dispose();
     notesCtrl.dispose();
+    effectiveFromCtrl.dispose();
+    effectiveToCtrl.dispose();
     rawTextCtrl.dispose();
+    rateChangeNotice.dispose();
   });
 }

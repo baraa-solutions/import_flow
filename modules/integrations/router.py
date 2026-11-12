@@ -17,7 +17,11 @@ from .schemas import (
     GOEICComplianceCheckRequest,
     GOEICComplianceCheckResponse,
     AccreditedInspectionBody,
+    IntegrationProviderStatus,
+    IntegrationStatusResponse,
 )
+from .integration_mode import integration_status_report
+from utils.db_safety import is_frozen_build
 from .nafeza_client import NafezaIntegrationClient
 from .cargox_client import CargoXIntegrationClient
 from .pki_signer import PKISignerService
@@ -26,9 +30,23 @@ from .goeic_client import GOEICIntegrationClient
 router = APIRouter(prefix="/api/v1/integrations", tags=["Nafeza, CargoX, GOEIC & Customs Integrations"], dependencies=[Depends(get_current_user)])
 
 
+# The integration mode is read from server settings (Production Mock Guard, NLv0Dpj5); the deprecated
+# ``mode`` field of the request bodies is ignored so a client can never pick the mode itself.
+
+@router.get("/status", response_model=IntegrationStatusResponse)
+def get_integration_status():
+    """Per-provider integration mode for the Flutter Integration Status panel and simulation badges."""
+    providers = [IntegrationProviderStatus(**vars(item)) for item in integration_status_report()]
+    return IntegrationStatusResponse(
+        is_production_build=is_frozen_build(),
+        any_simulated=any(p.is_simulated for p in providers),
+        providers=providers,
+    )
+
+
 @router.post("/nafeza/request-acid", dependencies=[Depends(require_permission("cargox_nafeza.manage"))])
 def request_acid_from_nafeza(request: ACIDLiveRequest):
-    client = NafezaIntegrationClient(mode=request.mode)
+    client = NafezaIntegrationClient()
     return client.request_acid_number(
         importer_id=request.importer_id,
         exporter_id=request.exporter_id,
@@ -40,7 +58,7 @@ def request_acid_from_nafeza(request: ACIDLiveRequest):
 
 @router.post("/cargox/create-envelope", dependencies=[Depends(require_permission("cargox_nafeza.manage"))])
 def create_cargox_envelope(request: CargoXEnvelopeLiveRequest):
-    client = CargoXIntegrationClient(mode=request.mode)
+    client = CargoXIntegrationClient()
     return client.create_envelope(
         acid_number=request.acid_number,
         importer_company_code=request.importer_company_code,
@@ -51,7 +69,7 @@ def create_cargox_envelope(request: CargoXEnvelopeLiveRequest):
 
 @router.post("/cargox/transfer-envelope", dependencies=[Depends(require_permission("cargox_nafeza.manage"))])
 def transfer_cargox_envelope(request: CargoXTransferLiveRequest):
-    client = CargoXIntegrationClient(mode=request.mode)
+    client = CargoXIntegrationClient()
     return client.transfer_envelope_to_customs(
         envelope_id=request.envelope_id,
         bl_number=request.bl_number,
@@ -60,7 +78,7 @@ def transfer_cargox_envelope(request: CargoXTransferLiveRequest):
 
 @router.post("/pki/sign-payload", dependencies=[Depends(require_admin)])
 def sign_payload_with_pki(request: PKISignPayloadRequest):
-    signer = PKISignerService(mode=request.mode)
+    signer = PKISignerService()
     return signer.sign_payload(request.payload_data)
 
 
@@ -78,7 +96,7 @@ def parse_and_sync_nafeza_tariff(
     يستقبل النص المنسوخ من موقع نافذة ويستخرج البند، الوصف، الضرائب والرسوم،
     والاتفاقيات التفضيلية والتخفيضات ويقوم بحفظها وتحديثها في قاعدة البيانات.
     """
-    client = NafezaIntegrationClient(mode=request.mode)
+    client = NafezaIntegrationClient()
     return client.parse_and_sync_tariff(db, request.raw_text)
 
 

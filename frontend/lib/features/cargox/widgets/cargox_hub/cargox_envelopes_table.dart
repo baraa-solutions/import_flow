@@ -8,6 +8,7 @@ import '../../../../core/widgets/copyable_data_helper.dart';
 import '../../../import_files/models/import_file_model.dart';
 import '../../models/cargox_model.dart';
 import 'cargox_hub_helpers.dart';
+import '../../../integrations/widgets/simulation_mode_banner.dart';
 
 /// Envelopes tracking table and card list component.
 class CargoXEnvelopesTable extends StatelessWidget {
@@ -159,6 +160,10 @@ class CargoXEnvelopesTable extends StatelessWidget {
                       onPressed: () => _copyEnvelopeDossier(context, env, isAr),
                     ),
                     const SizedBox(width: 4),
+                    if (env.isSimulated) ...[
+                      const SimulatedBadge(),
+                      const SizedBox(width: 4),
+                    ],
                     AppStatusBadge(
                       label: switch (env.status) {
                         'ACCEPTED_BY_CUSTOMS' => context.l10n.cargoxFilterAccepted,

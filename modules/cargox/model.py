@@ -55,6 +55,9 @@ class CargoXEnvelope(Base):
 
     blockchain_tx_hash: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
     pki_signature: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    # Production Mock Guard (NLv0Dpj5): mode of the integration call that produced the tx hash / seal.
+    # 'MOCK' = simulated, never counted as officially submitted. NULL = no integration call was made.
+    integration_mode: Mapped[Optional[str]] = mapped_column(String(16), nullable=True, index=True)
 
     is_acid_verified: Mapped[bool] = mapped_column(Boolean, default=False)
     all_documents_sealed: Mapped[bool] = mapped_column(Boolean, default=False)
