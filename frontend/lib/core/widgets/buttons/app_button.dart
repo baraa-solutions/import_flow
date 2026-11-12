@@ -144,28 +144,28 @@ class AppButton extends StatelessWidget {
     switch (variant) {
       case AppButtonVariant.primary:
         return const _ButtonStyle(
-          bg: AppTheme.cobalt,
+          bg: AppTheme.wcagCobalt,
           fg: Colors.white,
           border: null,
           spinnerColor: Colors.white,
         );
       case AppButtonVariant.success:
         return const _ButtonStyle(
-          bg: AppTheme.emerald,
+          bg: AppTheme.wcagEmerald,
           fg: Colors.white,
           border: null,
           spinnerColor: Colors.white,
         );
       case AppButtonVariant.danger:
         return const _ButtonStyle(
-          bg: AppTheme.crimson,
+          bg: AppTheme.wcagCrimson,
           fg: Colors.white,
           border: null,
           spinnerColor: Colors.white,
         );
       case AppButtonVariant.warning:
         return const _ButtonStyle(
-          bg: AppTheme.orange,
+          bg: AppTheme.wcagOrange,
           fg: Colors.white,
           border: null,
           spinnerColor: Colors.white,
@@ -188,7 +188,9 @@ class AppButton extends StatelessWidget {
         );
       case AppButtonVariant.saveDraft:
         return _ButtonStyle(
-          bg: dark ? AppTheme.cobaltMedium : AppTheme.infoBackground,
+          // Opaque info tint in dark mode: the translucent cobaltMedium let
+          // dialog surfaces bleed through (4.2:1 on darkElevatedSurface).
+          bg: AppTheme.severityBackground(AppSeverity.info, dark: dark),
           fg: dark ? AppTheme.darkHyperlink : AppTheme.wcagCobalt,
           border: const BorderSide(color: AppTheme.cobaltBorder),
           spinnerColor: AppTheme.cobalt,

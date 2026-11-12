@@ -10,6 +10,7 @@ import '../theme/app_theme.dart';
 import 'buttons/app_button.dart';
 import 'app_status_badge.dart';
 import 'custom_text_field.dart';
+import '../utils/app_format.dart';
 
 /// Unified Notes & Attachments Card for all screens and shipment stages.
 ///
@@ -240,14 +241,7 @@ class _StageNotesCardState extends ConsumerState<StageNotesCard> {
     }
   }
 
-  String _formatDateTime(DateTime dt) {
-    final y = dt.year.toString().padLeft(4, '0');
-    final m = dt.month.toString().padLeft(2, '0');
-    final d = dt.day.toString().padLeft(2, '0');
-    final h = dt.hour.toString().padLeft(2, '0');
-    final min = dt.minute.toString().padLeft(2, '0');
-    return '$y-$m-$d $h:$min';
-  }
+  String _formatDateTime(DateTime dt) => AppFormat.dateTime(dt);
 
   @override
   Widget build(BuildContext context) {
