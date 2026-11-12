@@ -15,11 +15,19 @@ abstract final class AppFormat {
   /// Placeholder rendered for missing values.
   static const String empty = '-';
 
-  /// Grouped number rounded to [decimals] places (half away from zero).
+  /// Grouped number rounded to [decimals] places, half away from zero on the
+  /// scaled value (`value.abs() * 10^decimals`).
+  ///
+  /// Intended differences from `toStringAsFixed` (which rounds the exact binary
+  /// value): decimal ties typed by users round away from zero when the scaled
+  /// double lands on .5 (e.g. `2.345` -> `2.35`), and a value that rounds to
+  /// zero never shows a minus sign (`-0.001` -> `0.00`, not `-0.00`).
   ///
   /// With [trimZeros] trailing fractional zeros are dropped
   /// (`1,234.50` -> `1,234.5`, `1,000.00` -> `1,000`).
   /// Non-finite values (NaN / Infinity) are returned via `toString()`.
+  /// Magnitudes beyond exact integer precision (`abs * 10^decimals > 2^53`)
+  /// fall back to `toStringAsFixed` so they never saturate at int64.
   static String number(
     num? value, {
     int decimals = 2,
@@ -31,18 +39,30 @@ abstract final class AppFormat {
     if (!value.isFinite) return value.toString();
 
     final int scale = _pow10(decimals);
-    final int scaled = (value.abs() * scale).round();
-    final int whole = scaled ~/ scale;
-    final int fraction = scaled % scale;
-
-    final String grouped = _groupThousands(whole.toString());
-    String text = grouped;
-    if (decimals > 0) {
-      String frac = fraction.toString().padLeft(decimals, '0');
-      if (trimZeros) frac = frac.replaceFirst(RegExp(r'0+$'), '');
-      if (frac.isNotEmpty) text = '$grouped.$frac';
+    final double scaledAbs = value.abs().toDouble() * scale;
+    final String wholeDigits;
+    String frac;
+    final bool isZero;
+    if (scaledAbs > _maxExactInt) {
+      final String fixed = value.abs().toStringAsFixed(decimals);
+      // >= 1e21 is rendered in exponent form; nothing sensible to group.
+      if (fixed.contains('e')) return value.toString();
+      final List<String> parts = fixed.split('.');
+      wholeDigits = parts[0];
+      frac = parts.length > 1 ? parts[1] : '';
+      isZero = false;
+    } else {
+      final int scaled = scaledAbs.round();
+      wholeDigits = (scaled ~/ scale).toString();
+      frac = decimals > 0 ? (scaled % scale).toString().padLeft(decimals, '0') : '';
+      isZero = scaled == 0;
     }
-    final bool negative = value < 0 && scaled != 0;
+
+    final String grouped = _groupThousands(wholeDigits);
+    String text = grouped;
+    if (trimZeros) frac = frac.replaceFirst(RegExp(r'0+$'), '');
+    if (frac.isNotEmpty) text = '$grouped.$frac';
+    final bool negative = value < 0 && !isZero;
     return negative ? '-$text' : text;
   }
 
@@ -100,6 +120,9 @@ abstract final class AppFormat {
   }
 
   // ── internals ────────────────────────────────────────────────────────────
+
+  /// 2^53: largest magnitude where every integer is exactly representable.
+  static const double _maxExactInt = 9007199254740992.0;
 
   static String _rawOrFallback(Object? value, String fallback) {
     if (value == null) return fallback;

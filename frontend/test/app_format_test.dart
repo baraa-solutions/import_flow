@@ -38,6 +38,18 @@ void main() {
       expect(AppFormat.number(double.infinity), 'Infinity');
     });
 
+    test('huge magnitudes fall back to toStringAsFixed instead of saturating', () {
+      // 1e20 * 100 exceeds 2^53 (and int64); must not clamp to 92,233,720,...
+      expect(AppFormat.number(1e20), '100,000,000,000,000,000,000.00');
+      expect(AppFormat.number(-1e20), '-100,000,000,000,000,000,000.00');
+      expect(AppFormat.number(1e20, trimZeros: true), '100,000,000,000,000,000,000');
+      expect(AppFormat.integer(1e20), '100,000,000,000,000,000,000');
+      // >= 1e21 has no fixed-point form: raw toString().
+      expect(AppFormat.number(1e300), 1e300.toString());
+      // Just below the threshold keeps the exact integer path.
+      expect(AppFormat.number(12345678901234.5), '12,345,678,901,234.50');
+    });
+
     test('integer()', () {
       expect(AppFormat.integer(12500), '12,500');
       expect(AppFormat.integer(12500.6), '12,501');
@@ -92,7 +104,7 @@ void main() {
     });
   });
 
-  group('Legacy helpers delegate to AppFormat (behaviour preserved)', () {
+  group('Legacy helpers delegate to AppFormat (same output for normal values)', () {
     test('MasterDataExportService.formatDateSafe', () {
       expect(MasterDataExportService.formatDateSafe(DateTime(2026, 1, 9)), '2026-01-09');
       expect(MasterDataExportService.formatDateSafe('2026-01-09T08:00:00'), '2026-01-09');
@@ -104,6 +116,15 @@ void main() {
       expect(SystemMessageRenderer.formatNumber(1234567.5), '1,234,567.5');
       expect(SystemMessageRenderer.formatNumber(12.345), '12.35');
       expect(SystemMessageRenderer.formatNumber(-1000), '-1,000');
+    });
+
+    test('intended differences vs the old toStringAsFixed partner formatter', () {
+      // Half-cent tie as typed: away from zero (old: -1,999.99 from the binary value).
+      expect((-1999.995).toStringAsFixed(2), '-1999.99');
+      expect(PartnerStatementOfAccountDialog.formatNumber(-1999.995), '-2,000.00');
+      // Values that round to zero never show a minus sign (old: -0.00).
+      expect((-0.001).toStringAsFixed(2), '-0.00');
+      expect(PartnerStatementOfAccountDialog.formatNumber(-0.001), '0.00');
     });
 
     test('PartnerStatementOfAccountDialog.formatNumber', () {

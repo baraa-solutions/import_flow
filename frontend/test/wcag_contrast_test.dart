@@ -63,10 +63,10 @@ void main() {
     for (final entry in _lightSurfaces.entries) {
       test('text tokens on ${entry.key}', () {
         expectAA(AppTheme.textPrimary, entry.value, 'textPrimary');
-        expectAA(AppTheme.textSecondary, entry.value, 'textSecondary');
+        expectAA(AppTheme.textSecondaryLight, entry.value, 'textSecondaryLight');
         expectAA(AppTheme.textStrong, entry.value, 'textStrong');
-        expectAA(AppTheme.textCaption, entry.value, 'textCaption');
-        expectAA(AppTheme.textMuted, entry.value, 'textMuted');
+        expectAA(AppTheme.textCaptionLight, entry.value, 'textCaptionLight');
+        expectAA(AppTheme.textMutedLight, entry.value, 'textMutedLight');
         expectAA(AppTheme.wcagCobalt, entry.value, 'wcagCobalt text');
         expectAA(AppTheme.wcagEmerald, entry.value, 'wcagEmerald text');
         expectAA(AppTheme.wcagOrange, entry.value, 'wcagOrange text');
@@ -75,7 +75,35 @@ void main() {
     }
 
     test('hintColor is a separate, placeholder-only token', () {
-      expect(AppTheme.hintColor, isNot(equals(AppTheme.textMuted)));
+      expect(AppTheme.hintColor, isNot(equals(AppTheme.textMutedLight)));
+    });
+  });
+
+  group('Legacy raw text tokens are unchanged (no dark-mode regression)', () {
+    // ~440 call sites use these raw, often without dark awareness. They must
+    // keep their original values until migrated to the ...Of(context) helpers.
+    test('values equal the pre-hardening tokens', () {
+      expect(AppTheme.textMuted, const Color(0xFF9E9E9E));
+      expect(AppTheme.textSecondary, const Color(0xFF757575));
+      expect(AppTheme.textCaption, const Color(0xFF64748B));
+    });
+
+    test('raw legacy tokens read better on dark surfaces than the light-only ones', () {
+      final pairs = {
+        AppTheme.textMuted: AppTheme.textMutedLight,
+        AppTheme.textSecondary: AppTheme.textSecondaryLight,
+        AppTheme.textCaption: AppTheme.textCaptionLight,
+      };
+      for (final s in _darkSurfaces.entries) {
+        pairs.forEach((legacy, lightOnly) {
+          expect(contrastRatio(legacy, s.value),
+              greaterThan(contrastRatio(lightOnly, s.value)),
+              reason: '${_hex(legacy)} vs ${_hex(lightOnly)} on dark ${s.key}');
+        });
+      }
+      // The audit figure for the most-used token: textMuted on darkSurface.
+      expect(contrastRatio(AppTheme.textMuted, AppTheme.darkSurface),
+          greaterThanOrEqualTo(5.0));
     });
   });
 

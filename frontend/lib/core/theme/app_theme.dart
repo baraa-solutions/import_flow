@@ -111,13 +111,23 @@ class AppTheme {
   static const Color white = Color(0xFFFFFFFF);
   /// Pure black: shadows and scrims only (use `.withOpacity`/alpha).
   static const Color black = Color(0xFF000000);
-  /// Secondary text on light surfaces (5.7:1 on white, 5.0:1 on Cloud White).
-  static const Color textSecondary = Color(0xFF666666);
+  /// LEGACY raw secondary grey (grey 600). Kept at its original value because
+  /// ~190 call sites use it directly without dark-mode awareness; darkening it
+  /// would collapse their contrast in dark mode. New code: use
+  /// [textSecondaryOf] (light branch = [textSecondaryLight]).
+  static const Color textSecondary = Color(0xFF757575);
+  /// Light-theme-only secondary text: 5.7:1 on white, 5.0:1 on Cloud White.
+  static const Color textSecondaryLight = Color(0xFF666666);
   /// Stronger secondary text on light surfaces (grey 700).
   static const Color textStrong = Color(0xFF616161);
-  /// Muted (tertiary) TEXT on light surfaces: 5.4:1 on white, 4.7:1 on
-  /// Cloud White — WCAG AA for normal text.
-  static const Color textMuted = Color(0xFF5F6B7A);
+  /// LEGACY raw muted grey (grey 500, 2.7:1 on white). Kept at its original
+  /// value because ~250 call sites use it directly, including in dark mode
+  /// where it reads 5.1:1 on darkSurface. New code: use [textMutedOf]
+  /// (light branch = [textMutedLight]); raw usages migrate via codemod.
+  static const Color textMuted = Color(0xFF9E9E9E);
+  /// Light-theme-only muted (tertiary) TEXT: 5.4:1 on white, 4.7:1 on Cloud
+  /// White — WCAG AA for normal text.
+  static const Color textMutedLight = Color(0xFF5F6B7A);
   /// Input placeholders / hint text and decorative disabled icons ONLY
   /// (grey 500, below 4.5:1 — never use it for readable content).
   static const Color hintColor = Color(0xFF9E9E9E);
@@ -137,8 +147,10 @@ class AppTheme {
   static const Color borderStrong = Color(0xFFCBD5E1);
   /// Primary text on light surfaces (charcoal).
   static const Color textPrimary = charcoal;
-  /// Subdued text for captions on light surfaces (6.2:1 white, 5.4:1 cloud).
-  static const Color textCaption = Color(0xFF556274);
+  /// LEGACY raw caption colour (slate 500), kept for raw call sites.
+  static const Color textCaption = Color(0xFF64748B);
+  /// Light-theme-only caption / secondary text (6.2:1 white, 5.4:1 cloud).
+  static const Color textCaptionLight = Color(0xFF556274);
 
   // Severity backgrounds (opaque tints) + foregrounds (WCAG AA on the tint).
   static const Color successBackground = Color(0xFFE8F6EE);
@@ -186,9 +198,9 @@ class AppTheme {
   static Color textPrimaryOf(BuildContext context) =>
       isDark(context) ? darkTextPrimary : textPrimary;
   static Color textSecondaryOf(BuildContext context) =>
-      isDark(context) ? darkTextSecondary : textCaption;
+      isDark(context) ? darkTextSecondary : textCaptionLight;
   static Color textMutedOf(BuildContext context) =>
-      isDark(context) ? darkTextMuted : textMuted;
+      isDark(context) ? darkTextMuted : textMutedLight;
   static Color primaryOf(BuildContext context) => cobalt;
   /// Placeholder / hint colour (light: [hintColor], dark: [darkTextMuted]).
   static Color hintColorOf(BuildContext context) =>
@@ -398,7 +410,7 @@ class AppTheme {
     final Color borderColor = dark ? darkBorder : border;
     final Color borderStrongColor = dark ? darkBorderLight : borderStrong;
     final Color onSurface = dark ? darkTextPrimary : charcoal;
-    final Color secondaryText = dark ? darkTextSecondary : textCaption;
+    final Color secondaryText = dark ? darkTextSecondary : textCaptionLight;
     final Color hintText = dark ? darkTextMuted : hintColor;
     final Color accentText = dark ? darkHyperlink : wcagCobalt;
     final Color inputFill = dark ? darkInputBackground : surfaceAlt;
