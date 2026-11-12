@@ -185,6 +185,36 @@ void main() {
       expect(enName.startsWith('Company_Data_Card_IMP-123456_'), isTrue);
       expect(enName.endsWith('.csv'), isTrue);
     });
+
+    test('buildFileName leads with the sanitized entity name (Trello uekjGH70)', () {
+      const resEn = ExportLanguageResolver(lang: ExportLanguage.en);
+      final name = resEn.buildFileName(
+        prefixKey: 'importer_file_name_prefix',
+        identifier: 'IMP-123456',
+        extension: '.pdf',
+        entityName: '  Archi Brands / "Egypt": Co.  ',
+      );
+      expect(name, matches(RegExp(r'^Archi_Brands_Egypt_Co_Company_Data_Card_IMP-123456_\d{4}-\d{2}-\d{2}\.pdf$')));
+
+      const resAr = ExportLanguageResolver(lang: ExportLanguage.ar);
+      final arName = resAr.buildFileName(
+        prefixKey: 'supplier_file_name_prefix',
+        identifier: 'SUP-000017',
+        extension: 'pdf',
+        entityName: 'شركة   سرور للاستيراد',
+      );
+      expect(arName.startsWith('شركة_سرور_للاستيراد_بطاقة_المورد_الأجنبي_SUP-000017_'), isTrue);
+
+      final blank = resEn.buildFileName(
+        prefixKey: 'partner_file_name_prefix', identifier: 'P-1', extension: 'csv', entityName: '  ');
+      expect(blank.startsWith('Logistics_Partner_Profile_P-1_'), isTrue);
+    });
+
+    test('sanitizeFileNamePart strips illegal characters and caps the length', () {
+      expect(ExportLanguageResolver.sanitizeFileNamePart('a<b>c|d?e*f'), 'a_b_c_d_e_f');
+      expect(ExportLanguageResolver.sanitizeFileNamePart('__x..'), 'x');
+      expect(ExportLanguageResolver.sanitizeFileNamePart('x' * 100).length, 60);
+    });
   });
 
   group('ExportLanguageDialog Widget Tests', () {

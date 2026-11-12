@@ -338,6 +338,7 @@ class MasterDataExportService {
     final printDocName = resolver.buildFileName(
       prefixKey: 'importer_file_name_prefix',
       identifier: company.importerId,
+      entityName: company.importerName,
       extension: 'pdf',
     );
 
@@ -391,6 +392,7 @@ class MasterDataExportService {
     final filename = resolver.buildFileName(
       prefixKey: 'importer_file_name_prefix',
       identifier: company.importerId,
+      entityName: company.importerName,
       extension: 'xlsx',
     );
 
@@ -447,6 +449,7 @@ class MasterDataExportService {
     final filename = resolver.buildFileName(
       prefixKey: 'importer_file_name_prefix',
       identifier: company.importerId,
+      entityName: company.importerName,
       extension: 'csv',
     );
 
@@ -829,6 +832,7 @@ Sorour Logistics ERP
     final printDocName = resolver.buildFileName(
       prefixKey: 'supplier_file_name_prefix',
       identifier: supplier.supplierCode,
+      entityName: supplier.companyName,
       extension: 'pdf',
     );
 
@@ -900,6 +904,7 @@ Sorour Logistics ERP
     final filename = resolver.buildFileName(
       prefixKey: 'supplier_file_name_prefix',
       identifier: supplier.supplierCode,
+      entityName: supplier.companyName,
       extension: 'xlsx',
     );
 
@@ -922,6 +927,7 @@ Sorour Logistics ERP
     final filename = resolver.buildFileName(
       prefixKey: 'supplier_file_name_prefix',
       identifier: supplier.supplierCode,
+      entityName: supplier.companyName,
       extension: 'csv',
     );
 
@@ -1328,6 +1334,7 @@ Sorour Logistics ERP
     final printDocName = resolver.buildFileName(
       prefixKey: 'partner_file_name_prefix',
       identifier: partner.partnerCode,
+      entityName: partner.partnerName,
       extension: 'pdf',
     );
 
@@ -1347,6 +1354,7 @@ Sorour Logistics ERP
     final filename = resolver.buildFileName(
       prefixKey: 'partner_file_name_prefix',
       identifier: partner.partnerCode,
+      entityName: partner.partnerName,
       extension: 'xlsx',
     );
 
@@ -1369,6 +1377,7 @@ Sorour Logistics ERP
     final filename = resolver.buildFileName(
       prefixKey: 'partner_file_name_prefix',
       identifier: partner.partnerCode,
+      entityName: partner.partnerName,
       extension: 'csv',
     );
 

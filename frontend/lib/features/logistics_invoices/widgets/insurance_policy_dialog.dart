@@ -5,16 +5,18 @@ import '../../../core/widgets/widgets.dart';
 import '../models/logistics_invoice_models.dart';
 import '../providers/logistics_invoices_provider.dart';
 import '../repositories/logistics_invoices_repository.dart';
+import 'document_party_selectors.dart';
 
 class InsurancePolicyDialog extends ConsumerStatefulWidget {
   final InsurancePolicyModel? initialPolicy;
-  final int defaultShipmentId;
+  /// Import file context of the caller; null opens the dialog with no file selected.
+  final int? defaultShipmentId;
   final String? defaultBlNumber;
 
   const InsurancePolicyDialog({
     super.key,
     this.initialPolicy,
-    this.defaultShipmentId = 1,
+    this.defaultShipmentId,
     this.defaultBlNumber,
   });
 
@@ -25,10 +27,10 @@ class InsurancePolicyDialog extends ConsumerStatefulWidget {
 class _InsurancePolicyDialogState extends ConsumerState<InsurancePolicyDialog> {
   final _formKey = GlobalKey<FormState>();
 
-  late TextEditingController _shipmentIdCtrl;
+  int? _shipmentId;
+  int? _companyId;
+  String _companyName = '';
   late TextEditingController _blNumberCtrl;
-  late TextEditingController _companyIdCtrl;
-  late TextEditingController _companyNameCtrl;
   late TextEditingController _policyNumberCtrl;
   late TextEditingController _insuredValueCtrl;
   late TextEditingController _premiumRateCtrl;
@@ -37,7 +39,8 @@ class _InsurancePolicyDialogState extends ConsumerState<InsurancePolicyDialog> {
 
   String _coverageType = 'all_risks';
   String _currency = 'USD';
-  double _exchangeRate = 48.5;
+  // Filled from the policy or from the backend preview of the selected file (never a hard-coded rate).
+  double _exchangeRate = 0.0;
   bool _isLoading = false;
   bool _isGeneratingInvoice = false;
 
@@ -46,19 +49,20 @@ class _InsurancePolicyDialogState extends ConsumerState<InsurancePolicyDialog> {
     super.initState();
     final p = widget.initialPolicy;
 
-    _shipmentIdCtrl = TextEditingController(text: (p?.shipmentId ?? widget.defaultShipmentId).toString());
+    // A new policy starts blank: no default file, insurer, policy number, insured value or beneficiary.
+    _shipmentId = p?.shipmentId ?? widget.defaultShipmentId;
     _blNumberCtrl = TextEditingController(text: p?.blNumber ?? widget.defaultBlNumber ?? '');
-    _companyIdCtrl = TextEditingController(text: (p?.insuranceCompanyId ?? 1).toString());
-    _companyNameCtrl = TextEditingController(text: p?.insuranceCompanyName ?? 'Misr Insurance Co.');
-    _policyNumberCtrl = TextEditingController(text: p?.policyNumber ?? 'POL-${DateTime.now().year}-${DateTime.now().millisecondsSinceEpoch % 10000}');
-    _insuredValueCtrl = TextEditingController(text: (p?.insuredValueFx ?? 55000.0).toString());
+    _companyId = p?.insuranceCompanyId;
+    _companyName = p?.insuranceCompanyName ?? '';
+    _policyNumberCtrl = TextEditingController(text: p?.policyNumber ?? '');
+    _insuredValueCtrl = TextEditingController(text: p?.insuredValueFx.toString() ?? '');
     _premiumRateCtrl = TextEditingController(text: (p?.premiumRate ?? 0.35).toString());
-    _beneficiaryCtrl = TextEditingController(text: p?.beneficiary ?? 'Sorour Logistics / Financing Bank');
+    _beneficiaryCtrl = TextEditingController(text: p?.beneficiary ?? '');
     _notesCtrl = TextEditingController(text: p?.notes ?? '');
 
     _coverageType = p?.coverageType ?? 'all_risks';
     _currency = p?.insuredValueCurrency ?? 'USD';
-    _exchangeRate = p?.exchangeRate ?? 48.5;
+    _exchangeRate = p?.exchangeRate ?? 0.0;
 
     if (p == null) {
       _loadPreview();
@@ -67,10 +71,7 @@ class _InsurancePolicyDialogState extends ConsumerState<InsurancePolicyDialog> {
 
   @override
   void dispose() {
-    _shipmentIdCtrl.dispose();
     _blNumberCtrl.dispose();
-    _companyIdCtrl.dispose();
-    _companyNameCtrl.dispose();
     _policyNumberCtrl.dispose();
     _insuredValueCtrl.dispose();
     _premiumRateCtrl.dispose();
@@ -82,7 +83,8 @@ class _InsurancePolicyDialogState extends ConsumerState<InsurancePolicyDialog> {
   Future<void> _loadPreview() async {
     try {
       final repo = ref.read(logisticsInvoicesRepositoryProvider);
-      final shipmentId = int.tryParse(_shipmentIdCtrl.text) ?? 1;
+      final shipmentId = _shipmentId;
+      if (shipmentId == null) return;
       final rate = double.tryParse(_premiumRateCtrl.text) ?? 0.35;
       final preview = await repo.getInsurancePreview(shipmentId, premiumRate: rate, coverageType: _coverageType);
 
@@ -104,15 +106,28 @@ class _InsurancePolicyDialogState extends ConsumerState<InsurancePolicyDialog> {
 
   Future<void> _savePolicy() async {
     if (!_formKey.currentState!.validate()) return;
+    if (_exchangeRate <= 0) {
+      final isArabic = Localizations.localeOf(context).languageCode == 'ar';
+      ScaffoldMessenger.of(context).showSnackBar(
+        AppTheme.snackBar(
+          context,
+          isArabic
+              ? 'لا يوجد سعر صرف لعملة القيمة التأمينية. اختر ملف الشحنة أو سجّل سعر الصرف أولاً.'
+              : 'No exchange rate for the insured value currency. Select the import file or record the rate first.',
+          severity: AppSeverity.warning,
+        ),
+      );
+      return;
+    }
 
     setState(() => _isLoading = true);
     try {
       final repo = ref.read(logisticsInvoicesRepositoryProvider);
       final payload = {
-        'shipment_id': int.parse(_shipmentIdCtrl.text),
+        'shipment_id': _shipmentId,
         'bl_number': _blNumberCtrl.text.trim().isEmpty ? null : _blNumberCtrl.text.trim(),
-        'insurance_company_id': int.parse(_companyIdCtrl.text),
-        'insurance_company_name': _companyNameCtrl.text.trim(),
+        'insurance_company_id': _companyId,
+        'insurance_company_name': _companyName,
         'policy_number': _policyNumberCtrl.text.trim(),
         'policy_date': DateTime.now().toIso8601String(),
         'coverage_type': _coverageType,
@@ -237,10 +252,16 @@ class _InsurancePolicyDialogState extends ConsumerState<InsurancePolicyDialog> {
               Row(
                 children: [
                   Expanded(
-                    child: TextFormField(
-                      controller: _shipmentIdCtrl,
-                      decoration: const InputDecoration(labelText: 'Shipment ID *', isDense: true, border: OutlineInputBorder()),
-                      keyboardType: TextInputType.number,
+                    child: ImportFileSelectField(
+                      key: const ValueKey('policyImportFileField'),
+                      value: _shipmentId,
+                      isArabic: Localizations.localeOf(context).languageCode == 'ar',
+                      onChanged: widget.initialPolicy != null
+                          ? null
+                          : (id) {
+                              setState(() => _shipmentId = id);
+                              _loadPreview();
+                            },
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -265,10 +286,16 @@ class _InsurancePolicyDialogState extends ConsumerState<InsurancePolicyDialog> {
                 children: [
                   Expanded(
                     flex: 2,
-                    child: TextFormField(
-                      controller: _companyNameCtrl,
-                      decoration: const InputDecoration(labelText: 'Insurance Company Name *', isDense: true, border: OutlineInputBorder()),
-                      validator: (v) => v == null || v.isEmpty ? 'Required' : null,
+                    child: PartnerSelectField(
+                      key: const ValueKey('policyInsurerField'),
+                      value: _companyId,
+                      label: 'Insurance Company',
+                      isArabic: Localizations.localeOf(context).languageCode == 'ar',
+                      typeKeywords: const ['insurance', 'تأمين'],
+                      onChanged: (p) => setState(() {
+                        _companyId = p?.providerId;
+                        _companyName = p?.partnerName ?? '';
+                      }),
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -353,8 +380,10 @@ class _InsurancePolicyDialogState extends ConsumerState<InsurancePolicyDialog> {
                 ),
                 child: Column(
                   children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    Wrap(
+                      alignment: WrapAlignment.spaceBetween,
+                      spacing: 12,
+                      runSpacing: 8,
                       children: [
                         _metricText(isArabic ? 'قسط الأساس (أجنبي)' : 'Base Premium (FX)', '${_premiumAmountFx.toStringAsFixed(2)} $_currency'),
                         _metricText(isArabic ? 'قسط الأساس (ج.م)' : 'Base Premium (EGP)', '${_premiumAmountEgp.toStringAsFixed(2)} ${isArabic ? "ج.م" : "EGP"}'),

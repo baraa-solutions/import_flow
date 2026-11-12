@@ -184,23 +184,36 @@ class ExportLanguageResolver {
     );
   }
 
-  /// Builds a sanitized, language-specific file name.
-  /// E.g.
-  /// Arabic: بطاقة_بيانات_الشركة_IMP-123456_2026-10-18.pdf
-  /// English: Company_Data_Card_IMP-123456_2026-10-18.pdf
+  /// Export file name: `[<entity name>_]<localized type>_<identifier>_<yyyy-MM-dd>.<ext>`.
+  /// [entityName] (company / supplier / partner name) leads the name so a shared file is recognisable
+  /// without opening it; every part is made filesystem-safe.
+  /// E.g. `Archi_Brands_Company_Data_Card_IMP-123456_2026-10-18.pdf`.
   String buildFileName({
     required String prefixKey,
     required String identifier,
     required String extension,
+    String? entityName,
   }) {
-    final prefix = tr(prefixKey);
-    final cleanId = identifier
-        .replaceAll(RegExp(r'[\\/:*?"<>|]'), '_')
-        .replaceAll(' ', '_')
-        .trim();
-    final date = formatDate(DateTime.now());
+    final parts = [
+      if (entityName != null && sanitizeFileNamePart(entityName).isNotEmpty) sanitizeFileNamePart(entityName),
+      tr(prefixKey),
+      sanitizeFileNamePart(identifier),
+      formatDate(DateTime.now()),
+    ].where((p) => p.isNotEmpty);
     final ext = extension.startsWith('.') ? extension.substring(1) : extension;
-    return '${prefix}_${cleanId}_$date.$ext';
+    return '${parts.join('_')}.$ext';
+  }
+
+  /// One file-name segment: no characters illegal on Windows / macOS, no whitespace runs, no repeated or
+  /// edge underscores / dots, at most [maxLength] characters.
+  static String sanitizeFileNamePart(String value, {int maxLength = 60}) {
+    var clean = value
+        .replaceAll(RegExp(r'[\\/:*?"<>|\u0000-\u001F]'), '_')
+        .replaceAll(RegExp(r'\s+'), '_')
+        .replaceAll(RegExp(r'_+'), '_')
+        .replaceAll(RegExp(r'^[_.]+|[_.]+$'), '');
+    if (clean.length > maxLength) clean = clean.substring(0, maxLength).replaceAll(RegExp(r'[_.]+$'), '');
+    return clean;
   }
 
   /// Cleans strings for Excel / CSV export.

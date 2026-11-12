@@ -44,7 +44,9 @@ class LogisticsInvoicesValidator:
                 pass
         return partner
 
-    def validate_shipment(self, shipment_id: int) -> ImportFile:
+    def validate_shipment(self, shipment_id: int, require_active: bool = False) -> ImportFile:
+        """The import file billed by an invoice / policy. New documents (``require_active``) can only be
+        recorded against an active (not soft-deleted) file."""
         shipment = self.db.query(ImportFile).filter(
             ImportFile.import_file_id == shipment_id,
         ).first()
@@ -52,6 +54,11 @@ class LogisticsInvoicesValidator:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Import file with ID {shipment_id} not found."
+            )
+        if require_active and not shipment.is_active:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Import file {shipment.import_file_code} is archived; new documents cannot be recorded on it."
             )
         return shipment
 

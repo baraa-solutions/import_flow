@@ -1,3 +1,4 @@
+import re
 import pytest
 from modules.smart_document_upload.extractors.customs_broker_quotation import CustomsBrokerQuotationExtractor
 
@@ -371,3 +372,109 @@ def test_golden_acc_quotation_completeness_and_validation():
     # Check conditional range items count >= 5
     assert report["range_items_count"] >= 5
     assert report["outside_table_items_count"] >= 5
+
+
+# ─── Trello AKpuUmDn: Eastern numerals, dialect tiers, header context, twin ports, BiDi title ─────────
+
+PORT_SAID_STYLE_QUOTE = """
+السادة شركة سكاس للتشييد والبناء
+بيان باسعار التخليص والنقل للرسائل الواردة لسيادتكم علي ميناء الاسكندرية والدخيلة لعام ٢٠٢٦
+
+النقل من الاسكندرية للقاهرة
+EGP ٦,١٥٠ نقل سيارة 1 طن دبابة
+EGP ١٤,٨٠٠ نقل حاوية 20 قدم حتى 10 طن
+EGP ١٦,٥٠٠ نقل حاوية 20 قدم اكثر من 10 طن
+EGP ۱۸,۴۰۰ الحاوية ۴۰ قدم
+
+بخلاف مصاريف كشـ
+ف الجميع او استخدام العمال والكلارك من ۱۰۰۰ الي ۲۰۰۰
+بخلاف اي ايصالات رسمية
+"""
+
+
+def test_eastern_and_persian_digits_are_normalized():
+    from modules.expense_catalog.broker_mapping_service import normalize_arabic_indic_numerals
+
+    assert normalize_arabic_indic_numerals("من ١٠٠٠ إلى ٢٠٠٠") == "من 1000 إلى 2000"
+    assert normalize_arabic_indic_numerals("من ۱۰۰۰ الي ۲۰۰۰") == "من 1000 الي 2000"
+    assert normalize_arabic_indic_numerals("") == ""
+
+
+def test_dialect_weight_tier_and_inherited_transport_context():
+    result = CustomsBrokerQuotationExtractor().extract(PORT_SAID_STYLE_QUOTE, {})
+    transport = {
+        c["expense_name"]: c["price"]
+        for c in result["expenses_catalog"]
+        if c["category"].startswith("Inland Transport")
+    }
+    assert transport.get("نقل حاوية 20 قدم حتى 10 طن (إسكندرية - قاهرة)") == 14800.0
+    assert transport.get("نقل حاوية 20 قدم أكثر من 10 طن (إسكندرية - قاهرة)") == 16500.0
+    # "الحاوية ٤٠ قدم" has no "نقل" in the row: it inherits the transport section of its header.
+    assert transport.get("نقل حاوية 40 قدم (إسكندرية - قاهرة)") == 18400.0
+    assert len(transport) == 4
+
+
+def test_twin_ports_and_pure_arabic_title():
+    result = CustomsBrokerQuotationExtractor().extract(PORT_SAID_STYLE_QUOTE, {})
+    assert result["port_names"] == ["Alexandria Port", "El Dekheila Port"]
+    assert result["title"].startswith("بيان باسعار التخليص والنقل")
+    assert "2026" in result["title"]
+    assert not re.search(r"[A-Za-z]", result["title"])
+
+
+def test_fallback_title_uses_arabic_port_names():
+    result = CustomsBrokerQuotationExtractor().extract("ميناء الدخيلة\nEGP 2,500 اتعاب تخليص", {})
+    assert "الدخيلة" in result["title"]
+    assert not re.search(r"[A-Za-z]", result["title"])
+
+
+def test_notes_keep_numbers_and_ocr_wrapped_words():
+    result = CustomsBrokerQuotationExtractor().extract(PORT_SAID_STYLE_QUOTE, {})
+    assert "كشف الجميع" in result["notes"]
+    assert "1000" in result["notes"] and "2000" in result["notes"]
+    assert "ايصالات رسمية" in result["notes"]
+
+
+def _inland_items(text: str) -> dict:
+    result = CustomsBrokerQuotationExtractor().extract(text, {})
+    return {
+        c["expense_name"]: c
+        for c in result["expenses_catalog"]
+        if c["category"].startswith("Inland Transport")
+    }
+
+
+def test_demurrage_ground_row_is_not_relabelled_as_transport():
+    text = (
+        "ميناء الاسكندرية\n"
+        "بياتة الحاويات والشاحنات\n"
+        "ارضية الحاوية 40 قدم لليوم 500\n"
+    )
+    items = _inland_items(text)
+    assert "نقل حاوية 40 قدم (إسكندرية - قاهرة)" not in items
+    # Seed catalog rows may still list 40ft transport; the 500 ground row must not be one of them.
+    assert not any(name.startswith("نقل حاوية 40") and c["price"] == 500.0 for name, c in items.items())
+    ground = items["ارضية الحاوية 40 قدم لليوم"]
+    assert ground["price"] == 500.0
+    assert ground["pricing_unit"] == "Per Day (لكل يوم)"
+
+
+def test_40ft_weight_tiers_are_not_misread_as_20ft_after_digit_normalization():
+    text = (
+        "ميناء الاسكندرية\n"
+        "النقل من الاسكندرية للقاهرة\n"
+        "الحاوية ٤٠ قدم اقل من ٢٠ طن 8000\n"
+        "الحاوية ٤٠ قدم اكثر من ٢٠ طن 9500\n"
+    )
+    items = _inland_items(text)
+    assert "نقل حاوية 20 قدم حتى 10 طن (إسكندرية - قاهرة)" not in items
+    assert "نقل حاوية 20 قدم أكثر من 10 طن (إسكندرية - قاهرة)" not in items
+    assert items["نقل حاوية 40 قدم أقل من 20 طن (إسكندرية - قاهرة)"]["price"] == 8000.0
+    assert items["نقل حاوية 40 قدم أكثر من 20 طن (إسكندرية - قاهرة)"]["price"] == 9500.0
+
+
+def test_bare_greater_than_sign_is_not_an_over_tier():
+    from modules.smart_document_upload.extractors.customs_broker_quotation import _is_over_tier
+
+    assert _is_over_tier("نقل حاوية 20 قدم > 10 طن")
+    assert not _is_over_tier("نقل حاوية 20 قدم -> القاهرة")
