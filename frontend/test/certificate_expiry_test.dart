@@ -15,6 +15,24 @@ void main() {
       expect(CertificateExpiry.daysLeft(null, today: today), isNull);
     });
 
+    // Egypt DST 2027 starts on Fri 30 Apr (23-hour day) and ends on Thu 28 Oct (25-hour day).
+    // Run under `TZ=Africa/Cairo flutter test` as well as the default zone.
+    test('DST spring-forward does not lose a day', () {
+      expect(CertificateExpiry.daysLeft(DateTime(2027, 5, 1), today: DateTime(2027, 4, 1)), 30);
+      expect(CertificateExpiry.daysLeft(DateTime(2027, 5, 1), today: DateTime(2027, 4, 29, 22)), 2);
+      expect(CertificateExpiry.daysLeft(DateTime(2027, 4, 30), today: DateTime(2027, 5, 1)), -1);
+      expect(CertificateExpiry.state(DateTime(2027, 4, 30), today: DateTime(2027, 5, 1, 9)),
+          CertificateExpiryState.expired);
+      expect(CertificateExpiry.label(DateTime(2027, 4, 30), isArabic: false, today: DateTime(2027, 5, 1)), 'Expired');
+    });
+
+    test('DST fall-back does not add a day', () {
+      expect(CertificateExpiry.daysLeft(DateTime(2027, 11, 1), today: DateTime(2027, 10, 1)), 31);
+      expect(CertificateExpiry.daysLeft(DateTime(2027, 10, 29), today: DateTime(2027, 10, 27, 23, 59)), 2);
+      expect(CertificateExpiry.daysLeft(DateTime(2027, 10, 28), today: DateTime(2027, 10, 29)), -1);
+      expect(CertificateExpiry.daysLeft(DateTime(2027, 10, 28), today: DateTime(2027, 10, 28, 23)), 0);
+    });
+
     test('state boundaries: expired < 0 <= expiring soon <= 30 < valid', () {
       expect(CertificateExpiry.state(null, today: today), CertificateExpiryState.notSet);
       expect(CertificateExpiry.state(DateTime(2026, 6, 14), today: today), CertificateExpiryState.expired);

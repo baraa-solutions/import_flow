@@ -53,3 +53,31 @@ def test_supplier_expiries_round_trip(db):
 def test_existing_rows_without_expiries_stay_valid():
     payload = ImportCompanyCreate(importer_name="Legacy Co")
     assert payload.wipo_expiry is None and payload.nafeza_token_expiry is None
+
+
+def test_supplier_update_clears_expiry_on_explicit_null_but_keeps_other_fields(db):
+    from modules.suppliers.schemas import SupplierUpdate
+    from modules.suppliers.service import update_supplier_service
+
+    supplier = Supplier(supplier_code="SUP-EXP-2", company_name="Clearable Co", supplier_type="Manufacturer",
+                        registration_type="Factory", foreign_exporter_id="EXP-2", foreign_exporter_country="Italy",
+                        foreign_exporter_country_code="IT", address="Rome", notes="keep me",
+                        has_wipo=True, wipo_expiry=date(2027, 1, 1), euipo_expiry=date(2027, 2, 1))
+    db.add(supplier)
+    db.commit()
+    db.refresh(supplier)
+
+    # Explicit null on an expiry clears it; null on a regular field (notes) is still ignored;
+    # unset fields (euipo_expiry) are untouched.
+    updated = update_supplier_service(db, supplier.supplier_id, SupplierUpdate(wipo_expiry=None, notes=None))
+    assert updated.wipo_expiry is None
+    assert updated.euipo_expiry == date(2027, 2, 1)
+    assert updated.notes == "keep me"
+    assert updated.company_name == "Clearable Co"
+
+
+def test_supplier_update_dict_drops_null_on_non_clearable_fields():
+    from modules.suppliers.schemas import SupplierUpdate
+
+    payload = SupplierUpdate.model_validate({"company_name": None, "iso_9001_expiry": None, "city": "Milan"})
+    assert payload.to_update_dict() == {"iso_9001_expiry": None, "city": "Milan"}

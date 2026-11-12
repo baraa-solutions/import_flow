@@ -11,8 +11,10 @@ class CertificateExpiry {
   static int? daysLeft(DateTime? expiry, {DateTime? today}) {
     if (expiry == null) return null;
     final t = today ?? DateTime.now();
-    final from = DateTime(t.year, t.month, t.day);
-    final to = DateTime(expiry.year, expiry.month, expiry.day);
+    // UTC midnights: every UTC day is exactly 24h, so a local DST shift
+    // (e.g. Africa/Cairo's 23-hour day) can't shave a day off inDays.
+    final from = DateTime.utc(t.year, t.month, t.day);
+    final to = DateTime.utc(expiry.year, expiry.month, expiry.day);
     return to.difference(from).inDays;
   }
 

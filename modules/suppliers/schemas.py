@@ -1,4 +1,5 @@
 from datetime import date, datetime
+from typing import ClassVar
 
 from pydantic import BaseModel
 from pydantic import ConfigDict
@@ -184,6 +185,21 @@ class SupplierUpdate(BaseModel):
     is_active: bool | None = None
 
     updated_by: str | None = None
+
+    # Fields where an explicit JSON null means "clear the stored value".
+    # Every other field keeps the legacy behaviour: null is ignored, so partial
+    # payloads (e.g. Nafeza supplier coding) never wipe existing data.
+    CLEARABLE_FIELDS: ClassVar[frozenset[str]] = frozenset({
+        "wipo_expiry", "euipo_expiry", "global_brand_expiry", "iso_9001_expiry",
+    })
+
+    def to_update_dict(self) -> dict:
+        """Fields to apply on update: set values, plus explicit nulls on clearable fields."""
+        data = self.model_dump(exclude_unset=True)
+        return {
+            field: value for field, value in data.items()
+            if value is not None or field in self.CLEARABLE_FIELDS
+        }
 
 
 
