@@ -156,7 +156,9 @@ final dioProvider = Provider<Dio>((ref) {
                 } catch (retryErr) {
                   if (retryErr is DioException) {
                     error = retryErr;
-                    // The retry's own interceptor pass already expired the session on a second 401.
+                    // A second 401 on the retry was already handled by the retry's own onError pass
+                    // (flagged kRetriedAfter401, so it skips renewal and calls handleSessionExpired).
+                    // Any other retry failure is surfaced as-is and keeps the renewed session.
                   }
                 }
               }

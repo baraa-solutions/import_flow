@@ -112,14 +112,14 @@ class NotificationRepository:
             self.db.refresh(db_obj)
         return db_obj
 
-    def mark_all_as_read(self, target_role: Optional[str] = None, audience_roles: Optional[Iterable[str]] = None) -> int:
-        """Marks unread notifications read. ``audience_roles`` (non-admin callers) limits the update to the
-        notifications addressed to ALL or to one of those roles; ``None`` means unrestricted (admin)."""
+    def mark_all_as_read(self, target_role: Optional[str] = None, audience_names: Optional[Iterable[str]] = None) -> int:
+        """Marks unread notifications read. ``audience_names`` (non-admin callers: the raw target_role values
+        addressed to them, see notifications.utils) limits the update; ``None`` means unrestricted (admin)."""
         query = self.db.query(SystemNotification).filter(SystemNotification.is_read == False)
         if target_role and target_role != "ALL":
             query = query.filter(SystemNotification.target_role.in_(["ALL", target_role]))
-        if audience_roles is not None:
-            query = query.filter(SystemNotification.target_role.in_(["ALL", *audience_roles]))
+        if audience_names is not None:
+            query = query.filter(SystemNotification.target_role.in_(list(audience_names)))
 
         updated_count = query.update({SystemNotification.is_read: True, SystemNotification.updated_at: datetime.now(timezone.utc)}, synchronize_session=False)
         self.db.commit()
