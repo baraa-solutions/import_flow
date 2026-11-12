@@ -22,6 +22,19 @@ void main() {
       expect(msg, 'No OCR engine is installed on the server');
     });
 
+    test('formats a FastAPI validation error list one line per field', () {
+      final msg = ExtractorService.describeExtractionError(
+        _dioError({
+          'detail': [
+            {'loc': ['body', 'file'], 'msg': 'Field required', 'type': 'missing'},
+            {'loc': ['body', 'save_session'], 'msg': 'Input should be a valid boolean'},
+          ],
+        }),
+        isArabic: false,
+      );
+      expect(msg, 'file: Field required\nsave_session: Input should be a valid boolean');
+    });
+
     test('falls back to a generic localized message when there is no detail', () {
       final msg = ExtractorService.describeExtractionError(Exception('boom'), isArabic: true);
       expect(msg, contains('خطأ'));
@@ -58,7 +71,7 @@ void main() {
     test('file picker only offers types the backend accepts', () {
       expect(ExtractorService.kExtractorAllowedExtensions, isNot(contains('bmp')));
       expect(ExtractorService.kExtractorAllowedExtensions, isNot(contains('tiff')));
-      expect(ExtractorService.kExtractorAllowedExtensions, containsAll(['pdf', 'png', 'jpg', 'jpeg']));
+      expect(ExtractorService.kExtractorAllowedExtensions, containsAll(['pdf', 'png', 'jpg', 'jpeg', 'csv']));
     });
   });
 

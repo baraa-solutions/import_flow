@@ -550,3 +550,127 @@ def test_parse_text_reports_fields_found():
         db=_fallback_db(), module_name="supplier-entity", raw_text=SUPPLIER_CARD_TEXT,
     )
     assert "cargox_id" in result["fields_found"]
+
+
+# ─── Review fixes (PR #222): oversized pages, render failures, huge images ──────
+
+def make_blank_pdf(width_pt: float, height_pt: float, pages: int = 1) -> bytes:
+    doc = fitz.open()
+    for _ in range(pages):
+        doc.new_page(width=width_pt, height=height_pt)
+    data = doc.tobytes()
+    doc.close()
+    return data
+
+
+def test_pdf_render_dpi_is_capped_by_pixel_budget():
+    assert pipeline.pdf_render_dpi(595, 842) == pipeline.PDF_RENDER_DPI  # A4 renders at full quality
+    dpi = pipeline.pdf_render_dpi(4000, 4000)
+    assert dpi * 4000 / 72 <= pipeline.MAX_OCR_LONG_EDGE_PX + 1
+    assert pipeline.pdf_render_dpi(144000, 10) < pipeline.MIN_PDF_RENDER_DPI
+
+
+@pytest.mark.parametrize("side_pt", [2500, 4000, 14400])
+def test_oversized_scanned_page_is_rendered_within_budget(side_pt):
+    ocr = FakeOcr()
+    result = extract_document_text("huge.pdf", make_blank_pdf(side_pt, side_pt), ocr_runner=ocr)
+    assert result.ocr_pages == 1
+    # the raster handed to OCR never exceeds the long-edge budget
+    assert max(ocr.images[0].size) <= pipeline.MAX_OCR_LONG_EDGE_PX + 2
+
+
+def test_absurd_page_is_skipped_with_warning_not_error(monkeypatch):
+    # with a tiny pixel budget a 14400 pt page would render below MIN_PDF_RENDER_DPI: skipped, not rendered
+    monkeypatch.setattr(pipeline, "MAX_OCR_LONG_EDGE_PX", 100)
+    ocr = FakeOcr()
+    result = extract_document_text("absurd.pdf", make_blank_pdf(14400, 14400), ocr_runner=ocr)
+    assert ocr.images == []
+    assert "page_1_too_large" in result.warnings
+    assert not result.has_text
+
+
+def test_page_render_failure_is_isolated_per_page(monkeypatch):
+    calls = {"n": 0}
+    real_render = pipeline._render_pdf_page
+
+    def flaky_render(page):
+        calls["n"] += 1
+        if calls["n"] == 1:
+            raise RuntimeError("FzErrorLimit: pixmap too large")
+        return real_render(page)
+
+    monkeypatch.setattr(pipeline, "_render_pdf_page", flaky_render)
+    result = extract_document_text("scan.pdf", make_scanned_pdf(2), ocr_runner=FakeOcr())
+    assert any(w.startswith("page_1_unreadable") for w in result.warnings)
+    assert result.ocr_pages == 1 and "Nile Delta" in result.text
+
+
+def test_render_failure_on_only_page_becomes_422_not_500(monkeypatch):
+    def broken_render(_page):
+        raise RuntimeError("FzErrorLimit: pixmap too large")
+
+    monkeypatch.setattr(pipeline, "_render_pdf_page", broken_render)
+    monkeypatch.setattr(pipeline, "run_ocr_on_image", FakeOcr())
+    with pytest.raises(HTTPException) as exc:
+        sdu_service.extract_entity_document_text("scan.pdf", make_scanned_pdf(1))
+    assert exc.value.status_code == 422
+    assert "No readable text" in exc.value.detail
+
+
+def test_ocr_runner_crash_becomes_422_not_500(monkeypatch):
+    def crashing_runner(_image):
+        raise MemoryError("decoder blew up")
+
+    monkeypatch.setattr(pipeline, "run_ocr_on_image", crashing_runner)
+    with pytest.raises(HTTPException) as exc:
+        sdu_service.extract_entity_document_text("scan.pdf", make_scanned_pdf(1))
+    assert exc.value.status_code == 422
+    with pytest.raises(HTTPException) as exc_img:
+        sdu_service.extract_entity_document_text("card.png", make_png())
+    assert exc_img.value.status_code == 422
+
+
+def test_huge_png_is_refused_without_decoding(monkeypatch):
+    monkeypatch.setattr(pipeline, "MAX_OCR_IMAGE_PIXELS", 10_000)
+    ocr = FakeOcr()
+    result = extract_document_text("big.png", make_png(size=(400, 120)), ocr_runner=ocr)
+    assert ocr.images == []
+    assert any(w.startswith("image_too_large") for w in result.warnings)
+
+
+def test_huge_jpeg_is_decoded_at_reduced_scale(monkeypatch):
+    monkeypatch.setattr(pipeline, "MAX_OCR_IMAGE_PIXELS", 1_000_000)
+    ocr = FakeOcr()
+    result = extract_document_text("big.jpg", make_png(size=(1600, 1200), fmt="JPEG"), ocr_runner=ocr)
+    assert result.ocr_pages == 1
+    assert ocr.images and ocr.images[0].mode == "L"
+
+
+def test_tesseract_languages_are_cached(monkeypatch):
+    pipeline._tesseract_languages.cache_clear()
+    calls = []
+
+    def fake_run(cmd, **kwargs):
+        calls.append(cmd)
+        return SimpleNamespace(returncode=0, stdout=b"eng\n", stderr=b"")
+
+    monkeypatch.setattr(pipeline.subprocess, "run", fake_run)
+    assert pipeline._tesseract_languages("/opt/tess") == "eng"
+    assert pipeline._tesseract_languages("/opt/tess") == "eng"
+    assert len(calls) == 1
+    pipeline._tesseract_languages.cache_clear()
+
+
+def test_phone_keeps_area_code_parentheses(extractor):
+    assert extractor.extract("ACME Ltd\nPhone: (02) 2345-6789")["phone_number"] == "(02) 2345-6789"
+    assert extractor.extract("ACME Ltd\nFax: (03) 4801234")["fax_number"] == "(03) 4801234"
+
+
+def test_identifier_does_not_absorb_following_date(extractor):
+    res = extractor.extract("ACME Ltd\nWIPO No: 1234567 2023-05-01")
+    assert res["wipo_number"] == "1234567"
+    assert res["phone_number"] is None  # the date is not misread as an Egyptian landline
+
+
+def test_identifier_keeps_space_separated_digit_groups(extractor):
+    assert extractor.extract("ACME Ltd\nCargoX Account No. 4471 2290")["cargox_id"] == "4471 2290"

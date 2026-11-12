@@ -13,7 +13,7 @@ import 'extractor_types.dart';
 class ExtractorService {
   /// File types the backend smart-upload endpoint accepts (bmp / tiff were offered before and always got 415).
   static const List<String> kExtractorAllowedExtensions = [
-    'pdf', 'png', 'jpg', 'jpeg', 'webp', 'xlsx', 'xls', 'docx', 'doc', 'txt',
+    'pdf', 'png', 'jpg', 'jpeg', 'webp', 'xlsx', 'xls', 'docx', 'doc', 'txt', 'csv',
   ];
 
   /// User-facing error text: the backend `detail` (e.g. "no OCR engine installed") instead of a raw exception dump.
@@ -21,14 +21,33 @@ class ExtractorService {
     if (error is DioException) {
       final data = error.response?.data;
       final detail = data is Map ? data['detail'] : null;
-      if (detail != null && detail.toString().trim().isNotEmpty) {
-        return detail.toString();
-      }
+      final formatted = formatApiErrorDetail(detail);
+      if (formatted != null) return formatted;
       if (error.type == DioExceptionType.connectionError || error.type == DioExceptionType.connectionTimeout) {
         return isArabic ? 'تعذر الاتصال بالخادم. تأكد من تشغيل النظام ثم أعد المحاولة.' : 'Cannot reach the server. Please retry.';
       }
     }
     return isArabic ? 'خطأ في معالجة واستخراج البيانات: $error' : 'Extraction error: $error';
+  }
+
+  /// FastAPI `detail` as readable text: a plain string as-is, a validation-error list as one line per error
+  /// ("field: message") instead of a raw `[{loc: ..., msg: ...}]` dump.
+  static String? formatApiErrorDetail(dynamic detail) {
+    if (detail == null) return null;
+    if (detail is List) {
+      final lines = detail.map((item) {
+        if (item is Map) {
+          final loc = item['loc'];
+          final field = loc is List && loc.isNotEmpty ? loc.last.toString() : null;
+          final msg = (item['msg'] ?? item.toString()).toString();
+          return field == null ? msg : '$field: $msg';
+        }
+        return item.toString();
+      }).where((line) => line.trim().isNotEmpty).toList();
+      return lines.isEmpty ? null : lines.join('\n');
+    }
+    final text = detail.toString().trim();
+    return text.isEmpty ? null : text;
   }
 
   /// Number of recognized fields reported by the backend (`fields_found`), or null when not reported.

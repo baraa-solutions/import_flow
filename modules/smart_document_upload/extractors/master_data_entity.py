@@ -19,13 +19,17 @@ from modules.smart_document_upload.ocr_pipeline import normalize_extracted_text
 # captured as the value (the old single-regex patterns returned e.g. "Registration" or "2015").
 
 _SEPARATORS = r"[^\S\r\n]*(?:[:#=\-\u2013\u2014.()]+[^\S\r\n]*)*"
+# Phone labels: same separators without parentheses, so "(02) 2345-6789" keeps its area-code bracket.
+_PHONE_SEPARATORS = r"[^\S\r\n]*(?:[:#=\-\u2013\u2014.]+[^\S\r\n]*)*"
 _FILLER_EN = (
     r"(?:platform|blockchain|registered|registration|reg|company|account|wallet|address|identifier|"
     r"certificate|cert|international|trade\s*mark|trademark|mark|tm|database|code|number|num|no|nr|id)"
 )
 _FILLER_AR = r"(?:رقم|الرقم|معرف|المعرف|تسجيل|التسجيل|شهادة|الشهادة|حساب|الحساب|منصة|المنصة|كود|الكود)"
 _FILLER = rf"(?:{_SEPARATORS}(?:{_FILLER_EN}(?![A-Za-z0-9])|{_FILLER_AR}(?![\u0600-\u06FF])))*"
-_IDENTIFIER_VALUE = r"([A-Za-z0-9][A-Za-z0-9\-_/.]*(?:[^\S\r\n][0-9][0-9\-_/.]*)*)"
+# Identifier: one token, plus further space-separated *pure digit* groups ("4471 2290"); a following date or
+# word ("1234567 2023-05-01") is not absorbed.
+_IDENTIFIER_VALUE = r"([A-Za-z0-9][A-Za-z0-9\-_/.]*(?:[^\S\r\n][0-9]+(?![0-9A-Za-z\-_/.]))*)"
 _YEAR_ONLY = re.compile(r"(?:19|20)\d{2}")
 
 # IBAN lengths per country (ISO 13616 registry, subset of trade partners). Unknown countries: 15-34 chars.
@@ -396,7 +400,7 @@ class MasterDataEntityExtractor(BaseExtractor):
     _PHONE_VALUE = r"(\+?\(?[0-9][0-9 \-\(\)\.]{5,22}[0-9])"
 
     def _labeled_phone(self, label_pattern: str, text: str) -> Optional[str]:
-        pattern = rf"(?:{label_pattern})(?:{_SEPARATORS}(?:no|number|nr|phone)(?![A-Za-z]))?{_SEPARATORS}{self._PHONE_VALUE}"
+        pattern = rf"(?:{label_pattern})(?:{_PHONE_SEPARATORS}(?:no|number|nr|phone)(?![A-Za-z]))?{_PHONE_SEPARATORS}{self._PHONE_VALUE}"
         for m in re.finditer(pattern, text, re.IGNORECASE):
             value = m.group(1).strip()
             if len(re.sub(r"\D", "", value)) >= 7:
@@ -435,8 +439,8 @@ class MasterDataEntityExtractor(BaseExtractor):
 
         # 2. Egyptian landline / area code patterns (e.g. +2 (02) 23101798, +20 2 23101798, 02-23101798)
         landline = self.find_first([
-            r"(\+?2\s*\(?02\)?\s*[0-9\s\-]{7,10})",
-            r"(\+?20\s*\(?0\d{1,2}\)?\s*[0-9\s\-]{7,10})",
+            r"(\+2\s*\(?02\)?\s*[0-9\s\-]{7,10})",
+            r"(\+20\s*\(?0\d{1,2}\)?\s*[0-9\s\-]{7,10})",
             r"\b(02[- ]?[0-9\s\-]{7,9})\b",
         ], text)
         return landline

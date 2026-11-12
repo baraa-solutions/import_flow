@@ -24,6 +24,7 @@ import re
 import shutil
 import subprocess
 import unicodedata
+from functools import lru_cache
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
@@ -37,6 +38,8 @@ MIN_TEXT_LAYER_CHARS = 25          # a page with fewer meaningful chars is treat
 PDF_RENDER_DPI = 300
 MIN_OCR_LONG_EDGE_PX = 1600        # small scans / phone crops are upscaled before OCR
 MAX_OCR_LONG_EDGE_PX = 4000
+MIN_PDF_RENDER_DPI = 10            # a page so large it would render below this is skipped (not a document scan)
+MAX_OCR_IMAGE_PIXELS = 40_000_000  # uploaded images above this are reduced at decode time or refused
 OCR_SUBPROCESS_TIMEOUT_S = 90
 
 KIND_PDF = "pdf"
@@ -231,6 +234,7 @@ def find_tesseract_binary() -> Optional[str]:
     return None
 
 
+@lru_cache(maxsize=8)
 def _tesseract_languages(binary: str) -> str:
     """``ara+eng`` when the Arabic traineddata is installed, otherwise ``eng``."""
     try:
@@ -355,21 +359,48 @@ def _extract_from_image(content_bytes: bytes, result: DocumentTextResult, ocr_ru
     from PIL import Image
 
     try:
-        image = Image.open(io.BytesIO(content_bytes))
+        image = Image.open(io.BytesIO(content_bytes))  # header only; pixels are decoded by load()
+        if image.width * image.height > MAX_OCR_IMAGE_PIXELS:
+            # JPEG can be decoded directly at a reduced scale; other formats this large are refused.
+            # draft() picks the smallest DCT scale (1/2, 1/4, 1/8) that is still >= the requested size, so ask for
+            # half the budget edge to guarantee the decoded image lands within the pixel budget.
+            scale = 0.5 * (MAX_OCR_IMAGE_PIXELS / float(image.width * image.height)) ** 0.5
+            image.draft("L", (max(1, int(image.width * scale)), max(1, int(image.height * scale))))
+            if image.width * image.height > MAX_OCR_IMAGE_PIXELS:
+                result.warnings.append(f"image_too_large: {image.width}x{image.height}")
+                return ""
         image.load()
-    except Exception as exc:
+    except Exception as exc:  # corrupt file, DecompressionBombError, unsupported mode ...
         result.warnings.append(f"image_unreadable: {type(exc).__name__}")
         return ""
     result.pages_total = getattr(image, "n_frames", 1) or 1
     result.pages_processed = 1
-    return _ocr_image(image, result, ocr_runner)
+    try:
+        return _ocr_image(image, result, ocr_runner)
+    except Exception as exc:
+        logger.warning("OCR of uploaded image failed: %s", exc)
+        result.warnings.append(f"image_ocr_failed: {type(exc).__name__}")
+        return ""
 
 
-def _render_pdf_page(page: Any) -> Any:
+def pdf_render_dpi(width_pt: float, height_pt: float) -> float:
+    """Render resolution for a page: ``PDF_RENDER_DPI`` for normal paper sizes, lowered so the long edge never
+    exceeds ``MAX_OCR_LONG_EDGE_PX`` (a 522-byte PDF can declare a 200-inch page)."""
+    long_edge_pt = max(float(width_pt), float(height_pt), 1.0)
+    return min(float(PDF_RENDER_DPI), MAX_OCR_LONG_EDGE_PX * 72.0 / long_edge_pt)
+
+
+def _render_pdf_page(page: Any) -> Optional[Any]:
+    """Grayscale raster of the page within the OCR pixel budget, or None when the page is absurdly large."""
+    import fitz
     from PIL import Image
 
-    pixmap = page.get_pixmap(dpi=PDF_RENDER_DPI)
-    return Image.open(io.BytesIO(pixmap.tobytes("png")))
+    dpi = pdf_render_dpi(page.rect.width, page.rect.height)
+    if dpi < MIN_PDF_RENDER_DPI:
+        return None
+    zoom = dpi / 72.0
+    pixmap = page.get_pixmap(matrix=fitz.Matrix(zoom, zoom), colorspace=fitz.csGRAY, alpha=False)
+    return Image.frombytes("L", (pixmap.width, pixmap.height), pixmap.samples)
 
 
 def _extract_from_pdf(content_bytes: bytes, result: DocumentTextResult, ocr_runner: OcrRunner) -> str:
@@ -389,22 +420,17 @@ def _extract_from_pdf(content_bytes: bytes, result: DocumentTextResult, ocr_runn
     try:
         result.pages_total = document.page_count
         for index in range(min(document.page_count, MAX_TEXT_LAYER_PDF_PAGES)):
-            page = document.load_page(index)
             result.pages_processed += 1
-            page_text = page.get_text("text", sort=True) or ""
-            if meaningful_char_count(page_text) >= MIN_TEXT_LAYER_CHARS:
+            # One bad page (render limit, corrupt stream, OCR crash) is reported and skipped, never a 500.
+            try:
+                page_text, is_text_page = _read_pdf_page(document, index, result, ocr_runner)
+            except Exception as exc:
+                logger.warning("PDF page %s could not be read: %s", index + 1, exc)
+                result.warnings.append(f"page_{index + 1}_unreadable: {type(exc).__name__}")
+                continue
+            if page_text.strip():
                 parts.append(page_text)
-                text_pages += 1
-                continue
-            # Scanned / image-only page: rasterize and OCR (bounded page budget)
-            if result.ocr_pages >= MAX_OCR_PDF_PAGES or result.ocr_unavailable:
-                if page_text.strip():
-                    parts.append(page_text)
-                continue
-            ocr_text = _ocr_image(_render_pdf_page(page), result, ocr_runner)
-            best = ocr_text if meaningful_char_count(ocr_text) > meaningful_char_count(page_text) else page_text
-            if best.strip():
-                parts.append(best)
+            text_pages += int(is_text_page)
     finally:
         document.close()
 
@@ -417,6 +443,24 @@ def _extract_from_pdf(content_bytes: bytes, result: DocumentTextResult, ocr_runn
     if result.pages_total > MAX_TEXT_LAYER_PDF_PAGES:
         result.warnings.append(f"pdf_truncated_to_{MAX_TEXT_LAYER_PDF_PAGES}_pages")
     return "\n\n".join(parts)
+
+
+def _read_pdf_page(document: Any, index: int, result: DocumentTextResult, ocr_runner: OcrRunner) -> Tuple[str, bool]:
+    """Text of one page: its text layer, or OCR of its raster for scanned pages. Returns ``(text, from_text_layer)``."""
+    page = document.load_page(index)
+    page_text = page.get_text("text", sort=True) or ""
+    if meaningful_char_count(page_text) >= MIN_TEXT_LAYER_CHARS:
+        return page_text, True
+    # Scanned / image-only page: rasterize and OCR (bounded page budget)
+    if result.ocr_pages >= MAX_OCR_PDF_PAGES or result.ocr_unavailable:
+        return page_text, False
+    image = _render_pdf_page(page)
+    if image is None:
+        result.warnings.append(f"page_{index + 1}_too_large")
+        return page_text, False
+    ocr_text = _ocr_image(image, result, ocr_runner)
+    best = ocr_text if meaningful_char_count(ocr_text) > meaningful_char_count(page_text) else page_text
+    return best, False
 
 
 def _extract_from_pdf_pypdf(content_bytes: bytes, result: DocumentTextResult) -> str:
@@ -466,14 +510,19 @@ def extract_document_text(
     kind = detect_document_kind(filename, content_bytes)
     result = DocumentTextResult(kind=kind)
 
-    if kind == KIND_PDF:
-        raw = _extract_from_pdf(content_bytes, result, runner)
-    elif kind == KIND_IMAGE:
-        raw = _extract_from_image(content_bytes, result, runner)
-        if result.ocr_pages:
-            result.method = "ocr"
-    else:
-        raw = _extract_from_office_or_text(filename, content_bytes, kind, result)
+    try:
+        if kind == KIND_PDF:
+            raw = _extract_from_pdf(content_bytes, result, runner)
+        elif kind == KIND_IMAGE:
+            raw = _extract_from_image(content_bytes, result, runner)
+            if result.ocr_pages:
+                result.method = "ocr"
+        else:
+            raw = _extract_from_office_or_text(filename, content_bytes, kind, result)
+    except Exception as exc:  # last-resort guard: unreadable content becomes "no readable text", not a 500
+        logger.exception("Document text extraction failed for '%s'", filename)
+        result.warnings.append(f"extraction_failed: {type(exc).__name__}")
+        raw = ""
 
     result.text = normalize_extracted_text(raw)
     if not result.has_text and result.method != "none" and not result.ocr_pages:
