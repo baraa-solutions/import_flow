@@ -348,7 +348,15 @@ def test_upload_endpoint_returns_422_with_message_when_ocr_missing(monkeypatch):
     from modules.auth.router import get_current_user
     from modules.smart_document_upload.router import router
 
+    import modules.auth.permissions as permissions
+
     monkeypatch.setattr(pipeline, "run_ocr_on_image", no_ocr_engine)
+    # Since the RBAC lockdown (#219) the upload route is guarded by
+    # require_permission(...), which resolves the user from the DB itself.
+    admin = SimpleNamespace(is_admin=True, user_id=1, username="admin")
+    monkeypatch.setattr(permissions, "resolve_user", lambda *a, **k: admin)
+    monkeypatch.setattr(permissions, "enforce_password_change", lambda *a, **k: None)
+    monkeypatch.setattr(permissions, "has_user_permission", lambda *a, **k: True)
     app = FastAPI()
     app.include_router(router)
     app.dependency_overrides[get_current_user] = lambda: SimpleNamespace(is_admin=True, user_id=1)
