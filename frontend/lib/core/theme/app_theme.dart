@@ -99,12 +99,22 @@ class AppTheme {
   static const Color darkCrimsonText = Color(0xFFF1948A); // >= 4.8:1 on every dark surface
 
   // ── WCAG AA Compliant Button / Status Accents ─────────────────────────────
-  // >= 4.5:1 for white text on the fill AND as text on white, Cloud White
-  // (#ECF0F1) and the severity tints. Verified by test/wcag_contrast_test.dart.
-  static const Color wcagEmerald = Color(0xFF187A3F); // Deep Emerald (5.39:1 white, 4.70:1 cloud)
-  static const Color wcagCobalt = Color(0xFF2357D9);  // Deep Cobalt (6.11:1 white, 5.33:1 cloud)
-  static const Color wcagCrimson = Color(0xFFC0392B); // Flat Crimson (5.44:1 white, 4.74:1 cloud)
-  static const Color wcagOrange = Color(0xFFA14A08);  // Deep Amber/Orange (6.00:1 white, 5.23:1 cloud)
+  // LEGACY raw accents: >= 4.5:1 for white text on the fill. Kept at their
+  // original values because many raw text/icon call sites are not dark-aware
+  // (darker values would lose contrast on dark surfaces). Run
+  // `tool/report_low_contrast_text.sh` for the current usage report.
+  static const Color wcagEmerald = Color(0xFF1E8449); // Deep Emerald (4.72:1 with white)
+  static const Color wcagCobalt = Color(0xFF2563EB);  // Deep Cobalt (5.17:1 with white)
+  static const Color wcagCrimson = Color(0xFFC0392B); // Flat Crimson (5.44:1 with white)
+  static const Color wcagOrange = Color(0xFFB45309);  // Deep Amber/Orange (5.02:1 with white)
+
+  // Light-surface-only "Strong" accents: >= 4.5:1 for white text on the fill
+  // AND as text on white, Cloud White (#ECF0F1) and the severity tints.
+  // Used by button fills, the light theme and the light branch of the
+  // `...TextOf(context)` helpers. Verified by test/wcag_contrast_test.dart.
+  static const Color wcagEmeraldStrong = Color(0xFF187A3F); // 5.39:1 white, 4.70:1 cloud
+  static const Color wcagCobaltStrong = Color(0xFF2357D9);  // 6.11:1 white, 5.33:1 cloud
+  static const Color wcagOrangeStrong = Color(0xFFA14A08);  // 6.00:1 white, 5.23:1 cloud
 
   // ── Neutral Tokens (light-theme greys, surfaces on filled colours) ───────────
   /// Pure white: card surfaces and text/icons on filled (cobalt/emerald/...) backgrounds.
@@ -112,7 +122,7 @@ class AppTheme {
   /// Pure black: shadows and scrims only (use `.withOpacity`/alpha).
   static const Color black = Color(0xFF000000);
   /// LEGACY raw secondary grey (grey 600). Kept at its original value because
-  /// ~190 call sites use it directly without dark-mode awareness; darkening it
+  /// many call sites use it directly without dark-mode awareness; darkening it
   /// would collapse their contrast in dark mode. New code: use
   /// [textSecondaryOf] (light branch = [textSecondaryLight]).
   static const Color textSecondary = Color(0xFF757575);
@@ -121,7 +131,7 @@ class AppTheme {
   /// Stronger secondary text on light surfaces (grey 700).
   static const Color textStrong = Color(0xFF616161);
   /// LEGACY raw muted grey (grey 500, 2.7:1 on white). Kept at its original
-  /// value because ~250 call sites use it directly, including in dark mode
+  /// value because many call sites use it directly, including in dark mode
   /// where it reads 5.1:1 on darkSurface. New code: use [textMutedOf]
   /// (light branch = [textMutedLight]); raw usages migrate via codemod.
   static const Color textMuted = Color(0xFF9E9E9E);
@@ -130,6 +140,9 @@ class AppTheme {
   static const Color textMutedLight = Color(0xFF5F6B7A);
   /// Input placeholders / hint text and decorative disabled icons ONLY
   /// (grey 500, below 4.5:1 — never use it for readable content).
+  /// Intentionally a SEPARATE token from [textMuted] even though both are
+  /// #9E9E9E today: [textMuted] is legacy readable text awaiting migration to
+  /// [textMutedOf], while [hintColor] is the permanent placeholder colour.
   static const Color hintColor = Color(0xFF9E9E9E);
 
 
@@ -209,11 +222,11 @@ class AppTheme {
   /// Accent-coloured TEXT that stays >= 4.5:1 in both themes. Use these instead
   /// of `TextStyle(color: AppTheme.cobalt|emerald|orange|crimson)`.
   static Color cobaltTextOf(BuildContext context) =>
-      isDark(context) ? darkHyperlink : wcagCobalt;
+      isDark(context) ? darkHyperlink : wcagCobaltStrong;
   static Color emeraldTextOf(BuildContext context) =>
-      isDark(context) ? darkEmeraldText : wcagEmerald;
+      isDark(context) ? darkEmeraldText : wcagEmeraldStrong;
   static Color orangeTextOf(BuildContext context) =>
-      isDark(context) ? darkOrangeText : wcagOrange;
+      isDark(context) ? darkOrangeText : wcagOrangeStrong;
   static Color crimsonTextOf(BuildContext context) =>
       isDark(context) ? darkCrimsonText : wcagCrimson;
 
@@ -221,13 +234,13 @@ class AppTheme {
   static Color severityColor(AppSeverity severity, {bool dark = false}) {
     switch (severity) {
       case AppSeverity.success:
-        return dark ? darkEmeraldText : successForeground;
+        return dark ? darkEmeraldText : wcagEmeraldStrong;
       case AppSeverity.warning:
-        return dark ? darkOrangeText : warningForeground;
+        return dark ? darkOrangeText : wcagOrangeStrong;
       case AppSeverity.danger:
         return dark ? darkCrimsonText : dangerForeground;
       case AppSeverity.info:
-        return dark ? darkHyperlink : infoForeground;
+        return dark ? darkHyperlink : wcagCobaltStrong;
     }
   }
 
@@ -412,7 +425,7 @@ class AppTheme {
     final Color onSurface = dark ? darkTextPrimary : charcoal;
     final Color secondaryText = dark ? darkTextSecondary : textCaptionLight;
     final Color hintText = dark ? darkTextMuted : hintColor;
-    final Color accentText = dark ? darkHyperlink : wcagCobalt;
+    final Color accentText = dark ? darkHyperlink : wcagCobaltStrong;
     final Color inputFill = dark ? darkInputBackground : surfaceAlt;
     final Color headingRow = dark ? darkInputBackground : const Color(0xFFF1F5F9);
 
@@ -560,7 +573,7 @@ class AppTheme {
       // Buttons
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
-          backgroundColor: wcagCobalt,
+          backgroundColor: wcagCobaltStrong,
           foregroundColor: white,
           elevation: 1,
           shadowColor: const Color(0x401E293B),
@@ -572,7 +585,7 @@ class AppTheme {
       ),
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
-          backgroundColor: wcagCobalt,
+          backgroundColor: wcagCobaltStrong,
           foregroundColor: white,
           padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
           shape: buttonShape,

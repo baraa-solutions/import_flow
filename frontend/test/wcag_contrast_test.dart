@@ -67,9 +67,9 @@ void main() {
         expectAA(AppTheme.textStrong, entry.value, 'textStrong');
         expectAA(AppTheme.textCaptionLight, entry.value, 'textCaptionLight');
         expectAA(AppTheme.textMutedLight, entry.value, 'textMutedLight');
-        expectAA(AppTheme.wcagCobalt, entry.value, 'wcagCobalt text');
-        expectAA(AppTheme.wcagEmerald, entry.value, 'wcagEmerald text');
-        expectAA(AppTheme.wcagOrange, entry.value, 'wcagOrange text');
+        expectAA(AppTheme.wcagCobaltStrong, entry.value, 'wcagCobaltStrong text');
+        expectAA(AppTheme.wcagEmeraldStrong, entry.value, 'wcagEmeraldStrong text');
+        expectAA(AppTheme.wcagOrangeStrong, entry.value, 'wcagOrangeStrong text');
         expectAA(AppTheme.wcagCrimson, entry.value, 'wcagCrimson text');
       });
     }
@@ -80,8 +80,29 @@ void main() {
   });
 
   group('Legacy raw text tokens are unchanged (no dark-mode regression)', () {
-    // ~440 call sites use these raw, often without dark awareness. They must
+    // Many call sites use these raw, often without dark awareness (see
+    // tool/report_low_contrast_text.sh). They must
     // keep their original values until migrated to the ...Of(context) helpers.
+    test('raw accent tokens equal the pre-hardening values', () {
+      expect(AppTheme.wcagCobalt, const Color(0xFF2563EB));
+      expect(AppTheme.wcagEmerald, const Color(0xFF1E8449));
+      expect(AppTheme.wcagOrange, const Color(0xFFB45309));
+      // Legacy fills still carry white text at AA.
+      for (final c in [AppTheme.wcagCobalt, AppTheme.wcagEmerald, AppTheme.wcagOrange]) {
+        expectAA(Colors.white, c, 'white on legacy ${_hex(c)}');
+      }
+    });
+
+    test('Strong accents are used for white-text fills', () {
+      for (final c in [
+        AppTheme.wcagCobaltStrong,
+        AppTheme.wcagEmeraldStrong,
+        AppTheme.wcagOrangeStrong,
+      ]) {
+        expectAA(Colors.white, c, 'white on ${_hex(c)}');
+      }
+    });
+
     test('values equal the pre-hardening tokens', () {
       expect(AppTheme.textMuted, const Color(0xFF9E9E9E));
       expect(AppTheme.textSecondary, const Color(0xFF757575));
@@ -224,9 +245,9 @@ void main() {
       final primary = await resolveButton(tester, AppButtonVariant.primary, dark: false);
       final success = await resolveButton(tester, AppButtonVariant.success, dark: false);
       final warning = await resolveButton(tester, AppButtonVariant.warning, dark: false);
-      expect(primary.bg, AppTheme.wcagCobalt);
-      expect(success.bg, AppTheme.wcagEmerald);
-      expect(warning.bg, AppTheme.wcagOrange);
+      expect(primary.bg, AppTheme.wcagCobaltStrong);
+      expect(success.bg, AppTheme.wcagEmeraldStrong);
+      expect(warning.bg, AppTheme.wcagOrangeStrong);
     });
   });
 
