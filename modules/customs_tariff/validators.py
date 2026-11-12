@@ -95,6 +95,37 @@ def validate_effective_date_range(
         raise ValueError("تاريخ انتهاء السريان يجب أن يكون بعد تاريخ البداية.")
 
 
+def resolve_rate_change_effective_date(
+    current_effective_from: date,
+    requested_effective_from: Optional[date],
+    today: date,
+) -> date:
+    """
+    Start date of the tariff version that a rate/requirement change produces (AGENTS.md 7.2:
+    rates keep their effective_from/effective_to history and are never overwritten in place).
+
+    - No date sent, or the current version's own start re-sent unchanged: the change starts today.
+    - A later date: the change starts on that date. A later date that is still in the past is
+      allowed on purpose: decrees are often published after the date they take effect, so a
+      retroactive correction is an explicit user choice. History stays split into versions
+      (the old version is closed the day before), it is never overwritten in place.
+    - An earlier date while the current version is already in force: rejected, since rewriting
+      the rate from a past date would silently rewrite history that cost snapshots relied on.
+      (A version that has not started yet may still move its start earlier.)
+
+    The caller versions when the result is after current_effective_from and edits in place
+    otherwise (the version starts today or later, so no past day depends on it).
+    """
+    if requested_effective_from is None or requested_effective_from == current_effective_from:
+        return today
+    if requested_effective_from < current_effective_from and current_effective_from <= today:
+        raise ValueError(
+            "لا يمكن تعديل نسب أو متطلبات البند الجمركي بتاريخ سريان سابق لبداية الإصدار الحالي "
+            f"({current_effective_from}). اختر تاريخ سريان لاحقاً لإنشاء إصدار جديد مع الحفاظ على السجل التاريخي."
+        )
+    return requested_effective_from
+
+
 # ==================================================
 # Trade remedy measures (anti-dumping / safeguard / countervailing)
 # ==================================================

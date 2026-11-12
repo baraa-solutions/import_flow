@@ -36,6 +36,7 @@ from .schemas import (
 from .tariff_agreements_service import compare_tariff_versions_service
 from .tariff_calculation_service import _parse_decimal
 from .validators import (
+    resolve_rate_change_effective_date,
     validate_effective_date_range,
     validate_no_duplicate_hs_code,
     validate_no_overlapping_hs_code_dates,
@@ -126,6 +127,49 @@ def get_tariff_by_hs_code_service(
     return tariff
 
 
+_RATE_AND_REQUIREMENT_FIELDS = (
+    "customs_duty_rate",
+    "vat_rate",
+    "schedule_tax_rate",
+    "development_fee_rate",
+    "import_fee_rate",
+    "customs_service_fee_rate",
+    "requires_coo",
+    "requires_inspection",
+    "requires_acid",
+    "regulatory_authority",
+    "prior_approval_note",
+)
+
+
+def _has_rate_or_requirement_change(tariff: CustomsTariff, update_dict: dict) -> bool:
+    """True when the update changes a rate or regulatory requirement (fields that need a new version)."""
+    for field in _RATE_AND_REQUIREMENT_FIELDS:
+        if field not in update_dict:
+            continue
+        curr_val = getattr(tariff, field)
+        new_val = update_dict[field]
+        if isinstance(curr_val, Decimal) or isinstance(new_val, Decimal):
+            if Decimal(str(curr_val or 0)) != Decimal(str(new_val or 0)):
+                return True
+        elif curr_val != new_val:
+            return True
+    return False
+
+
+def _validate_validity_window(
+    db: Session, tariff: CustomsTariff, effective_from: date, effective_to: Optional[date]
+) -> None:
+    validate_effective_date_range(effective_from, effective_to)
+    validate_no_overlapping_hs_code_dates(
+        db,
+        hs_code=tariff.hs_code,
+        effective_from=effective_from,
+        effective_to=effective_to,
+        exclude_id=tariff.tariff_id,
+    )
+
+
 def update_tariff_service(
     db: Session, tariff_id: int, data: CustomsTariffUpdate
 ) -> CustomsTariff:
@@ -134,55 +178,43 @@ def update_tariff_service(
         raise HTTPException(status_code=404, detail="سجل التعريفة الجمركية غير موجود")
 
     update_dict = data.model_dump(exclude_unset=True, exclude_none=True)
+    # An explicit null effective_to reopens the version (clears its end date).
+    if "effective_to" in data.model_fields_set and data.effective_to is None:
+        update_dict["effective_to"] = None
 
-    if "effective_from" in update_dict or "effective_to" in update_dict:
-        eff_from = update_dict.get("effective_from", tariff.effective_from)
-        eff_to = update_dict.get("effective_to", tariff.effective_to)
-        validate_effective_date_range(eff_from, eff_to)
-        validate_no_overlapping_hs_code_dates(
-            db,
-            hs_code=tariff.hs_code,
-            effective_from=eff_from,
-            effective_to=eff_to,
-            exclude_id=tariff_id,
+    if _has_rate_or_requirement_change(tariff, update_dict):
+        eff_date = resolve_rate_change_effective_date(
+            tariff.effective_from, update_dict.get("effective_from"), date.today()
         )
-
-    # Check if rate or regulatory values have changed
-    has_rate_or_req_change = False
-    rate_and_req_fields = [
-        "customs_duty_rate",
-        "vat_rate",
-        "schedule_tax_rate",
-        "development_fee_rate",
-        "import_fee_rate",
-        "customs_service_fee_rate",
-        "requires_coo",
-        "requires_inspection",
-        "requires_acid",
-        "regulatory_authority",
-        "prior_approval_note",
-    ]
-    for field in rate_and_req_fields:
-        if field in update_dict:
-            curr_val = getattr(tariff, field)
-            new_val = update_dict[field]
-            if isinstance(curr_val, Decimal) or isinstance(new_val, Decimal):
-                if Decimal(str(curr_val or 0)) != Decimal(str(new_val or 0)):
-                    has_rate_or_req_change = True
-                    break
-            elif curr_val != new_val:
-                has_rate_or_req_change = True
-                break
-
-    eff_date = update_dict.get("effective_from") or date.today()
-
-    if has_rate_or_req_change and eff_date > tariff.effective_from:
-        # BE67-T08 & ACC1-T08: Archive old version to protect past confirmed cost snapshots
-        result = repository.archive_and_create_new_tariff_version(
-            db, tariff, update_dict, effective_date=eff_date
-        )
+        if eff_date > tariff.effective_from:
+            # BE67-T08 & ACC1-T08: close the current version and open a new one so past
+            # confirmed cost snapshots keep the rates that were in force on their dates.
+            # An omitted effective_to keeps the current version's planned (decree) end.
+            if "effective_to" not in update_dict:
+                update_dict["effective_to"] = repository.carried_over_effective_to(tariff, eff_date)
+            _validate_validity_window(db, tariff, eff_date, update_dict["effective_to"])
+            result = repository.archive_and_create_new_tariff_version(
+                db, tariff, update_dict, effective_date=eff_date
+            )
+        else:
+            # The version starts today or later, so no past day depends on it: edit in place.
+            update_dict["effective_from"] = update_dict.get("effective_from", tariff.effective_from)
+            _validate_validity_window(
+                db,
+                tariff,
+                update_dict["effective_from"],
+                update_dict.get("effective_to", tariff.effective_to),
+            )
+            result = repository.update_tariff(db, tariff_id, update_dict)
     else:
-        # In-place update (same day or metadata only)
+        # Metadata / validity-window only: in-place update.
+        if "effective_from" in update_dict or "effective_to" in update_dict:
+            _validate_validity_window(
+                db,
+                tariff,
+                update_dict.get("effective_from", tariff.effective_from),
+                update_dict.get("effective_to", tariff.effective_to),
+            )
         result = repository.update_tariff(db, tariff_id, update_dict)
 
     db.commit()

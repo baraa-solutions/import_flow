@@ -6747,6 +6747,13 @@ abstract class AppLocalizations {
   String hsEffectiveFromPrefix(String from);
   String hsEffectiveToPrefix(String to);
   String get hsEffectiveActiveRecord;
+  String get tariffEffectiveFromLabel;
+  String get tariffEffectiveToLabel;
+  String get tariffEffectiveToAfterFromError;
+  String get tariffRateChangeNewVersionHint;
+  String tariffValidSince(String date);
+  String tariffExpiredOn(String date);
+  String tariffStartsOn(String date);
   String get hsDiffHistoryAction;
   String get hsTabTaxRates;
   String get hsTabAgreements;
