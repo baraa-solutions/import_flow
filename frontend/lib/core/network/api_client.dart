@@ -40,7 +40,9 @@ final dioProvider = Provider<Dio>((ref) {
   // ── Auth Token & Role Header & X-Request-ID Interceptor ───────
   dio.interceptors.add(
     InterceptorsWrapper(
-      onRequest: (options, handler) {
+      onRequest: (options, handler) async {
+        // Renew a token about to expire BEFORE sending: uploads cannot be replayed after a 401.
+        await proactiveTokenRefresh(ref, options);
         try {
           final authState = ref.read(authProvider);
           if (authState.token != null && authState.token!.isNotEmpty) {
@@ -120,20 +122,26 @@ final dioProvider = Provider<Dio>((ref) {
 
         if (statusCode == 401 && !path.contains('/auth/login')) {
           final authNotifier = ref.read(authProvider.notifier);
+          final alreadyRetried = error.requestOptions.extra[kRetriedAfter401] == true;
+          var sessionLost = true;
 
-          // If the failing request was not already a refresh attempt, try silent refresh
-          if (!path.contains('/auth/refresh')) {
-            final refreshed = await authNotifier.refreshToken();
-            if (refreshed) {
-              final newToken = ref.read(authProvider).token;
-              if (newToken != null && newToken.isNotEmpty) {
+          // One renewal per request: a retried request that fails again ends the session.
+          if (!path.contains('/auth/refresh') && !alreadyRetried) {
+            final renewed = await renewTokenAfter401(ref, error.requestOptions);
+            if (renewed) {
+              sessionLost = false;
+              if (error.requestOptions.data is FormData) {
+                // A multipart body cannot be re-sent: keep the session, ask the user to retry.
+                error = error.copyWith(message: kSessionRenewedRetryMessage);
+              } else {
+                final newToken = ref.read(authProvider).token;
                 final retryOptions = Options(
                   method: error.requestOptions.method,
                   headers: Map<String, dynamic>.from(error.requestOptions.headers)
                     ..['Authorization'] = 'Bearer $newToken',
                   responseType: error.requestOptions.responseType,
                   contentType: error.requestOptions.contentType,
-                  extra: error.requestOptions.extra,
+                  extra: {...error.requestOptions.extra, kRetriedAfter401: true},
                   sendTimeout: error.requestOptions.sendTimeout,
                   receiveTimeout: error.requestOptions.receiveTimeout,
                 );
@@ -148,14 +156,19 @@ final dioProvider = Provider<Dio>((ref) {
                 } catch (retryErr) {
                   if (retryErr is DioException) {
                     error = retryErr;
+                    // A second 401 on the retry was already handled by the retry's own onError pass
+                    // (flagged kRetriedAfter401, so it skips renewal and calls handleSessionExpired).
+                    // Any other retry failure is surfaced as-is and keeps the renewed session.
                   }
                 }
               }
             }
           }
 
-          // If refresh failed or was not possible, cleanly expire the session
-          await authNotifier.handleSessionExpired();
+          // Refresh failed / not possible (or the retried request was refused again)
+          if (sessionLost) {
+            await authNotifier.handleSessionExpired();
+          }
         }
 
         // 403 PASSWORD_CHANGE_REQUIRED: flag the user so the password-change
@@ -204,7 +217,9 @@ final uploadDioProvider = Provider<Dio>((ref) {
 
   dio.interceptors.add(
     InterceptorsWrapper(
-      onRequest: (options, handler) {
+      onRequest: (options, handler) async {
+        // Renew a token about to expire BEFORE sending: uploads cannot be replayed after a 401.
+        await proactiveTokenRefresh(ref, options);
         try {
           final authState = ref.read(authProvider);
           if (authState.token != null && authState.token!.isNotEmpty) {
@@ -225,7 +240,15 @@ final uploadDioProvider = Provider<Dio>((ref) {
       },
       onError: (DioException error, ErrorInterceptorHandler handler) async {
         if (error.response?.statusCode == 401 && !error.requestOptions.path.contains('/auth/')) {
-          await ref.read(authProvider.notifier).handleSessionExpired();
+          // Multipart bodies are not replayed: renew the token and ask the user to retry;
+          // the session ends only when the token cannot be renewed.
+          final renewed = error.requestOptions.extra[kRetriedAfter401] != true &&
+              await renewTokenAfter401(ref, error.requestOptions);
+          if (renewed) {
+            error = error.copyWith(message: kSessionRenewedRetryMessage);
+          } else {
+            await ref.read(authProvider.notifier).handleSessionExpired();
+          }
         }
         if (ApiError.isPasswordChangeRequired(error)) {
           ref.read(authProvider.notifier).markPasswordChangeRequired();
@@ -237,3 +260,44 @@ final uploadDioProvider = Provider<Dio>((ref) {
 
   return dio;
 });
+
+
+// ── Token renewal shared by dioProvider and uploadDioProvider ─────────────
+
+/// RequestOptions.extra flag set on the single retry made after a 401.
+const String kRetriedAfter401 = 'auth_retried_after_401';
+
+/// Shown when an upload hit an expired token: the token was renewed but the
+/// multipart body cannot be replayed automatically.
+const String kSessionRenewedRetryMessage =
+    'تم تجديد الجلسة تلقائياً. يرجى إعادة المحاولة.';
+
+bool _isAuthEndpoint(String path) => path.contains('/auth/');
+
+/// Before a request: refresh a token that expires within
+/// [AuthNotifier.proactiveRefreshWindow] (single-flight, never logs out).
+Future<void> proactiveTokenRefresh(Ref ref, RequestOptions options) async {
+  if (_isAuthEndpoint(options.path)) return;
+  try {
+    await ref.read(authProvider.notifier).ensureFreshToken();
+  } catch (_) {}
+}
+
+String? _sentBearer(RequestOptions options) {
+  final header = options.headers['Authorization']?.toString();
+  if (header == null || !header.startsWith('Bearer ')) return null;
+  return header.substring(7);
+}
+
+/// After a 401: true when a newer token is available for a retry. When the
+/// failed request carried an older token than the current one (another call
+/// already refreshed it), no new refresh is made — refreshing again would only
+/// revoke the token the other requests are using.
+Future<bool> renewTokenAfter401(Ref ref, RequestOptions failed) async {
+  final current = ref.read(authProvider).token;
+  final sent = _sentBearer(failed);
+  if (current != null && current.isNotEmpty && sent != null && sent != current) {
+    return true;
+  }
+  return ref.read(authProvider.notifier).refreshToken();
+}

@@ -6,12 +6,12 @@ geodesic telemetry logging, and voyage route waypoint simulation.
 
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from modules.auth.permissions import require_permission
+from modules.users.model import User
 from sqlalchemy.orm import Session
 
 from database.database import get_db
 from modules.auth.router import get_current_user
-from modules.auth.permissions import require_permission
-from modules.users.model import User
 from modules.vessel_tracking.schemas import (
     VesselCreate,
     VesselResponse,
@@ -71,6 +71,7 @@ def get_shipment_tracking(
     response_model=VesselPositionResponse,
     status_code=status.HTTP_201_CREATED,
     summary="Ingest AIS or satellite live telemetry position for a vessel",
+    dependencies=[Depends(require_permission("cargo_shipping.update"))],
 )
 def record_telemetry_position(
     payload: VesselPositionCreate,
@@ -91,6 +92,7 @@ def record_telemetry_position(
     "/simulate-step/{import_file_id}",
     response_model=ShipmentTrackingResponse,
     summary="Advance vessel location along voyage vector towards POD (Simulation)",
+    dependencies=[Depends(require_permission("cargo_shipping.update"))],
 )
 def simulate_vessel_step(
     import_file_id: int,
@@ -112,6 +114,7 @@ def simulate_vessel_step(
     "/confirm-arrival/{import_file_id}",
     response_model=ShipmentTrackingResponse,
     summary="Confirm vessel port arrival, berth ship, and trigger delivery order workflow",
+    dependencies=[Depends(require_permission("cargo_shipping.update"))],
 )
 def confirm_port_arrival(
     import_file_id: int,
@@ -162,6 +165,7 @@ def sync_demurrage_clock(
     response_model=VesselResponse,
     status_code=status.HTTP_201_CREATED,
     summary="Register a new vessel or return existing vessel by IMO",
+    dependencies=[Depends(require_permission("cargo_shipping.update"))],
 )
 def register_vessel(
     payload: VesselCreate,

@@ -1,6 +1,7 @@
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, Query, Response, status
+from modules.common.upload_guard import EXCEL_EXTENSIONS, read_upload_bytes
 from modules.auth.router import get_current_user
 from modules.auth.permissions import require_permission
 from sqlalchemy.orm import Session
@@ -87,7 +88,7 @@ def download_locations_excel_template():
 
 @router.post("/import-excel", dependencies=[Depends(require_permission("master_data.edit"))])
 async def import_excel_locations(file: UploadFile = File(...), db: Session = Depends(get_db)):
-    file_bytes = await file.read()
+    file_bytes = await read_upload_bytes(file, EXCEL_EXTENSIONS)
     cols = ['location_name', 'un_locode', 'location_type', 'country', 'city']
     rows = MasterDataExportImportHelper.parse_excel_file(file_bytes, cols)
     service = TransportLocationService(db)

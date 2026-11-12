@@ -9,6 +9,7 @@ import '../services/file_save_helper.dart';
 import '../theme/app_theme.dart';
 import 'buttons/app_button.dart';
 import 'stage_notes_card.dart';
+import '../constants/upload_file_types.dart';
 
 /// Reusable master data toolbar with Export/Import/Refresh actions.
 ///
@@ -87,7 +88,7 @@ class _MasterDataToolbarWidgetState
     try {
       final result = await FilePicker.pickFiles(
         type: FileType.custom,
-        allowedExtensions: ['xlsx', 'xls'],
+        allowedExtensions: UploadFileTypes.excelImport,
         withData: true,
       );
 

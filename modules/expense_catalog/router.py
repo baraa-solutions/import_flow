@@ -7,8 +7,8 @@ from __future__ import annotations
 
 from typing import List, Optional
 from fastapi import APIRouter, Depends, Query, status
-from modules.auth.router import get_current_user
 from modules.auth.permissions import require_permission
+from modules.auth.router import get_current_user
 from sqlalchemy.orm import Session
 
 from database.database import get_db
@@ -51,6 +51,7 @@ def list_expense_catalog(
     response_model=ExpenseCatalogResponse,
     status_code=status.HTTP_201_CREATED,
     summary="Create a new permanent expense code in the catalog",
+    dependencies=[Depends(require_permission("master_data.edit"))],
 )
 def create_expense_catalog_item(
     schema: ExpenseCatalogCreate,
@@ -75,6 +76,7 @@ def get_expense_catalog_item(
     "/{code}",
     response_model=ExpenseCatalogResponse,
     summary="Update an existing expense catalog item",
+    dependencies=[Depends(require_permission("master_data.edit"))],
 )
 def update_expense_catalog_item(
     code: str,
@@ -88,6 +90,7 @@ def update_expense_catalog_item(
     "/{code}/patterns",
     response_model=ExpenseCatalogResponse,
     summary="Add a new recognition pattern / synonym to an existing catalog code",
+    dependencies=[Depends(require_permission("master_data.edit"))],
 )
 def add_recognition_pattern(
     code: str,
@@ -101,6 +104,7 @@ def add_recognition_pattern(
     "/{code}",
     response_model=ExpenseCatalogResponse,
     summary="Deactivate / Soft delete expense catalog item",
+    dependencies=[Depends(require_permission("master_data.edit"))],
 )
 def delete_expense_catalog_item(
     code: str,
