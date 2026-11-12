@@ -171,6 +171,86 @@ def test_omitted_effective_to_is_kept(db):
     assert result.effective_to == date(2030, 12, 31)
 
 
+def test_rate_only_edit_inherits_planned_end_date(db):
+    planned_end = date.today() + timedelta(days=60)
+    original = _tariff(db, effective_to=planned_end)
+
+    result = update_tariff_service(
+        db, original.tariff_id, CustomsTariffUpdate(customs_duty_rate=Decimal("15.00"))
+    )
+
+    assert result.tariff_id != original.tariff_id
+    assert result.effective_from == date.today()
+    assert result.effective_to == planned_end
+    db.refresh(original)
+    assert original.effective_to == date.today() - timedelta(days=1)
+
+
+def test_rate_only_edit_with_successor_at_end_plus_one_succeeds(db):
+    planned_end = date.today() + timedelta(days=60)
+    original = _tariff(db, effective_to=planned_end)
+    successor = _tariff(db, effective_from=planned_end + timedelta(days=1))
+    successor.customs_duty_rate = Decimal("20.00")
+    db.commit()
+
+    result = update_tariff_service(
+        db,
+        original.tariff_id,
+        CustomsTariffUpdate(customs_duty_rate=Decimal("15.00"), effective_from=SINCE),
+    )
+
+    assert result.effective_to == planned_end
+    assert len(repository.get_all_tariff_versions_by_hs_code(db, HS)) == 3
+    assert repository.get_active_tariff_on_date(db, HS, date(2025, 6, 1)).customs_duty_rate == Decimal("10.00")
+    assert repository.get_active_tariff_on_date(db, HS, date.today()).customs_duty_rate == Decimal("15.00")
+    after = repository.get_active_tariff_on_date(db, HS, planned_end + timedelta(days=1))
+    assert after.customs_duty_rate == Decimal("20.00")
+
+
+def test_rate_edit_after_planned_end_passed_opens_without_end(db):
+    original = _tariff(db, effective_to=date.today() - timedelta(days=10))
+
+    result = update_tariff_service(
+        db, original.tariff_id, CustomsTariffUpdate(customs_duty_rate=Decimal("15.00"))
+    )
+
+    assert result.effective_to is None
+    db.refresh(original)
+    # The already-ended version is not extended.
+    assert original.effective_to == date.today() - timedelta(days=10)
+
+
+def test_two_rate_edits_on_the_same_day(db):
+    original = _tariff(db)
+
+    first = update_tariff_service(
+        db, original.tariff_id, CustomsTariffUpdate(customs_duty_rate=Decimal("15.00"))
+    )
+    second = update_tariff_service(
+        db,
+        first.tariff_id,
+        CustomsTariffUpdate(customs_duty_rate=Decimal("12.00"), effective_from=first.effective_from),
+    )
+
+    assert second.tariff_id == first.tariff_id
+    assert second.customs_duty_rate == Decimal("12.00")
+    assert len(repository.get_all_tariff_versions_by_hs_code(db, HS)) == 2
+    db.refresh(original)
+    assert original.customs_duty_rate == Decimal("10.00")
+    assert original.effective_to == date.today() - timedelta(days=1)
+
+
+def test_reopening_a_version_with_a_successor_is_rejected(db):
+    original = _tariff(db, effective_to=date(2025, 12, 31))
+    _tariff(db, effective_from=date(2026, 1, 1))
+
+    with pytest.raises(ValueError):
+        update_tariff_service(db, original.tariff_id, CustomsTariffUpdate(effective_to=None))
+
+    db.refresh(original)
+    assert original.effective_to == date(2025, 12, 31)
+
+
 def test_resolve_rate_change_effective_date_rules():
     today = date(2026, 11, 12)
     assert resolve_rate_change_effective_date(SINCE, None, today) == today

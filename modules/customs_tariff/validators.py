@@ -105,7 +105,10 @@ def resolve_rate_change_effective_date(
     rates keep their effective_from/effective_to history and are never overwritten in place).
 
     - No date sent, or the current version's own start re-sent unchanged: the change starts today.
-    - A later date: the change starts on that date.
+    - A later date: the change starts on that date. A later date that is still in the past is
+      allowed on purpose: decrees are often published after the date they take effect, so a
+      retroactive correction is an explicit user choice. History stays split into versions
+      (the old version is closed the day before), it is never overwritten in place.
     - An earlier date while the current version is already in force: rejected, since rewriting
       the rate from a past date would silently rewrite history that cost snapshots relied on.
       (A version that has not started yet may still move its start earlier.)

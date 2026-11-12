@@ -105,6 +105,17 @@ def update_tariff(db: Session, tariff_id: int, data: dict) -> Optional[CustomsTa
     return tariff
 
 
+def carried_over_effective_to(current_tariff: CustomsTariff, new_effective_from: date) -> Optional[date]:
+    """
+    End date a new version inherits when the caller did not send one: the current version's
+    planned (decree) end, as long as it is not before the new version's start; otherwise open-ended.
+    """
+    current_end = current_tariff.effective_to
+    if current_end is not None and current_end >= new_effective_from:
+        return current_end
+    return None
+
+
 def archive_and_create_new_tariff_version(
     db: Session, current_tariff: CustomsTariff, new_data: dict, effective_date: date
 ) -> CustomsTariff:
@@ -113,7 +124,14 @@ def archive_and_create_new_tariff_version(
     1. إغلاق السجل القديم بتحديد effective_to = effective_date - 1 يوم (لتفادي تداخل اليوم الواحد).
     2. إنشاء سجل جديد فعّال يبدأ من effective_date.
     3. الحفاظ على تاريخ سريان الاتفاقيات التفضيلية بإغلاق السابقة واستنساخ السارية للإصدار الجديد.
+    4. لو effective_to مش متبعت، الإصدار الجديد بيورث تاريخ النهاية المخطط للإصدار الحالي.
     """
+    # Read before the current version is closed below (closing overwrites its effective_to).
+    new_effective_to = (
+        new_data["effective_to"]
+        if "effective_to" in new_data
+        else carried_over_effective_to(current_tariff, effective_date)
+    )
     if effective_date > current_tariff.effective_from:
         closing_date = effective_date - timedelta(days=1)
         # Never extend a version that already ended earlier: that would rewrite its history.
@@ -139,7 +157,7 @@ def archive_and_create_new_tariff_version(
         "regulatory_authority": new_data.get("regulatory_authority", current_tariff.regulatory_authority),
         "prior_approval_note": new_data.get("prior_approval_note", current_tariff.prior_approval_note),
         "effective_from": effective_date,
-        "effective_to": new_data.get("effective_to", None),
+        "effective_to": new_effective_to,
         "source_url": new_data.get("source_url", current_tariff.source_url),
         "last_verified_date": date.today(),
         "verified_by": new_data.get("verified_by", "System Admin"),

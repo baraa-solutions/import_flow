@@ -189,8 +189,10 @@ def update_tariff_service(
         if eff_date > tariff.effective_from:
             # BE67-T08 & ACC1-T08: close the current version and open a new one so past
             # confirmed cost snapshots keep the rates that were in force on their dates.
-            new_effective_to = update_dict.get("effective_to")
-            _validate_validity_window(db, tariff, eff_date, new_effective_to)
+            # An omitted effective_to keeps the current version's planned (decree) end.
+            if "effective_to" not in update_dict:
+                update_dict["effective_to"] = repository.carried_over_effective_to(tariff, eff_date)
+            _validate_validity_window(db, tariff, eff_date, update_dict["effective_to"])
             result = repository.archive_and_create_new_tariff_version(
                 db, tariff, update_dict, effective_date=eff_date
             )
