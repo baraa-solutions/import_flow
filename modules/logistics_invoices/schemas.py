@@ -115,6 +115,8 @@ class LogisticsInvoiceResponse(BaseModel):
     invoice_id: int
     invoice_code: str
     shipment_id: int
+    import_file_code: Optional[str] = None
+    project_names: Optional[str] = None
     bl_number: Optional[str] = None
     partner_id: int
     partner_type: str

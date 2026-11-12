@@ -100,10 +100,7 @@ class _DemurrageDetentionScreenState extends ConsumerState<DemurrageDetentionScr
               icon: Icons.assignment_turned_in,
               variant: AppButtonVariant.primary,
               size: AppButtonSize.small,
-              onPressed: () {
-                final targetFileId = widget.initialImportFileId ?? (state.trackings.isNotEmpty ? state.trackings.first.importFileId : 1);
-                ContainerEirDialog.show(context, importFileId: targetFileId);
-              },
+              onPressed: () => ContainerEirDialog.showForFile(context, ref, importFileId: widget.initialImportFileId),
             ),
             const SizedBox(width: 8),
             AppButton(
