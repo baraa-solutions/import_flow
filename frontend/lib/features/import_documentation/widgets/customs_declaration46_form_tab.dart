@@ -150,6 +150,26 @@ class _CustomsDeclaration46FormTabState extends ConsumerState<CustomsDeclaration
 
     final data = CustomsDeclaration46FormService.loadForFile(ref, fileId);
     setState(() => _applyFormData(data));
+    _refreshFiguresAtDeclarationDate(fileId, data.declarationDate);
+  }
+
+  /// Re-computes the study figures with the customs rate in force on [onDate] (backend history).
+  /// Only the computed figures change; the user's other inputs stay.
+  Future<void> _refreshFiguresAtDeclarationDate(int fileId, DateTime onDate) async {
+    final data = await CustomsDeclaration46FormService.loadForFileAtDeclarationDate(ref, fileId, onDate: onDate);
+    if (!mounted || _selectedImportFileId != fileId) return;
+    setState(() {
+      _studyFigures = data.figures;
+      _matchedTariffs = data.matchedTariffs;
+      _appliedDutyRate = data.appliedDutyRate;
+      _figuresMissing = data.figuresMissing;
+      _c.customsValueEgpCtrl.text = data.cifEgp;
+      _c.importDutyEgpCtrl.text = data.importDutyEgp;
+      _c.vatEgpCtrl.text = data.vatEgp;
+      _c.otherFeesEgpCtrl.text = data.otherFeesEgp;
+      _c.totalDutyAndTaxesCtrl.text = data.totalDutiesEgp;
+      _c.revisedFxRateCtrl.text = data.figures?.exchangeRate?.toStringAsFixed(4) ?? '';
+    });
   }
 
   void _recalculateRevisedEstimate() {
@@ -214,6 +234,8 @@ class _CustomsDeclaration46FormTabState extends ConsumerState<CustomsDeclaration
           _declarationDate = picked;
           _c.submissionDateCtrl.text = picked.toIso8601String().substring(0, 10);
         });
+        final fileId = _selectedImportFileId;
+        if (fileId != null) _refreshFiguresAtDeclarationDate(fileId, picked);
       },
     );
   }

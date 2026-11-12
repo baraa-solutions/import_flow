@@ -4,14 +4,16 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/widgets.dart';
 import '../providers/logistics_invoices_provider.dart';
 import '../repositories/logistics_invoices_repository.dart';
+import 'document_party_selectors.dart';
 
 class AdvancePaymentDialog extends ConsumerStatefulWidget {
-  final int defaultShipmentId;
+  /// Import file context of the caller; null opens the dialog with no file selected.
+  final int? defaultShipmentId;
   final String? defaultBlNumber;
 
   const AdvancePaymentDialog({
     super.key,
-    this.defaultShipmentId = 1,
+    this.defaultShipmentId,
     this.defaultBlNumber,
   });
 
@@ -22,10 +24,10 @@ class AdvancePaymentDialog extends ConsumerStatefulWidget {
 class _AdvancePaymentDialogState extends ConsumerState<AdvancePaymentDialog> {
   final _formKey = GlobalKey<FormState>();
 
-  late TextEditingController _shipmentIdCtrl;
+  int? _shipmentId;
+  int? _partnerId;
+  String _partnerName = '';
   late TextEditingController _blNumberCtrl;
-  late TextEditingController _partnerIdCtrl;
-  late TextEditingController _partnerNameCtrl;
   late TextEditingController _amountCtrl;
   late TextEditingController _notesCtrl;
 
@@ -36,20 +38,16 @@ class _AdvancePaymentDialogState extends ConsumerState<AdvancePaymentDialog> {
   @override
   void initState() {
     super.initState();
-    _shipmentIdCtrl = TextEditingController(text: widget.defaultShipmentId.toString());
+    // A new advance starts blank: no default file, broker or amount.
+    _shipmentId = widget.defaultShipmentId;
     _blNumberCtrl = TextEditingController(text: widget.defaultBlNumber ?? '');
-    _partnerIdCtrl = TextEditingController(text: '1');
-    _partnerNameCtrl = TextEditingController(text: 'Customs Clearance Partner');
-    _amountCtrl = TextEditingController(text: '50000');
+    _amountCtrl = TextEditingController();
     _notesCtrl = TextEditingController();
   }
 
   @override
   void dispose() {
-    _shipmentIdCtrl.dispose();
     _blNumberCtrl.dispose();
-    _partnerIdCtrl.dispose();
-    _partnerNameCtrl.dispose();
     _amountCtrl.dispose();
     _notesCtrl.dispose();
     super.dispose();
@@ -65,10 +63,10 @@ class _AdvancePaymentDialogState extends ConsumerState<AdvancePaymentDialog> {
     try {
       final repo = ref.read(logisticsInvoicesRepositoryProvider);
       final payload = {
-        'shipment_id': int.parse(_shipmentIdCtrl.text),
+        'shipment_id': _shipmentId,
         'bl_number': _blNumberCtrl.text.trim().isEmpty ? null : _blNumberCtrl.text.trim(),
-        'clearance_partner_id': int.parse(_partnerIdCtrl.text),
-        'clearance_partner_name': _partnerNameCtrl.text.trim(),
+        'clearance_partner_id': _partnerId,
+        'clearance_partner_name': _partnerName,
         'amount': _amount,
         'currency': _currency,
         'exchange_rate': _exchangeRate,
@@ -129,15 +127,17 @@ class _AdvancePaymentDialogState extends ConsumerState<AdvancePaymentDialog> {
                 children: [
                   const Icon(Icons.payments_outlined, color: AppTheme.cobalt, size: 24),
                   const SizedBox(width: 10),
-                  Text(
-                    isArabic ? 'تسجيل دفعة / عهدة مخلص جمركي' : 'Record Clearance Advance Payment',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: isDark ? Colors.white : AppTheme.charcoal,
+                  Expanded(
+                    child: Text(
+                      isArabic ? 'تسجيل دفعة / عهدة مخلص جمركي' : 'Record Clearance Advance Payment',
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: isDark ? Colors.white : AppTheme.charcoal,
+                      ),
                     ),
                   ),
-                  const Spacer(),
                   IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(context)),
                 ],
               ),
@@ -145,15 +145,11 @@ class _AdvancePaymentDialogState extends ConsumerState<AdvancePaymentDialog> {
               Row(
                 children: [
                   Expanded(
-                    child: TextFormField(
-                      controller: _shipmentIdCtrl,
-                      decoration: InputDecoration(
-                        labelText: isArabic ? 'رقم الشحنة *' : 'Shipment ID *',
-                        isDense: true,
-                        border: const OutlineInputBorder(),
-                      ),
-                      keyboardType: TextInputType.number,
-                      validator: (v) => v == null || v.isEmpty ? (isArabic ? 'مطلوب' : 'Required') : null,
+                    child: ImportFileSelectField(
+                      key: const ValueKey('advanceImportFileField'),
+                      value: _shipmentId,
+                      isArabic: isArabic,
+                      onChanged: (id) => setState(() => _shipmentId = id),
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -173,28 +169,16 @@ class _AdvancePaymentDialogState extends ConsumerState<AdvancePaymentDialog> {
               Row(
                 children: [
                   Expanded(
-                    flex: 1,
-                    child: TextFormField(
-                      controller: _partnerIdCtrl,
-                      decoration: InputDecoration(
-                        labelText: isArabic ? 'معرف المخلص *' : 'Partner ID *',
-                        isDense: true,
-                        border: const OutlineInputBorder(),
-                      ),
-                      keyboardType: TextInputType.number,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    flex: 2,
-                    child: TextFormField(
-                      controller: _partnerNameCtrl,
-                      decoration: InputDecoration(
-                        labelText: isArabic ? 'اسم المخلص الجمركي *' : 'Broker / Partner Name *',
-                        isDense: true,
-                        border: const OutlineInputBorder(),
-                      ),
-                      validator: (v) => v == null || v.isEmpty ? (isArabic ? 'مطلوب' : 'Required') : null,
+                    child: PartnerSelectField(
+                      key: const ValueKey('advanceBrokerField'),
+                      value: _partnerId,
+                      label: isArabic ? 'المخلص الجمركي' : 'Customs Broker',
+                      isArabic: isArabic,
+                      typeKeywords: const ['customs', 'broker', 'clearance', 'مستخلص', 'مخلص'],
+                      onChanged: (p) => setState(() {
+                        _partnerId = p?.providerId;
+                        _partnerName = p?.partnerName ?? '';
+                      }),
                     ),
                   ),
                 ],
@@ -213,7 +197,9 @@ class _AdvancePaymentDialogState extends ConsumerState<AdvancePaymentDialog> {
                       ),
                       keyboardType: const TextInputType.numberWithOptions(decimal: true),
                       onChanged: (_) => setState(() {}),
-                      validator: (v) => v == null || v.isEmpty ? (isArabic ? 'مطلوب' : 'Required') : null,
+                      validator: (v) => (double.tryParse(v?.trim() ?? '') ?? 0) <= 0
+                          ? (isArabic ? 'أدخل مبلغاً أكبر من صفر' : 'Enter an amount greater than zero')
+                          : null,
                     ),
                   ),
                   const SizedBox(width: 12),

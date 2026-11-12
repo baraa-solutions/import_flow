@@ -827,6 +827,10 @@ def aggregate_shipment_invoices_service(
                 notes=f"غرامات تأخير الحاويات بوليصة {d.bill_of_lading_no}",
             ))
 
+    # Trade-finance costs (Pillar 3): bank charges of the file's financing instruments and realized FX
+    # variance are part of the actual landed cost, allocated like other overheads (Value-Based).
+    invoices.extend(_trade_finance_cost_invoices(db, import_file_id))
+
     # Summarize by party
     parties_map: Dict[str, Dict[str, Any]] = {}
     for inv in invoices:
@@ -904,6 +908,85 @@ def aggregate_shipment_invoices_service(
         unsettled_warnings=warnings,
         messages=messages,
     )
+
+
+def _trade_finance_cost_invoices(db: Session, import_file_id: int) -> List[AggregatedInvoiceItemSchema]:
+    """Settlement rows for the bank charges (already debited, so PAID) and the realized FX gain / loss of the
+    file's non-cancelled finance instruments. An FX gain is a negative amount: it lowers the landed cost.
+    Unsettled FX records (no settlement rate yet) are not realized and are skipped."""
+    from modules.trade_finance.model import ImportFinanceInstrument
+
+    rows: List[AggregatedInvoiceItemSchema] = []
+    instruments = (
+        db.query(ImportFinanceInstrument)
+        .filter(
+            ImportFinanceInstrument.import_file_id == import_file_id,
+            ImportFinanceInstrument.is_active == True,  # noqa: E712
+            ImportFinanceInstrument.status != "CANCELLED",
+        )
+        .order_by(ImportFinanceInstrument.id.asc())
+        .all()
+    )
+    for inst in instruments:
+        bank = inst.issuing_bank or "البنك"
+        for charge in inst.charges:
+            amount = round(float(charge.amount_egp or 0.0), 2)
+            if not charge.is_active or amount <= 0:
+                continue
+            rows.append(AggregatedInvoiceItemSchema(
+                invoice_id=f"BANK-{charge.id}",
+                invoice_no=charge.swift_reference or f"BANK-{inst.instrument_number}-{charge.id}",
+                invoice_date=str(charge.debit_date),
+                party_type="BANK",
+                party_type_ar="البنك",
+                party_name=bank,
+                category="Bank & Financing Charges",
+                category_ar="عمولات ومصاريف بنكية وتمويل",
+                currency="EGP",
+                exchange_rate=1.0,
+                amount_fc=amount,
+                amount_egp=amount,
+                paid_amount_egp=amount,
+                remaining_amount_egp=0.0,
+                payment_status="PAID",
+                payment_reference=inst.instrument_number,
+                withholding_tax_rate=0.0,
+                withholding_tax_amount_egp=0.0,
+                net_payable_egp=amount,
+                source_module="Trade Finance (LC / CAD)",
+                notes=f"{charge.charge_type} — {inst.instrument_type} {inst.instrument_number}",
+            ))
+        for fx_rec in inst.fx_records:
+            variance = round(float(fx_rec.variance_amount_egp or 0.0), 2)
+            if not fx_rec.is_active or fx_rec.settlement_rate is None or variance == 0:
+                continue
+            rows.append(AggregatedInvoiceItemSchema(
+                invoice_id=f"FXV-{fx_rec.id}",
+                invoice_no=fx_rec.hedging_contract_ref or f"FXV-{inst.instrument_number}-{fx_rec.id}",
+                invoice_date=str(fx_rec.settlement_date or fx_rec.booking_date),
+                party_type="BANK",
+                party_type_ar="البنك",
+                party_name=bank,
+                category="Realized FX Variance",
+                category_ar="فروق عملة محققة",
+                currency="EGP",
+                exchange_rate=1.0,
+                amount_fc=variance,
+                amount_egp=variance,
+                paid_amount_egp=variance,
+                remaining_amount_egp=0.0,
+                payment_status="PAID",
+                payment_reference=inst.instrument_number,
+                withholding_tax_rate=0.0,
+                withholding_tax_amount_egp=0.0,
+                net_payable_egp=variance,
+                source_module="Trade Finance FX Variance",
+                notes=(
+                    f"{fx_rec.foreign_currency} {fx_rec.original_amount:,.2f}: "
+                    f"{fx_rec.booking_rate} → {fx_rec.settlement_rate} ({fx_rec.variance_nature})"
+                ),
+            ))
+    return rows
 
 
 def confirm_invoices_settlement_service(

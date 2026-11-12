@@ -9,6 +9,7 @@ advance payments, and insurance policies.
 from __future__ import annotations
 
 from datetime import datetime, date, timezone
+from typing import Optional
 from sqlalchemy import (
     Boolean,
     Column,
@@ -89,6 +90,16 @@ class LogisticsServiceInvoice(Base):
     containers = relationship("LogisticsInvoiceContainer", back_populates="invoice", cascade="all, delete-orphan")
     knockoffs = relationship("InvoiceKnockoff", back_populates="invoice")
     advance_settlements = relationship("ClearanceAdvanceSettlement", back_populates="invoice")
+
+    @property
+    def import_file_code(self) -> Optional[str]:
+        """Business reference of the billed import file (shipment_id is an import_files FK)."""
+        return self.shipment.import_file_code if self.shipment is not None else None
+
+    @property
+    def project_names(self) -> Optional[str]:
+        """Project / cost center of the billed import file."""
+        return self.shipment.project_names if self.shipment is not None else None
 
 
 class LogisticsInvoiceLine(Base):
