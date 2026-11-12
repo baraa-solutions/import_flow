@@ -8062,6 +8062,9 @@ class AppLocalizationsAr extends AppLocalizations {
   @override
   String get tariffEffectiveToAfterFromError => 'تاريخ نهاية السريان يجب أن يكون بعد تاريخ البدء';
   @override
+  String get tariffRateChangeNewVersionHint =>
+      'النسب اتغيرت: هيتعمل إصدار جديد يبدأ من التاريخ ده، والإصدار الحالي هيتقفل في اليوم اللي قبله';
+  @override
   String tariffValidSince(String date) => 'سارية من $date';
   @override
   String tariffExpiredOn(String date) => 'منتهية في $date';

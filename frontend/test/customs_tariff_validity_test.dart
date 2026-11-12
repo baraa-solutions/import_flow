@@ -68,4 +68,76 @@ void main() {
       expect(find.text('In force since 01/01/2026'), findsOneWidget);
     });
   });
+
+  group('tariffValidityPayload', () {
+    test('create sends both dates, empty Effective To as null', () {
+      expect(tariffValidityPayload(from: '2026-01-01', to: ''),
+          {'effective_from': '2026-01-01', 'effective_to': null});
+    });
+
+    test('edit with untouched dates sends neither date', () {
+      expect(
+        tariffValidityPayload(
+            from: '2025-01-01', to: '', originalFrom: '2025-01-01', originalTo: ''),
+        isEmpty,
+      );
+    });
+
+    test('edit sends only the changed Effective From', () {
+      expect(
+        tariffValidityPayload(
+            from: '2026-11-12', to: '2027-01-01', originalFrom: '2025-01-01', originalTo: '2027-01-01'),
+        {'effective_from': '2026-11-12'},
+      );
+    });
+
+    test('clearing Effective To on edit sends an explicit null', () {
+      expect(
+        tariffValidityPayload(
+            from: '2025-01-01', to: '', originalFrom: '2025-01-01', originalTo: '2027-01-01'),
+        {'effective_to': null},
+      );
+    });
+  });
+
+  group('shouldDefaultEffectiveFromToToday', () {
+    final today = DateTime(2026, 11, 12, 15, 30);
+
+    test('rate change on an in-force version with untouched start defaults to today', () {
+      expect(
+        shouldDefaultEffectiveFromToToday(
+            rateChanged: true, currentFrom: '2025-01-01', originalFrom: '2025-01-01', today: today),
+        isTrue,
+      );
+    });
+
+    test('no rate change keeps the stored start', () {
+      expect(
+        shouldDefaultEffectiveFromToToday(
+            rateChanged: false, currentFrom: '2025-01-01', originalFrom: '2025-01-01', today: today),
+        isFalse,
+      );
+    });
+
+    test('a start the user picked is never overridden', () {
+      expect(
+        shouldDefaultEffectiveFromToToday(
+            rateChanged: true, currentFrom: '2027-01-01', originalFrom: '2025-01-01', today: today),
+        isFalse,
+      );
+    });
+
+    test('a version starting today or later is edited in place', () {
+      expect(
+        shouldDefaultEffectiveFromToToday(
+            rateChanged: true, currentFrom: '2026-11-12', originalFrom: '2026-11-12', today: today),
+        isFalse,
+      );
+      expect(
+        shouldDefaultEffectiveFromToToday(
+            rateChanged: true, currentFrom: '2027-02-01', originalFrom: '2027-02-01', today: today),
+        isFalse,
+      );
+    });
+  });
 }

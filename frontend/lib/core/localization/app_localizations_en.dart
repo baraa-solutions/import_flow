@@ -8061,6 +8061,9 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get tariffEffectiveToAfterFromError => 'Effective To must be after Effective From';
   @override
+  String get tariffRateChangeNewVersionHint =>
+      'Rates changed: a new version starts on this date and the current one closes the day before';
+  @override
   String tariffValidSince(String date) => 'In force since $date';
   @override
   String tariffExpiredOn(String date) => 'Expired on $date';

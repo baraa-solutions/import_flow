@@ -21,6 +21,45 @@ int _numToInt(dynamic val, [int fallback = 0]) {
 /// Where a tariff version stands against a given day (ministerial-decree validity window).
 enum TariffValidity { active, expired, upcoming }
 
+/// Validity-window fields for a tariff save payload (dates as yyyy-MM-dd text).
+///
+/// On create ([originalFrom] null) both fields are sent. On edit only the fields the user changed
+/// are sent, so re-saving a form never re-sends the stored effective_from (the backend would read
+/// that as "change the rates from the version's start" and history would be lost). A cleared
+/// Effective To is sent as an explicit null, which reopens the version.
+Map<String, dynamic> tariffValidityPayload({
+  required String from,
+  required String to,
+  String? originalFrom,
+  String? originalTo,
+}) {
+  final fromText = from.trim();
+  final toText = to.trim();
+  final toValue = toText.isEmpty ? null : toText;
+  if (originalFrom == null) {
+    return {'effective_from': fromText, 'effective_to': toValue};
+  }
+  return {
+    if (fromText != originalFrom.trim()) 'effective_from': fromText,
+    if (toText != (originalTo ?? '').trim()) 'effective_to': toValue,
+  };
+}
+
+/// Whether a rate change on an edited tariff should move Effective From to [today]: only when the
+/// version is already in force (started before today) and the user has not picked another start.
+bool shouldDefaultEffectiveFromToToday({
+  required bool rateChanged,
+  required String currentFrom,
+  required String originalFrom,
+  required DateTime today,
+}) {
+  if (!rateChanged || currentFrom.trim() != originalFrom.trim()) return false;
+  final start = DateTime.tryParse(originalFrom.trim());
+  if (start == null) return false;
+  return DateTime(start.year, start.month, start.day)
+      .isBefore(DateTime(today.year, today.month, today.day));
+}
+
 class CustomsTariffModel {
   final int tariffId;
   final String hsCode;

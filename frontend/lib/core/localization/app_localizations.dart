@@ -6750,6 +6750,7 @@ abstract class AppLocalizations {
   String get tariffEffectiveFromLabel;
   String get tariffEffectiveToLabel;
   String get tariffEffectiveToAfterFromError;
+  String get tariffRateChangeNewVersionHint;
   String tariffValidSince(String date);
   String tariffExpiredOn(String date);
   String tariffStartsOn(String date);

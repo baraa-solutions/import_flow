@@ -115,7 +115,10 @@ def archive_and_create_new_tariff_version(
     3. الحفاظ على تاريخ سريان الاتفاقيات التفضيلية بإغلاق السابقة واستنساخ السارية للإصدار الجديد.
     """
     if effective_date > current_tariff.effective_from:
-        current_tariff.effective_to = effective_date - timedelta(days=1)
+        closing_date = effective_date - timedelta(days=1)
+        # Never extend a version that already ended earlier: that would rewrite its history.
+        if current_tariff.effective_to is None or current_tariff.effective_to > closing_date:
+            current_tariff.effective_to = closing_date
     else:
         current_tariff.effective_to = effective_date
     current_tariff.is_active = False
