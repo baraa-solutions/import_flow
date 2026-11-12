@@ -182,9 +182,10 @@ def test_observability_permissions_and_bounds(client, db_session):
     _, user_token = _create_user(db_session, "reg_obs", [], role_code="OPERATOR")
     h_user = {"Authorization": f"Bearer {user_token}"}
 
-    # evaluate without force -> 200
+    # evaluate dispatches alerts (toast + email): a write action that needs system.update (RBAC lockdown,
+    # Trello UOroUoqq) even without force
     res_eval = client.post("/api/v1/system/observability/alerts/evaluate?force=false", headers=h_user)
-    assert res_eval.status_code == 200
+    assert res_eval.status_code == 403
 
     # evaluate with force=true as non-admin -> 403
     res_eval_force = client.post("/api/v1/system/observability/alerts/evaluate?force=true", headers=h_user)
