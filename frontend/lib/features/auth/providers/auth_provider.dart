@@ -56,6 +56,16 @@ class AuthNotifier extends StateNotifier<AuthState> {
   }
 
   static bool isTokenExpired(String token) {
+    // 15-second buffer to avoid race conditions
+    return tokenExpiresWithin(token, const Duration(seconds: 15));
+  }
+
+  /// Window before `exp` in which requests renew the token first
+  /// ([ensureFreshToken]); access tokens live 60 minutes on the backend.
+  static const Duration proactiveRefreshWindow = Duration(minutes: 2);
+
+  /// True when [token] is malformed, has no `exp`, or expires within [window].
+  static bool tokenExpiresWithin(String token, Duration window) {
     try {
       final parts = token.split('.');
       if (parts.length != 3) return true;
@@ -66,11 +76,23 @@ class AuthNotifier extends StateNotifier<AuthState> {
       if (exp == null) return true;
       final expSec = exp is int ? exp : int.tryParse(exp.toString()) ?? 0;
       final nowSec = DateTime.now().millisecondsSinceEpoch ~/ 1000;
-      // 15-second buffer to avoid race conditions
-      return nowSec >= (expSec - 15);
+      return nowSec >= (expSec - window.inSeconds);
     } catch (_) {
       return true;
     }
+  }
+
+  /// Proactive renewal used by the HTTP clients before sending a request: when
+  /// the signed-in user's token expires within [window] it is refreshed first
+  /// (shared single-flight call), so a request — especially a multipart upload
+  /// whose body cannot be replayed — never goes out with a dying token.
+  /// Returns true when a refresh happened and succeeded. Never logs out: a
+  /// failed refresh leaves the 401 handling to the response path.
+  Future<bool> ensureFreshToken({Duration window = proactiveRefreshWindow}) async {
+    final token = state.token;
+    if (!state.isAuthenticated || token == null || token.isEmpty) return false;
+    if (!tokenExpiresWithin(token, window)) return false;
+    return refreshToken();
   }
 
   Future<void> _initFromStorage() async {

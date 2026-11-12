@@ -1,4 +1,4 @@
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Iterable, List, Optional
 from datetime import datetime, timezone
 from fastapi import Response
 from sqlalchemy import or_
@@ -112,11 +112,15 @@ class NotificationRepository:
             self.db.refresh(db_obj)
         return db_obj
 
-    def mark_all_as_read(self, target_role: Optional[str] = None) -> int:
+    def mark_all_as_read(self, target_role: Optional[str] = None, audience_roles: Optional[Iterable[str]] = None) -> int:
+        """Marks unread notifications read. ``audience_roles`` (non-admin callers) limits the update to the
+        notifications addressed to ALL or to one of those roles; ``None`` means unrestricted (admin)."""
         query = self.db.query(SystemNotification).filter(SystemNotification.is_read == False)
         if target_role and target_role != "ALL":
             query = query.filter(SystemNotification.target_role.in_(["ALL", target_role]))
-        
+        if audience_roles is not None:
+            query = query.filter(SystemNotification.target_role.in_(["ALL", *audience_roles]))
+
         updated_count = query.update({SystemNotification.is_read: True, SystemNotification.updated_at: datetime.now(timezone.utc)}, synchronize_session=False)
         self.db.commit()
         return updated_count
