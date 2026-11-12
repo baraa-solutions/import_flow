@@ -2398,10 +2398,11 @@ class TestFinancialSettlementModule(unittest.TestCase):
         self.assertEqual(exc.exception.detail.get("code"), SETTLEMENT_ACTUAL_FOB_MISSING)
 
     def test_acc2_t07_realised_payment_in_egp_and_payment_coverage(self):
-        """ACC2-T07: invoice 50,000 USD at 50.00 (2,500,000); one Paid request with transfer 30,000 USD,
-        bank debit 1,530,000 EGP -> paid_exchange_rate 51.00, paid_amount_egp 1,530,000.00;
-        CLO-01 goods paid 1,500,000.00, remaining 1,000,000.00, PARTIAL; fx_difference_egp 30,000.00;
-        readiness < 100."""
+        """ACC2-T07 + FX anchor (qJZNzixC): invoice 50,000 USD at 50.00; one Paid request with transfer
+        30,000 USD, bank debit 1,530,000 EGP -> paid_exchange_rate 51.00, paid_amount_egp 1,530,000.00.
+        The goods row is anchored to the SWIFT remittance for the paid part: 30,000 x 51 + 20,000 x 50 =
+        2,530,000.00; paid 1,530,000.00 (the bank debit), remaining 1,000,000.00, PARTIAL.
+        fx_difference_egp (reported only, already inside the goods row) stays 30,000.00; readiness 60.5%."""
         from modules.financial_approval.model import PaymentRequestSession
         from modules.financial_approval.schemas import SwiftReconciliationRequest
         from modules.financial_approval.service import reconcile_swift_service
@@ -2461,14 +2462,14 @@ class TestFinancialSettlementModule(unittest.TestCase):
         goods_invs = [i for i in agg.invoices if i.category == "Commercial Goods"]
         self.assertEqual(len(goods_invs), 1)
         goods_inv = goods_invs[0]
-        self.assertEqual(goods_inv.amount_egp, 2500000.0)
-        self.assertEqual(goods_inv.paid_amount_egp, 1500000.0)
+        self.assertEqual(goods_inv.amount_egp, 2530000.0)
+        self.assertEqual(goods_inv.paid_amount_egp, 1530000.0)
         self.assertEqual(goods_inv.remaining_amount_egp, 1000000.0)
         self.assertEqual(goods_inv.payment_status, "PARTIAL")
 
         self.assertEqual(agg.fx_difference_egp, 30000.0)
         self.assertLess(agg.settlement_readiness_percent, 100.0)
-        self.assertEqual(agg.settlement_readiness_percent, 60.0)
+        self.assertEqual(agg.settlement_readiness_percent, 60.5)
 
 
 if __name__ == "__main__":

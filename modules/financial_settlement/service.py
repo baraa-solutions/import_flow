@@ -82,6 +82,14 @@ from .landed_cost_simulation_service import (
     simulate_estimated_landed_cost_service,
 )
 
+from .fob_valuation_service import (
+    resolve_fob_valuation,
+    snapshot_fob_valuation,
+    ensure_no_fob_double_count,
+    get_fob_valuation_service,
+    revalue_fob_valuation_service,
+)
+
 from .actual_settlement_service import (
     WHT_RATE_NOT_CONFIGURED,
     _cairo_tz,
@@ -104,6 +112,11 @@ from .actual_settlement_service import (
 )
 
 __all__ = [
+    "resolve_fob_valuation",
+    "snapshot_fob_valuation",
+    "ensure_no_fob_double_count",
+    "get_fob_valuation_service",
+    "revalue_fob_valuation_service",
     "actual_expense_bucket",
     "settlement_expense_field",
     "recalc_adjustment_invoice_no",
