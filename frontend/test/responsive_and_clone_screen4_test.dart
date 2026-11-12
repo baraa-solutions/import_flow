@@ -491,5 +491,29 @@ void main() {
       // Verify cloned session loaded and success message appeared
       expect(find.text(lAr.cloneStudySuccess('SCE-2026-099')), findsOneWidget);
     });
+
+    testWidgets('Edit from Saved Evaluations Log switches to the evaluator tab and loads the study', (tester) async {
+      tester.view.physicalSize = const Size(1400, 900);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+
+      // Opened directly on the log tab: the evaluator tab has never been built yet.
+      await tester.pumpWidget(createTestWidget(
+        size: const Size(1400, 900),
+        child: const ShippingScenariosScreen(initialIndex: 1),
+      ));
+      await tester.pumpAndSettle();
+      expect(find.text(lAr.studySetupAndParameters), findsNothing);
+      expect(find.text('SCE-2026-001'), findsOneWidget);
+
+      await tester.tap(find.byIcon(Icons.edit).first);
+      await tester.pumpAndSettle();
+
+      // The evaluator form is now the visible tab and holds the selected study.
+      expect(find.text(lAr.studySetupAndParameters), findsOneWidget);
+      expect(find.text(lAr.sessionLoadedMsg('SCE-2026-001')), findsOneWidget);
+      expect(find.widgetWithText(TextField, 'Shanghai to Dekheila Study'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
   });
 }

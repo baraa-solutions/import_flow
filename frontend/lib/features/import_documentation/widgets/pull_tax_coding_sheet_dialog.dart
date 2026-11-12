@@ -51,14 +51,8 @@ class _PullTaxCodingSheetDialogState extends ConsumerState<PullTaxCodingSheetDia
   void initState() {
     super.initState();
     final doc = widget.doc;
-    final partners = ref.read(partnersProvider).valueOrNull ?? [];
-    final brokers = partners.where((p) =>
-      p.partnerType.contains('Customs') ||
-      p.partnerType.contains('مستخلص') ||
-      p.partnerType.contains('Broker')
-    ).toList();
-
-    _selectedBrokerId = doc.taxCodingBrokerId ?? (brokers.isNotEmpty ? brokers.first.providerId : null);
+    // Starts empty for a new pull: the user picks the broker (never an arbitrary first broker).
+    _selectedBrokerId = doc.taxCodingBrokerId;
     _dateCtrl = TextEditingController(
       text: doc.taxCodingPulledDate ?? DateTime.now().toIso8601String().substring(0, 10),
     );
@@ -190,7 +184,7 @@ class _PullTaxCodingSheetDialogState extends ConsumerState<PullTaxCodingSheetDia
             label: 'تأكيد السحب',
             icon: Icons.check,
             isLoading: _isSubmitting,
-            onPressed: _isSubmitting ? null : _submit,
+            onPressed: _isSubmitting || _selectedBrokerId == null ? null : _submit,
           )),
         ],
       ),

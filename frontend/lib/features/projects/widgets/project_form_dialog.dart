@@ -63,8 +63,9 @@ class _ProjectFormDialogState extends ConsumerState<ProjectFormDialog> {
   late final TextEditingController _notesCtrl;
 
   late Set<int> _selectedCompanyIds;
-  late int _selectedSupplierId;
-  late int _selectedIncotermId;
+  // Null for a new project until the user picks one (never pre-filled with the first row).
+  int? _selectedSupplierId;
+  int? _selectedIncotermId;
   late String _selectedImportType;
   late String _selectedPriority;
   late String _selectedStatus;
@@ -96,20 +97,9 @@ class _ProjectFormDialogState extends ConsumerState<ProjectFormDialog> {
     _targetEndDateCtrl = TextEditingController(text: p?.targetEndDate ?? '');
     _notesCtrl = TextEditingController(text: p?.notes ?? '');
 
-    final companies = ref.read(importCompaniesProvider).valueOrNull ?? [];
-    final suppliers = ref.read(suppliersProvider).valueOrNull ?? [];
-    final incoterms = ref.read(incotermsProvider).valueOrNull ?? [];
-
-    _selectedCompanyIds = p != null && p.companyIds.isNotEmpty
-        ? p.companyIds.toSet()
-        : (companies.isNotEmpty && companies.first.companyId != null
-            ? {companies.first.companyId!}
-            : <int>{});
-
-    _selectedSupplierId =
-        p?.supplierId ?? (suppliers.isNotEmpty ? (suppliers.first.supplierId ?? 0) : 0);
-    _selectedIncotermId =
-        p?.incotermId ?? (incoterms.isNotEmpty ? incoterms.first.incotermId : 0);
+    _selectedCompanyIds = p != null && p.companyIds.isNotEmpty ? p.companyIds.toSet() : <int>{};
+    _selectedSupplierId = p?.supplierId;
+    _selectedIncotermId = p?.incotermId;
     _selectedImportType = p?.importType ?? 'Direct Commercial';
     _selectedPriority = p?.priority ?? 'Medium';
     _selectedStatus = p?.status ?? 'Open';
@@ -175,8 +165,8 @@ class _ProjectFormDialogState extends ConsumerState<ProjectFormDialog> {
           projectOwner: _ownerCtrl.text.trim(),
           companyId: companyIdsList.first,
           companyIds: companyIdsList,
-          supplierId: _selectedSupplierId,
-          incotermId: _selectedIncotermId,
+          supplierId: _selectedSupplierId!,
+          incotermId: _selectedIncotermId!,
           importType: _selectedImportType,
           priority: _selectedPriority,
           shipmentCategory: categoryString,
@@ -336,6 +326,8 @@ class _ProjectFormDialogState extends ConsumerState<ProjectFormDialog> {
                         child: SearchableDropdownField<int?>(
                           value: _selectedSupplierId,
                           labelText: l10n.primarySupplierLabel,
+                          isRequired: true,
+                          validator: (v) => v == null ? l10n.fieldRequired : null,
                           items: suppliers
                               .map((s) => SearchableDropdownItem<int?>(
                                     value: s.supplierId,
@@ -352,6 +344,8 @@ class _ProjectFormDialogState extends ConsumerState<ProjectFormDialog> {
                         child: SearchableDropdownField<int?>(
                           value: _selectedIncotermId,
                           labelText: l10n.defaultIncotermLabel,
+                          isRequired: true,
+                          validator: (v) => v == null ? l10n.fieldRequired : null,
                           items: incoterms
                               .map((i) => SearchableDropdownItem<int?>(
                                     value: i.incotermId,
