@@ -126,7 +126,21 @@ class AuthNotifier extends StateNotifier<AuthState> {
     }
   }
 
-  Future<bool> refreshToken() async {
+  /// In-flight refresh shared by concurrent callers. Access tokens are
+  /// short-lived and the backend revokes the old token on refresh, so several
+  /// requests failing with 401 at once must share ONE refresh call: a second
+  /// refresh with the (now revoked) old token would fail and log the user out.
+  Future<bool>? _refreshInFlight;
+
+  Future<bool> refreshToken() {
+    final pending = _refreshInFlight;
+    if (pending != null) return pending;
+    final future = _refreshTokenOnce().whenComplete(() => _refreshInFlight = null);
+    _refreshInFlight = future;
+    return future;
+  }
+
+  Future<bool> _refreshTokenOnce() async {
     final currentToken = state.token;
     if (currentToken == null || currentToken.isEmpty) {
       final savedToken = await _storage.read(key: _tokenKey);

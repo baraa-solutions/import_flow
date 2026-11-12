@@ -1,9 +1,10 @@
 from typing import List, Optional
 from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, Response, status
+from modules.auth.permissions import require_permission
+from modules.users.model import User
 from sqlalchemy.orm import Session
 from database.database import get_db
-from modules.users.model import User
 from modules.auth.router import get_current_user, require_admin
 from modules.auth.permissions import is_admin_user
 
@@ -98,7 +99,7 @@ def export_diagnostics_bundle(
 from modules.system_observability.alert_dispatcher import alert_dispatcher, AlertPayload
 
 
-@router.post("/observability/alerts/evaluate")
+@router.post("/observability/alerts/evaluate", dependencies=[Depends(require_permission("system.update"))])
 def evaluate_system_alerts(
     force: bool = False,
     db: Session = Depends(get_db),

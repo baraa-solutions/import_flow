@@ -7,6 +7,7 @@ from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
 from modules.common.clock import cairo_today
+from modules.common.audit_stamp import SYSTEM_ACTOR, set_updated_info
 from modules.currencies.model import Currency, ExchangeRate
 from modules.currencies.repository import CurrencyRepository
 from modules.currencies.schemas import (
@@ -110,30 +111,33 @@ class CurrencyService:
             exchange_rates=rates_resp,
         )
 
-    def create_currency(self, data: CurrencyCreate) -> Currency:
+    def create_currency(self, data: CurrencyCreate, actor: str = SYSTEM_ACTOR) -> Currency:
         self.validator.validate_no_duplicate_code(data.currency_code)
         if data.is_base_currency:
             self.validator.validate_no_second_base_currency(data.is_base_currency)
-        created = self.repo.create_currency(data)
+        created = self.repo.create_currency(data, actor=actor)
         clear_currency_cache()
         return created
 
-    def update_currency(self, currency_id: int, data: CurrencyUpdate) -> Currency:
+    def update_currency(self, currency_id: int, data: CurrencyUpdate, actor: str = SYSTEM_ACTOR) -> Currency:
         currency = self.validator.validate_currency_exists(currency_id)
         if data.is_base_currency is True:
             self.validator.validate_no_second_base_currency(data.is_base_currency, exclude_id=currency_id)
+        set_updated_info(currency, actor)
         updated = self.repo.update_currency(currency, data)
         clear_currency_cache()
         return updated
 
-    def soft_delete_currency(self, currency_id: int) -> Currency:
+    def soft_delete_currency(self, currency_id: int, actor: str = SYSTEM_ACTOR) -> Currency:
         currency = self.validator.validate_currency_exists(currency_id)
+        set_updated_info(currency, actor)
         deleted = self.repo.soft_delete_currency(currency)
         clear_currency_cache()
         return deleted
 
-    def restore_currency(self, currency_id: int) -> Currency:
+    def restore_currency(self, currency_id: int, actor: str = SYSTEM_ACTOR) -> Currency:
         currency = self.validator.validate_currency_exists(currency_id)
+        set_updated_info(currency, actor)
         restored = self.repo.restore_currency(currency)
         clear_currency_cache()
         return restored

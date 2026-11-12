@@ -3,6 +3,7 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, Query, status
 from modules.auth.router import get_current_user
 from modules.auth.permissions import require_permission
+from modules.users.model import User
 from sqlalchemy.orm import Session
 
 from database.database import get_db
@@ -23,7 +24,7 @@ from modules.currencies.service import CurrencyService
 router = APIRouter(prefix="/api/v1/currencies", tags=["Currencies & Exchange Rates (MD-004)"], dependencies=[Depends(get_current_user)])
 
 
-@router.post("/convert", response_model=CurrencyConversionResponse, summary="Convert amount between currencies using commercial or customs rates")
+@router.post("/convert", response_model=CurrencyConversionResponse, summary="Convert amount between currencies using commercial or customs rates", dependencies=[Depends(require_permission("master_data.view"))])
 def convert_currency(
     payload: CurrencyConversionRequest,
     db: Session = Depends(get_db),
@@ -38,7 +39,7 @@ def convert_currency(
     )
 
 
-@router.post("/gain-loss", response_model=ExchangeGainLossResponse, summary="Calculate FX Gain/Loss variance between initial and settlement rates")
+@router.post("/gain-loss", response_model=ExchangeGainLossResponse, summary="Calculate FX Gain/Loss variance between initial and settlement rates", dependencies=[Depends(require_permission("master_data.view"))])
 def calculate_exchange_gain_loss(
     payload: ExchangeGainLossRequest,
     db: Session = Depends(get_db),
@@ -156,9 +157,10 @@ def get_currency_by_id(
 def create_currency(
     data: CurrencyCreate,
     db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("master_data.edit")),
 ):
     service = CurrencyService(db)
-    return service.create_currency(data)
+    return service.create_currency(data, actor=current_user.username)
 
 
 @router.put("/{currency_id}", response_model=CurrencyResponse)
@@ -166,27 +168,30 @@ def update_currency(
     currency_id: int,
     data: CurrencyUpdate,
     db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("master_data.edit")),
 ):
     service = CurrencyService(db)
-    return service.update_currency(currency_id, data)
+    return service.update_currency(currency_id, data, actor=current_user.username)
 
 
 @router.delete("/{currency_id}", response_model=CurrencyResponse)
 def soft_delete_currency(
     currency_id: int,
     db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("master_data.edit")),
 ):
     service = CurrencyService(db)
-    return service.soft_delete_currency(currency_id)
+    return service.soft_delete_currency(currency_id, actor=current_user.username)
 
 
 @router.post("/{currency_id}/restore", response_model=CurrencyResponse)
 def restore_currency(
     currency_id: int,
     db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("master_data.edit")),
 ):
     service = CurrencyService(db)
-    return service.restore_currency(currency_id)
+    return service.restore_currency(currency_id, actor=current_user.username)
 
 
 @router.post(

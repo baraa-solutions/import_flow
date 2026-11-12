@@ -8,9 +8,9 @@ from __future__ import annotations
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile, status
+from modules.users.model import User
 from modules.auth.permissions import has_user_permission, require_permission
 from modules.auth.router import get_current_user
-from modules.users.model import User
 from sqlalchemy.orm import Session
 
 from database.database import get_db
@@ -132,6 +132,7 @@ router = APIRouter(
     response_model=SmartUploadResponse,
     status_code=status.HTTP_200_OK,
     summary="Upload a document and extract fields (module_name passed in form data)",
+    dependencies=[Depends(require_permission("import_documentation.upload"))],
 )
 def upload_document_form(
     file: UploadFile = File(..., description="PDF, Word, or image file"),
@@ -160,6 +161,7 @@ def upload_document_form(
     response_model=SmartUploadResponse,
     status_code=status.HTTP_200_OK,
     summary="Upload a document with module in path",
+    dependencies=[Depends(require_permission("import_documentation.upload"))],
 )
 def upload_document_path(
     module: str,
@@ -188,6 +190,7 @@ def upload_document_path(
     response_model=SmartUploadResponse,
     status_code=status.HTTP_200_OK,
     summary="Upload a document and extract fields for a specific module",
+    dependencies=[Depends(require_permission("import_documentation.view"))],
 )
 def parse_document_for_module(
     module: str,
@@ -241,6 +244,7 @@ def parse_document_for_module(
     response_model=SmartUploadResponse,
     status_code=status.HTTP_200_OK,
     summary="Upload multiple documents (e.g., Commercial Invoice + Packing List) and merge extracted fields",
+    dependencies=[Depends(require_permission("import_documentation.view"))],
 )
 def parse_multiple_documents_for_module(
     module: str,
@@ -281,6 +285,7 @@ def parse_multiple_documents_for_module(
     response_model=SmartUploadResponse,
     status_code=status.HTTP_200_OK,
     summary="Parse raw text directly to extract structured entity or document fields",
+    dependencies=[Depends(require_permission("import_documentation.view"))],
 )
 def parse_text_for_module(
     module: str,
@@ -383,6 +388,7 @@ def list_supported_modules():
     "/extract/commercial-invoice",
     status_code=status.HTTP_200_OK,
     summary="Extract Commercial Invoice header, totals, and line items",
+    dependencies=[Depends(require_permission("import_documentation.view"))],
 )
 def extract_commercial_invoice_endpoint(
     file: Optional[UploadFile] = File(None, description="Invoice file (PDF, Excel, Word)"),
@@ -411,6 +417,7 @@ def extract_commercial_invoice_endpoint(
     "/extract/bill-of-lading",
     status_code=status.HTTP_200_OK,
     summary="Extract Bill of Lading (Ocean / Air) and containers list",
+    dependencies=[Depends(require_permission("import_documentation.view"))],
 )
 def extract_bill_of_lading_endpoint(
     file: Optional[UploadFile] = File(None, description="Bill of Lading or AWB file"),
@@ -439,6 +446,7 @@ def extract_bill_of_lading_endpoint(
     "/extract/packing-list",
     status_code=status.HTTP_200_OK,
     summary="Extract Packing List, weights, packages, dimensions, and line items",
+    dependencies=[Depends(require_permission("import_documentation.view"))],
 )
 def extract_packing_list_endpoint(
     file: Optional[UploadFile] = File(None, description="Packing List or Weight List file"),
@@ -466,6 +474,7 @@ def extract_packing_list_endpoint(
     "/cross-check/invoice-vs-bl",
     status_code=status.HTTP_200_OK,
     summary="Run 10-point cross-comparison audit between Invoice and B/L",
+    dependencies=[Depends(require_permission("import_documentation.view"))],
 )
 def cross_check_invoice_vs_bl_endpoint(
     payload: CrossCheckRequest,

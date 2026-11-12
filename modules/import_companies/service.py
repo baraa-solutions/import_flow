@@ -3,6 +3,7 @@ from fastapi import Response
 from sqlalchemy.orm import Session
 
 from modules.common.pagination import PageParams
+from modules.common.audit_stamp import SYSTEM_ACTOR, resolve_actor, set_updated_info
 from .model import ImportCompany
 from .repository import (
     create_company,
@@ -43,17 +44,20 @@ def add_days_to_renew(company: ImportCompany) -> ImportCompany:
 
 def create_import_company(
     db: Session,
-    company_data: ImportCompanyCreate
+    company_data: ImportCompanyCreate,
+    actor: str = SYSTEM_ACTOR,
 ) -> ImportCompany:
     """Validates domain business rules and creates a new ImportCompany record."""
     validate_company(db, company_data)
+    # The audit actor comes from the authenticated user, never from the request body.
+    company_data = company_data.model_copy(update={"created_by": resolve_actor(actor)})
     result = create_company(db, company_data)
     AuditLogService(db).log_activity(
         entity_type="ImportCompany",
         entity_id=result.company_id,
         entity_code=result.importer_id,
         action="CREATE",
-        performed_by="SYSTEM",
+        performed_by=resolve_actor(actor),
         new_data={
             "importer_name": result.importer_name,
             "importer_id": result.importer_id,
@@ -132,7 +136,8 @@ from modules.audit_logs.service import AuditLogService
 def update_import_company(
     db: Session,
     company_id: int,
-    company_data: ImportCompanyUpdate
+    company_data: ImportCompanyUpdate,
+    actor: str = SYSTEM_ACTOR,
 ) -> ImportCompany | None:
     """Updates an existing company's attributes via repository pattern."""
     company = repo_get_company_by_id(db, company_id)
@@ -148,6 +153,8 @@ def update_import_company(
         for k in update_dict.keys()
     }
 
+    update_dict.pop("created_by", None)
+    update_dict["updated_by"] = resolve_actor(actor)
     updated_company = update_company_data(db, company, update_dict)
     
     # Security: Never log raw secret token into audit logs
@@ -164,7 +171,7 @@ def update_import_company(
         entity_id=updated_company.company_id,
         entity_code=updated_company.importer_id,
         action="UPDATE",
-        performed_by="SYSTEM",
+        performed_by=resolve_actor(actor),
         old_data=audit_old,
         new_data=audit_new,
     )
@@ -176,7 +183,7 @@ def update_import_company(
 # Soft Delete Company Service
 # ==================================================
 
-def delete_import_company(db: Session, company_id: int) -> ImportCompany | None:
+def delete_import_company(db: Session, company_id: int, actor: str = SYSTEM_ACTOR) -> ImportCompany | None:
     """Soft deletes a company by setting is_active = False."""
     company = repo_get_company_by_id(db, company_id)
     if not company:
@@ -185,13 +192,14 @@ def delete_import_company(db: Session, company_id: int) -> ImportCompany | None:
     if not company.is_active:
         return add_days_to_renew(company)
 
+    set_updated_info(company, actor)
     deleted_company = repo_delete_company(db, company)
     AuditLogService(db).log_activity(
         entity_type="ImportCompany",
         entity_id=deleted_company.company_id,
         entity_code=deleted_company.importer_id,
         action="DELETE",
-        performed_by="SYSTEM",
+        performed_by=resolve_actor(actor),
     )
     return add_days_to_renew(deleted_company)
 
@@ -200,18 +208,19 @@ def delete_import_company(db: Session, company_id: int) -> ImportCompany | None:
 # Restore Company Service
 # ==================================================
 
-def restore_import_company(db: Session, company_id: int) -> ImportCompany | None:
+def restore_import_company(db: Session, company_id: int, actor: str = SYSTEM_ACTOR) -> ImportCompany | None:
     """Restores a soft-deleted company back to active state."""
     company = repo_get_company_by_id(db, company_id)
     if not company:
         return None
 
+    set_updated_info(company, actor)
     restored_company = repo_restore_company(db, company)
     AuditLogService(db).log_activity(
         entity_type="ImportCompany",
         entity_id=restored_company.company_id,
         entity_code=restored_company.importer_id,
         action="RESTORE",
-        performed_by="SYSTEM",
+        performed_by=resolve_actor(actor),
     )
     return add_days_to_renew(restored_company)

@@ -1,6 +1,9 @@
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
+from modules.common.upload_guard import EXCEL_EXTENSIONS, read_upload_bytes
 from modules.auth.router import get_current_user
+from modules.auth.permissions import require_permission
+from modules.users.model import User
 from sqlalchemy.orm import Session
 
 from database.database import get_db
@@ -17,6 +20,8 @@ from .service import (
     restore_supplier_service,
     get_supplier_scorecard_service,
 )
+
+PARTNERS_MANAGE = "business_partners.manage"
 
 # ==================================================
 # Router Setup
@@ -38,8 +43,12 @@ supplier_router = APIRouter(
     response_model=SupplierResponse,
     status_code=status.HTTP_201_CREATED
 )
-def create_supplier(supplier: SupplierCreate, db: Session = Depends(get_db)):
-    created = create_supplier_service(db, supplier)
+def create_supplier(
+    supplier: SupplierCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission(PARTNERS_MANAGE)),
+):
+    created = create_supplier_service(db, supplier, actor=current_user.username)
     if not created:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -127,8 +136,12 @@ def download_suppliers_excel_template():
 
 
 @supplier_router.post("/import-excel")
-async def import_excel_suppliers(file: UploadFile = File(...), db: Session = Depends(get_db)):
-    file_bytes = await file.read()
+async def import_excel_suppliers(
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission(PARTNERS_MANAGE)),
+):
+    file_bytes = await read_upload_bytes(file, EXCEL_EXTENSIONS)
     cols = ['company_name', 'supplier_type', 'registration_type', 'foreign_exporter_id', 'foreign_exporter_country', 'foreign_exporter_country_code', 'address']
     rows = MasterDataExportImportHelper.parse_excel_file(file_bytes, cols)
 
@@ -166,7 +179,7 @@ async def import_excel_suppliers(file: UploadFile = File(...), db: Session = Dep
                 brands=r.get('brands'),
                 notes=r.get('notes'),
             )
-            create_supplier_service(db, schema)
+            create_supplier_service(db, schema, actor=current_user.username)
             imported_count += 1
         except Exception as e:
             errors.append(f"Row {idx}: {str(e)}")
@@ -326,9 +339,10 @@ def get_supplier_by_id(supplier_id: int, db: Session = Depends(get_db)):
 def update_supplier(
     supplier_id: int,
     supplier_data: SupplierUpdate,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission(PARTNERS_MANAGE)),
 ):
-    updated = update_supplier_service(db, supplier_id, supplier_data)
+    updated = update_supplier_service(db, supplier_id, supplier_data, actor=current_user.username)
     if not updated:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -345,8 +359,12 @@ def update_supplier(
     "/{supplier_id}",
     response_model=SupplierResponse
 )
-def delete_supplier(supplier_id: int, db: Session = Depends(get_db)):
-    deleted = delete_supplier_service(db, supplier_id)
+def delete_supplier(
+    supplier_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission(PARTNERS_MANAGE)),
+):
+    deleted = delete_supplier_service(db, supplier_id, actor=current_user.username)
     if not deleted:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -363,8 +381,12 @@ def delete_supplier(supplier_id: int, db: Session = Depends(get_db)):
     "/{supplier_id}/restore",
     response_model=SupplierResponse
 )
-def restore_supplier(supplier_id: int, db: Session = Depends(get_db)):
-    restored = restore_supplier_service(db, supplier_id)
+def restore_supplier(
+    supplier_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission(PARTNERS_MANAGE)),
+):
+    restored = restore_supplier_service(db, supplier_id, actor=current_user.username)
     if not restored:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

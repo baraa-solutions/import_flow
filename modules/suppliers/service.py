@@ -5,6 +5,7 @@ from sqlalchemy.exc import IntegrityError
 
 from modules.common.pagination import PageParams
 from modules.common.sequence_generator import next_global_code
+from modules.common.audit_stamp import SYSTEM_ACTOR, resolve_actor, set_updated_info
 
 from .model import Supplier
 from .schemas import SupplierCreate, SupplierUpdate
@@ -34,7 +35,7 @@ def generate_supplier_code(db: Session) -> str:
 # Create Supplier Service
 # ==================================================
 
-def create_supplier_service(db: Session, supplier_data: SupplierCreate) -> Supplier:
+def create_supplier_service(db: Session, supplier_data: SupplierCreate, actor: str = SYSTEM_ACTOR) -> Supplier:
     from .validators import validate_supplier
     validate_supplier(db, supplier_data)
 
@@ -50,6 +51,8 @@ def create_supplier_service(db: Session, supplier_data: SupplierCreate) -> Suppl
 
         supplier_dict = supplier_data.model_dump()
         supplier_dict["supplier_code"] = code
+        supplier_dict["created_by"] = resolve_actor(actor)
+        supplier_dict["updated_by"] = resolve_actor(actor)
 
         try:
             supplier = create_supplier(db, supplier_dict)
@@ -64,7 +67,7 @@ def create_supplier_service(db: Session, supplier_data: SupplierCreate) -> Suppl
         entity_id=supplier.supplier_id,
         entity_code=supplier.supplier_code,
         action="CREATE",
-        performed_by="SYSTEM",
+        performed_by=resolve_actor(actor),
         new_data={"company_name": supplier.company_name, "foreign_exporter_id": supplier.foreign_exporter_id, "foreign_exporter_country_code": supplier.foreign_exporter_country_code}
     )
     
@@ -125,17 +128,21 @@ from modules.audit_logs.service import AuditLogService
 def update_supplier_service(
     db: Session,
     supplier_id: int,
-    supplier_data: SupplierUpdate
+    supplier_data: SupplierUpdate,
+    actor: str = SYSTEM_ACTOR,
 ) -> Supplier | None:
     supplier = get_supplier_by_id(db, supplier_id)
     if not supplier:
         return None
+    # The audit actor comes from the authenticated user, never from the request body.
+    supplier_data = supplier_data.model_copy(update={"updated_by": None})
     update_data = supplier_data.model_dump(exclude_unset=True, exclude_none=True)
     old_data = {
         k: getattr(supplier, k, None)
         for k in update_data.keys()
     }
     
+    set_updated_info(supplier, actor)
     updated = update_supplier(db, supplier, supplier_data)
     
     AuditLogService(db).log_activity(
@@ -143,7 +150,7 @@ def update_supplier_service(
         entity_id=updated.supplier_id,
         entity_code=updated.supplier_code,
         action="UPDATE",
-        performed_by="SYSTEM",
+        performed_by=resolve_actor(actor),
         old_data=old_data,
         new_data=update_data,
     )
@@ -155,19 +162,20 @@ def update_supplier_service(
 # Delete Supplier Service
 # ==================================================
 
-def delete_supplier_service(db: Session, supplier_id: int) -> Supplier | None:
+def delete_supplier_service(db: Session, supplier_id: int, actor: str = SYSTEM_ACTOR) -> Supplier | None:
     supplier = get_supplier_by_id(db, supplier_id)
     if not supplier:
         return None
     if not supplier.is_active:
         return supplier
+    set_updated_info(supplier, actor)
     deleted = soft_delete_supplier(db, supplier)
     AuditLogService(db).log_activity(
         entity_type="Supplier",
         entity_id=deleted.supplier_id,
         entity_code=deleted.supplier_code,
         action="DELETE",
-        performed_by="SYSTEM",
+        performed_by=resolve_actor(actor),
     )
     return deleted
 
@@ -176,17 +184,18 @@ def delete_supplier_service(db: Session, supplier_id: int) -> Supplier | None:
 # Restore Supplier Service
 # ==================================================
 
-def restore_supplier_service(db: Session, supplier_id: int) -> Supplier | None:
+def restore_supplier_service(db: Session, supplier_id: int, actor: str = SYSTEM_ACTOR) -> Supplier | None:
     supplier = get_supplier_by_id(db, supplier_id)
     if not supplier:
         return None
+    set_updated_info(supplier, actor)
     restored = restore_supplier(db, supplier)
     AuditLogService(db).log_activity(
         entity_type="Supplier",
         entity_id=restored.supplier_id,
         entity_code=restored.supplier_code,
         action="RESTORE",
-        performed_by="SYSTEM",
+        performed_by=resolve_actor(actor),
     )
     return restored
 
