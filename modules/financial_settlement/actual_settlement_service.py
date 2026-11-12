@@ -76,6 +76,15 @@ from modules.common.system_messages import msg, render_en
 from modules.common.system_parameters import get_float_parameter
 from modules.common.validators import require_active
 from modules.common.file_tracking import set_file_tracking
+from .fob_valuation_service import (
+    BASIS_ESTIMATE,
+    FINANCING_MARKUP_CATEGORY,
+    GOODS_CATEGORY,
+    GOODS_SOURCE_MODULE,
+    ensure_no_fob_double_count,
+    resolve_fob_valuation,
+    snapshot_fob_valuation,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -167,6 +176,47 @@ def _wht_rate_missing_warning(tax_code: str, on_date: date, invoice_no: Optional
     )
 
 
+def _supplier_row(
+    imp: ImportFile,
+    line: Any,
+    row_id: str,
+    category: str,
+    category_ar: str,
+    amount_fc: float,
+    amount_egp: float,
+    paid_egp: float,
+    row_date: Optional[str],
+    pay_ref: str,
+    notes: str,
+) -> AggregatedInvoiceItemSchema:
+    """A supplier ledger row of one valued invoice (goods or financing markup)."""
+    rem_egp = max(0.0, round(amount_egp - paid_egp, 2))
+    status = "PAID" if rem_egp == 0 and amount_egp > 0 else ("PARTIAL" if paid_egp > 0 else "UNPAID")
+    return AggregatedInvoiceItemSchema(
+        invoice_id=row_id,
+        invoice_no=line.invoice_no,
+        invoice_date=row_date,
+        party_type="SUPPLIER",
+        party_type_ar="المورد الأجنبي",
+        party_name=imp.supplier_name or "المورد الأجنبي",
+        category=category,
+        category_ar=category_ar,
+        currency=line.currency,
+        exchange_rate=line.applied_rate,
+        amount_fc=amount_fc,
+        amount_egp=amount_egp,
+        paid_amount_egp=round(paid_egp, 2),
+        remaining_amount_egp=rem_egp,
+        payment_status=status,
+        payment_reference=pay_ref,
+        withholding_tax_rate=0.0,
+        withholding_tax_amount_egp=0.0,
+        net_payable_egp=amount_egp,
+        source_module=GOODS_SOURCE_MODULE,
+        notes=notes,
+    )
+
+
 def aggregate_shipment_invoices_service(
     db: Session,
     import_file_id: int,
@@ -196,8 +246,9 @@ def aggregate_shipment_invoices_service(
 
     invoices: List[AggregatedInvoiceItemSchema] = []
 
-    # 1. Commercial Goods Invoices (FOB / CIF from PO & Invoices Data)
-    # Query Paid supplier payment requests for this import file (ACC2-T07)
+    # 1. Commercial Goods: the single net FOB valuation (Trello qJZNzixC). One "Commercial Goods" row per invoice
+    # (net goods value at the FX anchor rate) plus a separate "Supplier Financing Markup" row when the invoice
+    # carries a financing markup. Supplier payments only settle these rows; they are never added as a cost.
     import sqlalchemy as sa
     from modules.financial_approval.model import PaymentRequestSession
 
@@ -231,124 +282,71 @@ def aggregate_shipment_invoices_service(
     unallocated_paid_fc = dict(paid_fc_by_curr)
     allocated_goods_egp_at_inv_rate = 0.0
 
-    invoices_data = imp.invoices_data or []
-    if invoices_data and isinstance(invoices_data, list):
-        for idx, inv in enumerate(invoices_data):
-            inv_no = str(inv.get("invoice_no") or inv.get("invoice_number") or f"COMM-{imp.import_file_code}-{idx+1}")
-            inv_date = str(inv.get("invoice_date") or (imp.file_opening_date or ""))
-            amt_fc = float(inv.get("amount") or inv.get("total_amount") or inv.get("total_fob") or 0.0)
-            inv_curr = inv.get("currency")
-            if amt_fc > 0:
-                if not inv_curr or not str(inv_curr).strip():
-                    raise currency_missing_error("Commercial Invoice", inv_no)
-                c_curr = str(inv_curr).strip().upper()
-                if not currency:
-                    currency = c_curr
-            else:
-                c_curr = str(inv_curr).strip().upper() if inv_curr else (currency or "EGP")
+    valuation = resolve_fob_valuation(db, import_file_id, fx=fx)
+    messages.extend(valuation.messages)
+    is_estimate = valuation.basis == BASIS_ESTIMATE
+    swift_refs = [r.swift_reference_no for r in paid_supplier_reqs if r.swift_reference_no]
+    raw_invoices = imp.invoices_data if isinstance(imp.invoices_data, list) else []
+    raw_by_no: Dict[str, Dict[str, Any]] = {}
+    for raw_idx, raw_inv in enumerate(raw_invoices):
+        if isinstance(raw_inv, dict):
+            raw_no = str(raw_inv.get("invoice_no") or raw_inv.get("invoice_number")
+                         or f"COMM-{imp.import_file_code}-{raw_idx+1}")
+            raw_by_no.setdefault(raw_no, raw_inv)
 
-            if c_curr == "EGP":
-                c_rate = float(inv.get("exchange_rate") or 1.0)
-            elif inv.get("exchange_rate") and float(inv.get("exchange_rate")) != 1.0:  # 1.0 on foreign = not set
-                c_rate = float(inv.get("exchange_rate"))
-            else:
-                c_rate = fx.rate(c_curr, _as_date(inv.get("invoice_date")))
-            if goods_rate is None and amt_fc > 0:
-                goods_rate = c_rate
-            amt_egp = round(amt_fc * c_rate if c_curr != "EGP" else amt_fc, 2)
+    for idx, line in enumerate(valuation.lines):
+        c_curr = line.currency
+        if line.payable_foreign > 0 and not currency:
+            currency = c_curr
+        if goods_rate is None and line.payable_foreign > 0:
+            goods_rate = line.applied_rate
+        raw = raw_by_no.get(line.invoice_no, {})
+        payable_fc = line.payable_foreign
 
-            # Sourcing paid amounts (ACC2-T07): when PaymentRequestSession rows exist for the file,
-            # allocate transferred FC from Paid requests only (imp.swift_no does NOT decide).
-            # When no payment requests exist in the system for this file, legacy swift_no / paid flag applies.
-            if file_has_supplier_reqs:
-                avail_fc = unallocated_paid_fc.get(c_curr, 0.0)
-                inv_paid_fc = min(avail_fc, amt_fc) if amt_fc > 0 else 0.0
-                unallocated_paid_fc[c_curr] = max(0.0, avail_fc - inv_paid_fc)
-                paid_egp = round(inv_paid_fc * c_rate if c_curr != "EGP" else inv_paid_fc, 2)
-                allocated_goods_egp_at_inv_rate += paid_egp
-            else:
-                is_paid = bool(imp.swift_no or inv.get("payment_status") == "PAID" or inv.get("paid"))
-                inv_paid_fc = amt_fc if is_paid else 0.0
-                paid_egp = amt_egp if is_paid else 0.0
-
-            rem_egp = max(0.0, round(amt_egp - paid_egp, 2))
-            status = "PAID" if rem_egp == 0 and amt_egp > 0 else ("PARTIAL" if paid_egp > 0 else "UNPAID")
-
-            swift_refs = [r.swift_reference_no for r in paid_supplier_reqs if r.swift_reference_no]
-            pay_ref = ", ".join(swift_refs) if swift_refs else (imp.swift_no or inv.get("payment_ref") or "سويفت بنكي")
-
-            invoices.append(AggregatedInvoiceItemSchema(
-                invoice_id=f"COMM-{idx+1}",
-                invoice_no=inv_no,
-                invoice_date=inv_date or None,
-                party_type="SUPPLIER",
-                party_type_ar="المورد الأجنبي",
-                party_name=imp.supplier_name or "المورد الأجنبي",
-                category="Commercial Goods",
-                category_ar="قيمة البضاعة التجارية (FOB/CIF)",
-                currency=c_curr,
-                exchange_rate=c_rate,
-                amount_fc=amt_fc,
-                amount_egp=amt_egp,
-                paid_amount_egp=paid_egp,
-                remaining_amount_egp=rem_egp,
-                payment_status=status,
-                payment_reference=pay_ref,
-                withholding_tax_rate=0.0,
-                withholding_tax_amount_egp=0.0,
-                net_payable_egp=amt_egp,
-                source_module="Commercial Invoice",
-                notes=f"فاتورة تجارية للشحنة {imp.import_file_code}",
-            ))
-    elif imp.estimated_cost and imp.estimated_cost > 0:
-        if not imp.estimated_cost_currency or not str(imp.estimated_cost_currency).strip():
-            raise currency_missing_error("Import File Estimated Cost", imp.import_file_code)
-        currency = str(imp.estimated_cost_currency).strip().upper()
-        amt_fc = float(imp.estimated_cost)
-        est_rate = 1.0 if currency == "EGP" else fx.rate(currency, _as_date(imp.file_opening_date))
-        goods_rate = est_rate
-        amt_egp = round(amt_fc * est_rate if currency != "EGP" else amt_fc, 2)
-
+        # Sourcing paid amounts (ACC2-T07): when PaymentRequestSession rows exist for the file,
+        # allocate transferred FC from Paid requests only (imp.swift_no does NOT decide).
+        # When no payment requests exist in the system for this file, legacy swift_no / paid flag applies.
         if file_has_supplier_reqs:
-            avail_fc = unallocated_paid_fc.get(currency, 0.0)
-            inv_paid_fc = min(avail_fc, amt_fc) if amt_fc > 0 else 0.0
-            unallocated_paid_fc[currency] = max(0.0, avail_fc - inv_paid_fc)
-            paid_egp = round(inv_paid_fc * est_rate if currency != "EGP" else inv_paid_fc, 2)
-            allocated_goods_egp_at_inv_rate += paid_egp
+            avail_fc = unallocated_paid_fc.get(c_curr, 0.0)
+            inv_paid_fc = min(avail_fc, payable_fc) if payable_fc > 0 else 0.0
+            unallocated_paid_fc[c_curr] = max(0.0, avail_fc - inv_paid_fc)
+            paid_payable_egp = line.egp_for_foreign(inv_paid_fc)
+            # Reported FX difference basis (ACC2-T07): the paid FC at the invoice (fallback) rate.
+            allocated_goods_egp_at_inv_rate += round(
+                inv_paid_fc * line.fallback_rate if c_curr != "EGP" else inv_paid_fc, 2
+            )
         else:
-            is_paid = bool(imp.swift_no)
-            inv_paid_fc = amt_fc if is_paid else 0.0
-            paid_egp = amt_egp if is_paid else 0.0
+            is_paid = bool(imp.swift_no or (not is_estimate and (raw.get("payment_status") == "PAID" or raw.get("paid"))))
+            paid_payable_egp = line.payable_egp if is_paid else 0.0
 
-        rem_egp = max(0.0, round(amt_egp - paid_egp, 2))
-        status = "PAID" if rem_egp == 0 and amt_egp > 0 else ("PARTIAL" if paid_egp > 0 else "UNPAID")
+        # The paid EGP settles the goods row first, then the financing markup row.
+        goods_paid = min(paid_payable_egp, line.net_fob_egp)
+        markup_paid = round(max(0.0, paid_payable_egp - goods_paid), 2)
+        if swift_refs:
+            pay_ref = ", ".join(swift_refs)
+        elif is_estimate:
+            pay_ref = imp.swift_no or "سويفت بنكي"
+        else:
+            pay_ref = imp.swift_no or raw.get("payment_ref") or "سويفت بنكي"
+        if is_estimate:
+            row_date = str(imp.file_opening_date) if imp.file_opening_date else None
+        else:
+            row_date = str(raw.get("invoice_date") or (imp.file_opening_date or "")) or None
 
-        swift_refs = [r.swift_reference_no for r in paid_supplier_reqs if r.swift_reference_no]
-        pay_ref = ", ".join(swift_refs) if swift_refs else (imp.swift_no or "سويفت بنكي")
-
-        invoices.append(AggregatedInvoiceItemSchema(
-            invoice_id="COMM-1",
-            invoice_no=f"COMM-{imp.import_file_code}",
-            invoice_date=str(imp.file_opening_date) if imp.file_opening_date else None,
-            party_type="SUPPLIER",
-            party_type_ar="المورد الأجنبي",
-            party_name=imp.supplier_name or "المورد الأجنبي",
-            category="Commercial Goods",
-            category_ar="قيمة البضاعة التجارية (FOB)",
-            currency=currency,
-            exchange_rate=est_rate,
-            amount_fc=amt_fc,
-            amount_egp=amt_egp,
-            paid_amount_egp=paid_egp,
-            remaining_amount_egp=rem_egp,
-            payment_status=status,
-            payment_reference=pay_ref,
-            withholding_tax_rate=0.0,
-            withholding_tax_amount_egp=0.0,
-            net_payable_egp=amt_egp,
-            source_module="Commercial Invoice",
-            notes="قيمة البضاعة التقديرية المعتمدة في أمر الشراء",
+        invoices.append(_supplier_row(
+            imp, line, f"COMM-{idx+1}", GOODS_CATEGORY,
+            "قيمة البضاعة التجارية (FOB)" if is_estimate else "قيمة البضاعة التجارية (FOB/CIF)",
+            line.net_fob_foreign, line.net_fob_egp, goods_paid, row_date, pay_ref,
+            "قيمة البضاعة التقديرية المعتمدة في أمر الشراء" if is_estimate
+            else f"فاتورة تجارية للشحنة {imp.import_file_code}",
         ))
+        if line.financing_markup_amount > 0:
+            invoices.append(_supplier_row(
+                imp, line, f"FIN-{idx+1}", FINANCING_MARKUP_CATEGORY,
+                "فوائد / هامش تمويل المورد (خارج الوعاء الجمركي)",
+                line.financing_markup_amount, line.financing_markup_egp, markup_paid, row_date, pay_ref,
+                f"هامش تمويل مضمن في الفاتورة {line.invoice_no}: مستبعد من قيمة الفوب والوعاء الجمركي",
+            ))
 
     # 2. Freight Bookings (Ocean / Air Freight), USD at the booking confirmation date
     bookings = db.query(ShipmentBooking).filter(
@@ -831,6 +829,9 @@ def aggregate_shipment_invoices_service(
     # variance are part of the actual landed cost, allocated like other overheads (Value-Based).
     invoices.extend(_trade_finance_cost_invoices(db, import_file_id))
 
+    # Zero double-counting guarantee: the goods value is in the ledger exactly once (qJZNzixC).
+    ensure_no_fob_double_count(invoices, valuation)
+
     # Summarize by party
     parties_map: Dict[str, Dict[str, Any]] = {}
     for inv in invoices:
@@ -1030,7 +1031,8 @@ def confirm_invoices_settlement_service(
         "rows": int(imp.financial_settlement_invoices_count or 0),
     }
 
-    # 1. Update ImportFile
+    # 1. Update ImportFile (with the FOB valuation snapshot the settled ledger was built on, qJZNzixC)
+    snapshot_fob_valuation(imp, resolve_fob_valuation(db, imp.import_file_id), actor)
     imp.financial_settlement_status = "INVOICES_SETTLED"
     imp.financial_settlement_date = today_date
     imp.financial_settlement_invoices_count = len(invoices)
@@ -1165,8 +1167,9 @@ BUCKET_ENGINE_CATEGORY = {
 
 
 def _is_goods_invoice(inv: AggregatedInvoiceItemSchema) -> bool:
-    cat = inv.category.lower()
-    return "goods" in cat or "fob" in cat or "commercial" in cat
+    """The goods (net FOB) rows of the ledger: exact category + source, so an expense whose free-text category
+    merely mentions "goods" / "commercial" is never counted as FOB (zero double counting, qJZNzixC)."""
+    return inv.category == GOODS_CATEGORY and inv.source_module == GOODS_SOURCE_MODULE
 
 
 def scale_item_fobs_to_header(items: List[Dict[str, Any]], target_fob_egp: float) -> None:
@@ -1811,7 +1814,8 @@ def approve_actual_landed_cost_service(
     from modules.master_items.service import MasterItemService
     MasterItemService.update_landed_costs_from_settlement(db, imp.import_file_id, items_json)
 
-    # 2. Update ImportFile
+    # 2. Update ImportFile (FOB valuation snapshot of the approved landed cost, qJZNzixC)
+    snapshot_fob_valuation(imp, resolve_fob_valuation(db, imp.import_file_id), actor)
     imp.financial_settlement_status = "COST_ALLOCATED"
     imp.actual_landed_cost_total_egp = calc.actual_total_landed_cost_egp
     imp.actual_landed_cost_markup_factor = calc.actual_markup_factor
