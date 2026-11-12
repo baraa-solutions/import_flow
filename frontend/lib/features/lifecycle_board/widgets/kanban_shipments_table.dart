@@ -354,11 +354,11 @@ class KanbanShipmentsTable extends StatelessWidget {
                           ),
                         );
                       },
-                      icon: const Icon(Icons.play_circle_outline, size: 13, color: Colors.white),
+                      icon: const Icon(Icons.play_circle_outline, size: 13, color: AppTheme.white),
                       label: Text(
                         l10n.executeAndAdvanceStepBtn,
                         style: const TextStyle(
-                          color: Colors.white,
+                          color: AppTheme.white,
                           fontWeight: FontWeight.bold,
                           fontSize: 11.0,
                         ),

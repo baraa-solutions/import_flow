@@ -154,29 +154,33 @@ class _AllPhasesResetCard extends StatelessWidget {
               width: isSelected ? 2 : 1,
             ),
           ),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(Icons.all_inclusive, size: 20, color: isSelected ? accent : AppTheme.textMutedOf(context)),
-              const SizedBox(height: 4),
-              Text(
-                l10n.matrixAllPhasesShort,
-                style: TextStyle(
-                  fontSize: 10.5,
-                  fontWeight: FontWeight.bold,
-                  color: isSelected ? accent : AppTheme.textPrimaryOf(context),
+          // scaleDown keeps the fixed-height tile overflow-free at large text scales.
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.all_inclusive, size: 20, color: isSelected ? accent : AppTheme.textMutedOf(context)),
+                const SizedBox(height: 4),
+                Text(
+                  l10n.matrixAllPhasesShort,
+                  style: TextStyle(
+                    fontSize: 10.5,
+                    fontWeight: FontWeight.bold,
+                    color: isSelected ? accent : AppTheme.textPrimaryOf(context),
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.center,
                 ),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 4),
-              AppStatusBadge(
-                label: '$totalActiveFiles',
-                severity: AppSeverity.info,
-                size: AppStatusBadgeSize.small,
-              ),
-            ],
+                const SizedBox(height: 4),
+                AppStatusBadge(
+                  label: '$totalActiveFiles',
+                  severity: AppSeverity.info,
+                  size: AppStatusBadgeSize.small,
+                ),
+              ],
+            ),
           ),
         ),
       ),

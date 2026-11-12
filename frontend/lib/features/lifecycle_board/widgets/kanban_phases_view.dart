@@ -47,6 +47,10 @@ class _KanbanPhasesViewState extends ConsumerState<KanbanPhasesView> {
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final boardAsync = ref.watch(lifecycleBoardSummaryProvider);
+    // Each live poll tick also refreshes the focused file's payment-gate locks (no stale lock).
+    ref.listen(livePollingProvider, (previous, next) {
+      if (previous != null && next.hasValue) ref.invalidate(paymentPathwayStatusProvider);
+    });
 
     return SelectionArea(
       child: boardAsync.when(

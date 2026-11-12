@@ -189,6 +189,7 @@ Widget _boardApp({
   required Locale locale,
   ThemeMode themeMode = ThemeMode.light,
   double sidebarWidth = 0,
+  double textScale = 1.0,
   List<ShipmentStageCardModel>? shipments,
 }) {
   final rows = shipments ?? [_shipment()];
@@ -212,6 +213,10 @@ Widget _boardApp({
         theme: AppTheme.lightTheme,
         darkTheme: AppTheme.darkTheme,
         themeMode: themeMode,
+        builder: (context, child) => MediaQuery(
+          data: MediaQuery.of(context).copyWith(textScaler: TextScaler.linear(textScale)),
+          child: child!,
+        ),
         home: Directionality(
           textDirection: isAr ? TextDirection.rtl : TextDirection.ltr,
           child: Row(
@@ -430,6 +435,25 @@ void main() {
       expect((selectedPhase, selectedStep), (3, 'STEP_08_BL'));
       await tester.tap(find.byKey(const ValueKey('matrix-show-all')));
       expect(showAll, 1);
+    });
+
+    for (final locale in const [Locale('en'), Locale('ar')]) {
+      testWidgets('text scale 1.25 (${locale.languageCode}): strip and page header never overflow', (tester) async {
+        _setViewport(tester, const Size(1366, 768));
+        await _pumpBoard(
+          tester,
+          _boardApp(locale: locale, textScale: 1.25, shipments: [_shipment(skipped: ['STEP_02'])]),
+        );
+        _expectFittedStrip(tester);
+        expect(find.byKey(const ValueKey('matrix-show-all')), findsOneWidget);
+        expect(find.byKey(const ValueKey('matrix-phase-lock-5')), findsOneWidget);
+      });
+    }
+
+    testWidgets('text scale 1.1 with sidebar: page header stays within its fixed height', (tester) async {
+      _setViewport(tester, const Size(1366, 768));
+      await _pumpBoard(tester, _boardApp(locale: const Locale('ar'), textScale: 1.1, sidebarWidth: 255));
+      _expectFittedStrip(tester);
     });
 
     testWidgets('narrow window falls back to scrolling instead of overflowing', (tester) async {
