@@ -139,6 +139,7 @@ def validate_payment_pathway_gate(
     payment_term: Optional[str],
     blocked: List[tuple],
     gate_labels: Optional[dict] = None,
+    import_file_id: Optional[int] = None,
 ) -> None:
     """GP-002 stage gate of the exclusive payment pathway (modules/import_files/payment_milestones.py).
 
@@ -163,6 +164,7 @@ def validate_payment_pathway_gate(
             f"Import file {import_file_code} cannot move to ({label_en}) on payment pathway ({payment_term}) "
             f"until these banking milestones are met: {missing_en}."
         ),
+        import_file_id=import_file_id,
         import_file_code=import_file_code,
         payment_term=payment_term,
         gate=gate,

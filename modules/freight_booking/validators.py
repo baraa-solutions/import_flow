@@ -413,3 +413,17 @@ def validate_master_refs(db: Session, payload: Any) -> None:
 
 
 
+
+
+def validate_payment_pathway_allows_booking(db: Session, import_file: Any, step_code: Optional[str]) -> None:
+    """Freight booking is gated by the file's payment pathway (Trello p0RG1Nxm): an LC file needs the issued
+    LC (MT700) and its latest shipment date, a SWIFT-advance file needs the remitted advance (MT103), before
+    the booking may move the file into phase 3. Raises 409 ``PAYMENT_MILESTONE_GATE_BLOCKED``."""
+    if import_file is None or not step_code:
+        return
+    from modules.common.file_tracking import file_past_step
+    from modules.import_files.import_file_payment_pathway_service import enforce_payment_pathway_gate
+
+    if file_past_step(import_file, step_code):
+        return
+    enforce_payment_pathway_gate(db, import_file, to_step=step_code)

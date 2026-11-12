@@ -7,6 +7,7 @@ import '../providers/trade_finance_provider.dart';
 import '../widgets/bank_charges_tab.dart';
 import '../widgets/fx_variance_summary_card.dart';
 import '../widgets/lc_lifecycle_card.dart';
+import '../../import_files/providers/payment_pathway_provider.dart';
 
 /// الشاشة التنسيقية لإدارة تمويل الاستيراد والاعتمادات المستندية للموردين (Type A)
 class TradeFinanceScreen extends ConsumerWidget {
@@ -37,7 +38,10 @@ class TradeFinanceScreen extends ConsumerWidget {
             label: 'تحديث المعاملات',
             icon: Icons.refresh,
             variant: AppButtonVariant.ghost,
-            onPressed: () => ref.invalidate(tradeFinanceInstrumentsProvider),
+            onPressed: () {
+              ref.invalidate(tradeFinanceInstrumentsProvider);
+              ref.invalidate(paymentPathwayStatusProvider);
+            },
           ),
         ],
         tabs: const [
@@ -72,7 +76,10 @@ class TradeFinanceScreen extends ConsumerWidget {
                   AppButton(
                     label: 'إعادة المحاولة',
                     variant: AppButtonVariant.primary,
-                    onPressed: () => ref.invalidate(tradeFinanceInstrumentsProvider),
+                    onPressed: () {
+                      ref.invalidate(tradeFinanceInstrumentsProvider);
+                      ref.invalidate(paymentPathwayStatusProvider);
+                    },
                   ),
                 ],
               ),

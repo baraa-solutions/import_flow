@@ -28,7 +28,6 @@ from ..integrations.pki_signer import PKISignerService
 from ..integrations.integration_mode import IntegrationModeError
 from ..import_files.model import ImportFile
 from modules.common.system_messages import msg, render_en
-from modules.common.file_tracking import set_file_tracking
 
 logger = logging.getLogger(__name__)
 
@@ -275,14 +274,20 @@ class CargoXEnvelopeService:
         try:
             # 1. Update ImportFile
             imp_file = db.query(ImportFile).filter(ImportFile.import_file_id == envelope.import_file_id).first()
+            moved = True
             if imp_file:
                 imp_file.cargox_envelope_id = envelope.envelope_id
                 imp_file.cargox_envelope_code = envelope.envelope_code
                 imp_file.cargox_envelope_status = envelope.status
                 imp_file.cargox_transferred_at = envelope.transferred_to_customs_at
-                set_file_tracking(imp_file, step_code="STEP_10", next_action=msg("NA_SH04_COLLECT_ORIGINALS"))
+                # Payment pathway gate (e.g. CAD collection notice before phase 4): hold instead of moving.
+                from modules.import_files.import_file_payment_pathway_service import advance_tracking_or_hold
+
+                moved = advance_tracking_or_hold(
+                    db, imp_file, step_code="STEP_10", next_action=msg("NA_SH04_COLLECT_ORIGINALS")
+                )
                 current_prog = imp_file.progress_percent or 0.0
-                if current_prog < 70.0:
+                if moved and current_prog < 70.0:
                     imp_file.progress_percent = 70.0
 
             # 2. Complete pending SH-03 / CargoX SmartTasks
@@ -400,20 +405,21 @@ class CargoXEnvelopeService:
             except Exception as ex_appr:
                 logger.warning(f"Error updating CustomsDocumentApproval for CargoX: {ex_appr}")
 
-            # 6. Advance Lifecycle step STEP_10 -> STEP_11
-            try:
-                from modules.lifecycle_board.service import advance_lifecycle_step_service
-                advance_lifecycle_step_service(
-                    db=db,
-                    import_file_id=envelope.import_file_id,
-                    completed_step_code="STEP_10",
-                    target_step_codes=["STEP_11"],
-                    notes_msg=msg("CGX_ENVELOPE_SEALED", envelope_code=envelope.envelope_code),
-                    next_action_msg=msg("NA_SH04_COLLECT_ORIGINALS"),
-                    assigned_user=updated_by,
-                )
-            except Exception as ex_lc:
-                logger.warning(f"Lifecycle advance STEP_10→STEP_11 failed: {ex_lc}")
+            # 6. Advance Lifecycle step STEP_10 -> STEP_11 (not while the payment pathway gate holds the file)
+            if moved:
+                try:
+                    from modules.lifecycle_board.service import advance_lifecycle_step_service
+                    advance_lifecycle_step_service(
+                        db=db,
+                        import_file_id=envelope.import_file_id,
+                        completed_step_code="STEP_10",
+                        target_step_codes=["STEP_11"],
+                        notes_msg=msg("CGX_ENVELOPE_SEALED", envelope_code=envelope.envelope_code),
+                        next_action_msg=msg("NA_SH04_COLLECT_ORIGINALS"),
+                        assigned_user=updated_by,
+                    )
+                except Exception as ex_lc:
+                    logger.warning(f"Lifecycle advance STEP_10→STEP_11 failed: {ex_lc}")
 
             db.commit()
         except Exception as e:

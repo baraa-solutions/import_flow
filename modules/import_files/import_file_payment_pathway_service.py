@@ -53,21 +53,21 @@ def _position(file_rec: Any) -> Tuple[Optional[str], Optional[int]]:
     return getattr(file_rec, "current_step_code", None), getattr(file_rec, "current_phase_id", None)
 
 
-def enforce_payment_pathway_gate(
+def find_payment_gate_block(
     db: Session,
     file_rec: Any,
     *,
     to_step: Optional[str] = None,
     to_phase: Optional[int] = None,
     closing: bool = False,
-) -> None:
-    """Raise 409 when moving ``file_rec`` to ``to_step`` / ``to_phase`` (or closing it) crosses a gate of its
-    payment pathway whose milestones are not met. No pathway (GP-001) → no gates."""
-    if file_rec is None:
-        return
+) -> List[Tuple[str, List[str]]]:
+    """``[(gate, [missing milestones]), ...]`` crossed by moving ``file_rec`` to ``to_step`` / ``to_phase`` (or
+    closing it); empty when the move is allowed. No pathway (GP-001) or unsaved file → no gates."""
+    if file_rec is None or getattr(file_rec, "import_file_id", None) is None:
+        return []
     payment_term = getattr(file_rec, "payment_term", None)
     if not payment_term or payment_term not in pm.PATHWAY_GATES:
-        return
+        return []
     ordered, step_to_phase, _, _ = _lifecycle_catalog()
     from_step, from_phase = _position(file_rec)
     gates = pm.gates_crossed(
@@ -82,10 +82,105 @@ def enforce_payment_pathway_gate(
     )
     configured = pm.PATHWAY_GATES[payment_term]
     if not any(g in configured for g in gates):
+        return []
+    with db.no_autoflush:
+        evidence = repo.get_financing_evidence(db, file_rec.import_file_id)
+    return pm.blocking_milestones(payment_term, gates, evidence)
+
+
+def enforce_payment_pathway_gate(
+    db: Session,
+    file_rec: Any,
+    *,
+    to_step: Optional[str] = None,
+    to_phase: Optional[int] = None,
+    closing: bool = False,
+) -> None:
+    """Raise 409 ``PAYMENT_MILESTONE_GATE_BLOCKED`` when the move crosses an unsatisfied gate."""
+    blocked = find_payment_gate_block(db, file_rec, to_step=to_step, to_phase=to_phase, closing=closing)
+    if blocked:
+        validators.validate_payment_pathway_gate(
+            file_rec.import_file_code, file_rec.payment_term, blocked, gate_labels(),
+            import_file_id=file_rec.import_file_id,
+        )
+
+
+def hold_file_on_payment_gate(db: Session, file_rec: Any, blocked: List[Tuple[str, List[str]]]) -> None:
+    """Keep the file where it is and surface why: next action = complete the pending banking milestones, plus
+    a SystemNotification. Never commits (the caller owns the transaction)."""
+    from modules.common.file_tracking import set_file_tracking
+    from modules.common.system_messages import msg, render_en
+    from modules.notifications.model import SystemNotification
+
+    if not blocked or file_rec is None:
         return
-    evidence = repo.get_financing_evidence(db, file_rec.import_file_id)
-    blocked = pm.blocking_milestones(payment_term, gates, evidence)
-    validators.validate_payment_pathway_gate(file_rec.import_file_code, payment_term, blocked, gate_labels())
+    gate, missing = blocked[0]
+    message = msg(
+        "NA_PAYMENT_MILESTONE_PENDING",
+        payment_term_enum_payment_term=file_rec.payment_term,
+        gate=gate,
+        missing_milestones=", ".join(missing),
+    )
+    set_file_tracking(file_rec, next_action=message)
+    note = msg(
+        "PAYMENT_MILESTONE_GATE_HOLD",
+        import_file_code=file_rec.import_file_code,
+        payment_term_enum_payment_term=file_rec.payment_term,
+        gate=gate,
+        missing_milestones=", ".join(missing),
+    )
+    db.add(SystemNotification(
+        title=render_en(note.code, note.params, "title")[:200],
+        message=render_en(note.code, note.params, "body"),
+        msg_code=note.code,
+        msg_params=note.params,
+        category="STAGE_PROGRESSION",
+        severity="WARNING",
+        entity_type="ImportFile",
+        entity_id=file_rec.import_file_id,
+        target_role="ALL",
+        is_read=False,
+    ))
+
+
+def advance_tracking_or_hold(
+    db: Session,
+    file_rec: Any,
+    *,
+    step_code: Optional[str] = None,
+    phase_id: Optional[int] = None,
+    next_action: Any = None,
+    stage_code: Optional[str] = None,
+) -> bool:
+    """Automatic (system-driven) forward move: ``set_file_tracking`` when the payment pathway gates allow it,
+    otherwise keep the file in place, record the hold (``hold_file_on_payment_gate``) and return ``False``.
+    The business record that triggered the move is kept either way."""
+    from modules.common.file_tracking import set_file_tracking
+
+    blocked = find_payment_gate_block(db, file_rec, to_step=step_code, to_phase=phase_id)
+    if blocked:
+        hold_file_on_payment_gate(db, file_rec, blocked)
+        return False
+    set_file_tracking(
+        file_rec, step_code=step_code, phase_id=phase_id, next_action=next_action, stage_code=stage_code,
+        enforce_payment_gate=False,
+    )
+    return True
+
+
+def record_payment_gate_hold(db: Session, exc: BaseException) -> None:
+    """Surface a ``PAYMENT_MILESTONE_GATE_BLOCKED`` swallowed by a best-effort follow-up (after its rollback):
+    hold next action + notification on the file, committed on their own."""
+    detail = exc.detail  # type: ignore[attr-defined]
+    file_id = detail.get("import_file_id")
+    if not file_id:
+        return
+    file_rec = repo.get_import_file_by_id(db, int(file_id))
+    blocked = [(b["gate"], list(b["missing_milestones"])) for b in detail.get("blocked_gates") or []]
+    if file_rec is None or not blocked:
+        return
+    hold_file_on_payment_gate(db, file_rec, blocked)
+    db.commit()
 
 
 def _gate_passed(file_rec: Any, gate: str, ordered: List[str], step_to_phase: Dict[str, int]) -> bool:

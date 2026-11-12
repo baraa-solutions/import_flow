@@ -11,16 +11,27 @@ import pytest
 from fastapi import HTTPException
 
 import main  # noqa: F401  (registers every model on Base.metadata)
+import modules.docs_customs_approval.service as docs_approval_service
 import modules.lifecycle_board.service as lifecycle_service
+from modules.common.errors import best_effort
+from modules.common.file_tracking import set_file_tracking
+from modules.common.system_messages import msg
+from modules.docs_customs_approval.model import CustomsDocumentApproval, DocsCustomsApprovalSession
+from modules.docs_customs_approval.schemas import DocsCustomsApprovalSessionCreate
 from modules.financial_approval.model import PaymentRequestSession
+from modules.freight_booking.model import ShipmentBooking
+from modules.freight_booking.schemas import ShipmentBookingCreate
+from modules.freight_booking.service import create_booking_service
 from modules.import_files import payment_milestones as pm
 from modules.import_files import validators
 from modules.import_files.import_file_payment_pathway_service import (
+    advance_tracking_or_hold,
     build_payment_pathway_status,
     enforce_payment_pathway_gate,
     get_payment_pathway_status_service,
 )
 from modules.lifecycle_board.lifecycle_kanban_service import ORDERED_STEP_CODES, STEP_TO_PHASE_MAP
+from modules.notifications.model import SystemNotification
 from modules.trade_finance.model import ImportFinanceInstrument
 from modules.warehouse_receiving.model import WarehouseReceivingRecord
 
@@ -345,3 +356,132 @@ def test_status_unknown_file_404(db):
     with pytest.raises(HTTPException) as exc:
         get_payment_pathway_status_service(db, 99999)
     assert exc.value.status_code == 404
+
+
+# ── Central choke point: every forward tracking write (PR #220 review) ─────────
+
+def test_set_file_tracking_refuses_to_cross_an_unsatisfied_gate(db):
+    imp = _file(db, LC, step="STEP_05")
+    with pytest.raises(HTTPException) as exc:
+        set_file_tracking(imp, step_code="STEP_06", next_action=msg("NA_FILE_CLOSED"))
+    assert exc.value.detail["code"] == "PAYMENT_MILESTONE_GATE_BLOCKED"
+    assert exc.value.detail["import_file_id"] == imp.import_file_id
+    assert imp.current_step_code == "STEP_05" and imp.current_phase_id == 2
+
+
+def test_set_file_tracking_phase_only_move_is_gated(db):
+    imp = _file(db, CAD, step="STEP_09")
+    with pytest.raises(HTTPException):
+        set_file_tracking(imp, phase_id=4)
+    assert imp.current_phase_id == 3
+
+
+def test_set_file_tracking_next_action_only_and_backwards_moves_are_free(db):
+    imp = _file(db, LC, step="STEP_05")
+    set_file_tracking(imp, next_action=msg("NA_FILE_CLOSED"))
+    set_file_tracking(imp, step_code="STEP_02")
+    assert imp.current_step_code == "STEP_02"
+
+
+def test_advance_tracking_or_hold_keeps_file_and_surfaces_the_hold(db):
+    imp = _file(db, CAD, step="STEP_09")
+    moved = advance_tracking_or_hold(db, imp, step_code="STEP_10", next_action=msg("NA_FILE_CLOSED"))
+    db.commit()
+    assert moved is False
+    assert imp.current_step_code == "STEP_09"
+    assert imp.next_action_code == "NA_PAYMENT_MILESTONE_PENDING"
+    assert imp.next_action_params["gate"] == "PHASE_4"
+    note = db.query(SystemNotification).filter(SystemNotification.entity_id == imp.import_file_id).one()
+    assert note.msg_code == "PAYMENT_MILESTONE_GATE_HOLD" and note.severity == "WARNING"
+
+    _instrument(db, imp.import_file_id, CAD, "ISSUED")
+    assert advance_tracking_or_hold(db, imp, step_code="STEP_10", next_action=msg("NA_FILE_CLOSED")) is True
+    assert imp.current_phase_id == 4
+
+
+def test_best_effort_sync_swallowing_the_gate_records_the_hold(db):
+    imp = _file(db, LC, step="STEP_05")
+
+    def _sync():
+        set_file_tracking(imp, step_code="STEP_06")
+
+    assert best_effort(db, _sync, "test sync") is None
+    db.refresh(imp)
+    assert imp.current_step_code == "STEP_05"
+    assert imp.next_action_code == "NA_PAYMENT_MILESTONE_PENDING"
+    assert db.query(SystemNotification).filter(
+        SystemNotification.msg_code == "PAYMENT_MILESTONE_GATE_HOLD"
+    ).count() == 1
+
+
+def _booking_payload(file_id):
+    return ShipmentBookingCreate(import_file_id=file_id, shipment_type="Ocean LCL", status="Draft")
+
+
+@pytest.mark.parametrize("pathway,missing", [
+    (LC, {"LC_MT700_ISSUED", "LC_SHIPMENT_DEADLINE"}),
+    (ADV, {"ADV_SWIFT_MT103"}),
+])
+def test_create_booking_without_financing_evidence_returns_409(db, pathway, missing):
+    imp = _file(db, pathway, step="STEP_05")
+    with pytest.raises(HTTPException) as exc:
+        create_booking_service(db, _booking_payload(imp.import_file_id))
+    assert exc.value.status_code == 409
+    assert set(exc.value.detail["missing_milestones"]) == missing
+    db.rollback()
+    db.refresh(imp)
+    assert imp.current_step_code == "STEP_05" and imp.current_phase_id == 2
+    assert db.query(ShipmentBooking).count() == 0
+
+
+def test_create_booking_allowed_once_lc_is_issued(db):
+    imp = _file(db, LC, step="STEP_05")
+    _instrument(db, imp.import_file_id, LC, "ISSUED", date(2026, 12, 31))
+    booking = create_booking_service(db, _booking_payload(imp.import_file_id))
+    db.refresh(imp)
+    assert booking.booking_id is not None
+    assert imp.current_step_code == "STEP_06" and imp.current_phase_id == 3
+
+
+def test_create_booking_on_file_without_pathway_is_unchanged(db):
+    imp = _file(db, None, step="STEP_05")
+    create_booking_service(db, _booking_payload(imp.import_file_id))
+    db.refresh(imp)
+    assert imp.current_phase_id == 3
+
+
+def _approve_all_documents(db, file_id):
+    for i, doc_type in enumerate(["Commercial Invoice", "Packing List", "Bill of Lading", "Certificate of Origin"]):
+        db.add(CustomsDocumentApproval(
+            approval_code=f"CDA-PPG-{file_id}-{i}", import_file_id=file_id, document_type=doc_type,
+            overall_status="Approved for Clearance", is_active=True,
+        ))
+    db.commit()
+
+
+def _final_docs_approval(db, file_id):
+    return docs_approval_service.create_customs_approval_session_service(db, DocsCustomsApprovalSessionCreate(
+        import_file_id=file_id, is_draft=False, final_invoice_status="Approved", final_pl_status="Approved",
+        draft_bl_status="Approved", coo_status="Approved", coc_status="Waived / Not Required",
+    ))
+
+
+def test_cad_docs_approval_final_save_is_kept_but_file_held_before_phase_4(db):
+    imp = _file(db, CAD, step="STEP_09")
+    _approve_all_documents(db, imp.import_file_id)
+
+    session = _final_docs_approval(db, imp.import_file_id)
+    db.refresh(imp)
+    assert session.session_id is not None and session.is_draft is False
+    assert db.query(DocsCustomsApprovalSession).count() == 1
+    assert imp.current_step_code == "STEP_09" and imp.current_phase_id == 3
+    assert imp.next_action_code == "NA_PAYMENT_MILESTONE_PENDING"
+
+
+def test_cad_docs_approval_advances_with_collection_notice(db):
+    imp = _file(db, CAD, step="STEP_09")
+    _instrument(db, imp.import_file_id, CAD, "ISSUED")
+    _approve_all_documents(db, imp.import_file_id)
+    _final_docs_approval(db, imp.import_file_id)
+    db.refresh(imp)
+    assert imp.current_step_code == "STEP_10" and imp.current_phase_id == 4

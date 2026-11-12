@@ -1706,6 +1706,13 @@ const Map<String, Map<String, String>> systemMessageCatalogAr = {
   'IF_STATUS_TRANSITION_INVALID': {
     'note': 'لا يمكن تغيير حالة ملف الشحنة من \'{from}\' إلى \'{to}\'.',
   },
+  'NA_PAYMENT_MILESTONE_PENDING': {
+    'action': 'استكمل البوابات المصرفية لمسار الدفع ({payment_term_enum_payment_term}) قبل {gate}: {missing_milestones}',
+  },
+  'PAYMENT_MILESTONE_GATE_HOLD': {
+    'title': 'تم إيقاف الشحنة عند بوابة مسار الدفع: {import_file_code}',
+    'body': 'لم يتم نقل ملف الشحنة {import_file_code} ({payment_term_enum_payment_term}) إلى {gate}: بوابات مصرفية معلقة {missing_milestones}.',
+  },
   'FC_CLOSURE_BLOCKED': {
     'note': 'لا يمكن إغلاق الملف: الشروط التالية غير مستوفاة: {blocking}.',
   },

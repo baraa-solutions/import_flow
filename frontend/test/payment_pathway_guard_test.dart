@@ -1,6 +1,11 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:frontend/core/localization/api_error_text.dart';
+import 'package:frontend/core/localization/app_localizations_ar.dart';
+import 'package:frontend/core/localization/app_localizations_en.dart';
+import 'package:frontend/core/theme/app_theme.dart';
 import 'package:frontend/features/import_files/models/payment_pathway_status_model.dart';
 import 'package:frontend/features/import_files/providers/payment_pathway_provider.dart';
 import 'package:frontend/features/import_files/widgets/file_details/payment_pathway_guard.dart';
@@ -168,6 +173,49 @@ void main() {
       await tester.tap(find.byKey(const ValueKey('payment-pathway-refresh')));
       await tester.pumpAndSettle();
       expect(calls, 2);
+    });
+  });
+
+  group('PAYMENT_MILESTONE_GATE_BLOCKED error text', () {
+    DioException gateError() {
+      final req = RequestOptions(path: '/api/v1/original-documents-collection');
+      return DioException(
+        requestOptions: req,
+        type: DioExceptionType.badResponse,
+        response: Response(requestOptions: req, statusCode: 409, data: {
+          'detail': {
+            'code': 'PAYMENT_MILESTONE_GATE_BLOCKED',
+            'message': 'لا يمكن نقل ملف الشحنة قبل استيفاء البوابات المصرفية',
+            'message_en': 'Import file cannot move until these banking milestones are met',
+            'gate': 'PHASE_4',
+          },
+        }),
+      );
+    }
+
+    test('English UI uses message_en, Arabic UI uses message', () {
+      expect(ApiErrorText.of(const AppLocalizationsEn(), gateError()), contains('banking milestones are met'));
+      expect(ApiErrorText.of(const AppLocalizationsAr(), gateError()), contains('البوابات المصرفية'));
+    });
+
+    testWidgets('save failure snackbar shows the gate message', (tester) async {
+      await tester.pumpWidget(MaterialApp(
+        home: Scaffold(
+          body: Builder(
+            builder: (context) => TextButton(
+              onPressed: () => ScaffoldMessenger.of(context).showSnackBar(AppTheme.snackBar(
+                context,
+                ApiErrorText.of(const AppLocalizationsEn(), gateError()),
+                severity: AppSeverity.danger,
+              )),
+              child: const Text('save'),
+            ),
+          ),
+        ),
+      ));
+      await tester.tap(find.text('save'));
+      await tester.pump();
+      expect(find.textContaining('banking milestones are met'), findsOneWidget);
     });
   });
 }

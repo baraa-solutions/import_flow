@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/api_constants.dart';
 import '../../../core/network/api_client.dart';
 import '../../import_files/providers/import_files_provider.dart';
+import '../../import_files/providers/payment_pathway_provider.dart';
 import '../models/financial_approval_model.dart';
 
 final paymentRequestsProvider = StateNotifierProvider<PaymentRequestsNotifier,
@@ -37,6 +38,8 @@ class PaymentRequestsNotifier
     if (r == null) return;
     try {
       r.invalidate(importFilesProvider);
+      // Payment requests are evidence of the payment pathway milestones (SWIFT MT103, settlement).
+      r.invalidate(paymentPathwayStatusProvider);
     } catch (_) {
       // Notifier already disposed (screen closed mid-request): nothing to refresh.
     }

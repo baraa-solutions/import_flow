@@ -6,6 +6,7 @@ import '../models/warehouse_receiving_model.dart';
 import '../../import_files/providers/import_files_provider.dart';
 import '../../smart_tasks/providers/smart_tasks_provider.dart';
 import 'goods_in_transit_provider.dart';
+import '../../import_files/providers/payment_pathway_provider.dart';
 
 final warehouseReceivingProvider =
     StateNotifierProvider<WarehouseReceivingNotifier, AsyncValue<List<WarehouseReceivingModel>>>((ref) {
@@ -37,6 +38,8 @@ class WarehouseReceivingNotifier extends StateNotifier<AsyncValue<List<Warehouse
     _ref?.invalidate(importFilesProvider);
     _ref?.invalidate(smartTasksProvider);
     _ref?.invalidate(goodsInTransitProvider);
+    // A GRN is evidence of the Open Account milestones.
+    _ref?.invalidate(paymentPathwayStatusProvider);
   }
 
   Future<void> _refetch() => fetchRecords(

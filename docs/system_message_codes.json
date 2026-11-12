@@ -3262,6 +3262,16 @@
       "action"
     ]
   },
+  "NA_PAYMENT_MILESTONE_PENDING": {
+    "params": [
+      "gate",
+      "missing_milestones",
+      "payment_term_enum_payment_term"
+    ],
+    "parts": [
+      "action"
+    ]
+  },
   "NA_PAY_DUTIES_RELEASE_CARGO": {
     "params": [],
     "parts": [
@@ -3804,6 +3814,18 @@
     ],
     "parts": [
       "note"
+    ]
+  },
+  "PAYMENT_MILESTONE_GATE_HOLD": {
+    "params": [
+      "gate",
+      "import_file_code",
+      "missing_milestones",
+      "payment_term_enum_payment_term"
+    ],
+    "parts": [
+      "title",
+      "body"
     ]
   },
   "PAYMENT_STATUS_UNKNOWN": {
