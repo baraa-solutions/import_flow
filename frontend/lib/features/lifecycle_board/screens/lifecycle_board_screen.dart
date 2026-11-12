@@ -30,7 +30,6 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
       ref.invalidate(lifecycleBoardSummaryProvider);
       ref.invalidate(liveLogisticsTrackingProvider);
       ref.invalidate(livePollingProvider);
-    ref.invalidate(paymentPathwayStatusProvider);
       ref.invalidate(paymentPathwayStatusProvider);
     });
   }
