@@ -41,6 +41,12 @@ from modules.smart_document_upload.extractors.other_extractors import (
 )
 from modules.smart_document_upload.extractors.master_data_entity import MasterDataEntityExtractor
 from modules.smart_document_upload.extractors.base_extractor import BaseExtractor
+from modules.smart_document_upload.ocr_pipeline import (
+    NO_TEXT_FOUND_MESSAGE,
+    OCR_UNAVAILABLE_MESSAGE,
+    DocumentTextResult,
+    extract_document_text,
+)
 import modules.smart_document_upload.repository as repo
 import modules.smart_document_upload.validators as validators
 
@@ -319,14 +325,21 @@ def parse_uploaded_document(
     """
     file_size = len(content_bytes)
 
-    # Step 1 — Extract raw text
-    raw_text, spatial_boxes = extract_raw_text_and_boxes(filename, content_bytes)
-
-    # Step 2 — Route to extractor
+    # Step 1 — Route to extractor
     extractor = _EXTRACTOR_MAP.get(module_name)
     if extractor is None:
         logger.warning(f"No extractor for module '{module_name}'. Using ImportFileExtractor as default.")
         extractor = ImportFileExtractor()
+
+    # Step 2 — Extract raw text. Master-data entities (Universal Entity Extractor) use the routed text-layer /
+    # OCR pipeline, which reports a missing OCR engine instead of returning an empty "success".
+    document_text_info: Optional[Dict[str, Any]] = None
+    if isinstance(extractor, MasterDataEntityExtractor):
+        text_result = extract_entity_document_text(filename, content_bytes)
+        raw_text, spatial_boxes = text_result.text, {}
+        document_text_info = text_result.to_dict()
+    else:
+        raw_text, spatial_boxes = extract_raw_text_and_boxes(filename, content_bytes)
 
     # Step 3 — Extract fields
     try:
@@ -393,8 +406,37 @@ def parse_uploaded_document(
         "extraction_notes": notes,
         "raw_text_preview": raw_text[:500] if raw_text else None,
         "validation_report": extracted_fields.get("validation_report") if isinstance(extracted_fields, dict) else None,
+        "fields_found": _found_fields(extractor, extracted_fields),
+        "document_text_info": document_text_info,
         **entity_verification,
     }
+
+
+def _found_fields(extractor: BaseExtractor, extracted_fields: Dict[str, Any]) -> Optional[List[str]]:
+    """Recognized field names for the entity extractor (None for document extractors)."""
+    if isinstance(extractor, MasterDataEntityExtractor):
+        return extractor.found_fields(extracted_fields)
+    return None
+
+
+def extract_entity_document_text(filename: str, content_bytes: bytes) -> DocumentTextResult:
+    """Text for the Universal Entity Extractor. Raises 422 with a clear (Arabic | English) message when a scan
+    needs OCR but no engine is installed, or when the file holds no readable text at all."""
+    result = extract_document_text(filename, content_bytes)
+    if result.has_text:
+        if result.ocr_unavailable:
+            result.warnings.append("ocr_unavailable_some_pages_skipped")
+        return result
+    if result.ocr_unavailable:
+        logger.warning("Entity extraction for '%s' needs OCR but no OCR engine is installed", filename)
+        raise HTTPException(
+            status_code=422,
+            detail=OCR_UNAVAILABLE_MESSAGE,
+        )
+    raise HTTPException(
+        status_code=422,
+        detail=NO_TEXT_FOUND_MESSAGE,
+    )
 
 
 def parse_multiple_uploaded_documents(
@@ -558,6 +600,7 @@ def parse_raw_text_directly(
         "missing_fields": missing,
         "extraction_notes": notes,
         "validation_report": extracted_fields.get("validation_report") if isinstance(extracted_fields, dict) else None,
+        "fields_found": _found_fields(extractor, extracted_fields),
         **entity_verification,
     }
 
