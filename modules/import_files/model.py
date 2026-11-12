@@ -80,6 +80,40 @@ class ImportFile(Base):
         nullable=True,
         index=True,
     )
+    # Single net FOB valuation snapshot (financial_settlement.fob_valuation_service, Trello qJZNzixC).
+    # Written by CLO-01 confirm / CLO-02 approve / revaluation; one snapshot per file. Net FOB excludes the
+    # supplier financing markup and commercial discount. fob_currency / fob_foreign_amount / fob_exchange_rate
+    # stay NULL for a multi-currency file (fob_total_egp is always the EGP sum). Column-level CHECKs (same as
+    # migration c4e8a2f6b1d9) so SQLite can DROP the columns on downgrade.
+    fob_currency = Column(String(10), nullable=True)
+    fob_foreign_amount = Column(
+        Float, CheckConstraint("fob_foreign_amount IS NULL OR fob_foreign_amount >= 0", name="fob_foreign_amount"),
+        nullable=True,
+    )
+    fob_exchange_rate = Column(
+        Float, CheckConstraint("fob_exchange_rate IS NULL OR fob_exchange_rate > 0", name="fob_exchange_rate"),
+        nullable=True,
+    )
+    fob_total_egp = Column(
+        Float, CheckConstraint("fob_total_egp IS NULL OR fob_total_egp >= 0", name="fob_total_egp"), nullable=True,
+    )
+    financing_markup_amount = Column(
+        Float,
+        CheckConstraint("financing_markup_amount IS NULL OR financing_markup_amount >= 0", name="financing_markup_amount"),
+        nullable=True,
+    )
+    financing_markup_egp = Column(
+        Float,
+        CheckConstraint("financing_markup_egp IS NULL OR financing_markup_egp >= 0", name="financing_markup_egp"),
+        nullable=True,
+    )
+    fob_rate_source = Column(String(40), nullable=True)  # FX anchor: SWIFT_REMITTANCE, LC_MARGIN_COVER, ...
+    fob_rate_date = Column(Date, nullable=True)
+    fob_customs_exchange_rate = Column(Float, nullable=True)  # customs rate on the Form 46 date
+    fob_customs_value_egp = Column(Float, nullable=True)  # customs FOB base (net FOB x customs rate)
+    fob_unrealized_fx_egp = Column(Float, nullable=True)  # Open Account mark-to-market (reported only)
+    fob_valued_at = Column(DateTime, nullable=True)
+    fob_valued_by = Column(String(100), nullable=True)
     priority = Column(String(20), nullable=False, default="High") # Low, Medium, High, Critical
     shipment_category = Column(String(50), nullable=False, default="New Purchase") # New Purchase, Repair, Replacement, Sample
     hs_code = Column(String(50), nullable=True) # e.g. 8520

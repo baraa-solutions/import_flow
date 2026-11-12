@@ -21,7 +21,9 @@ from .schemas import (
     ActualLandedCostCalculationResponse,
     ApproveActualLandedCostRequest,
     ApproveActualLandedCostResponse,
+    FobValuationResponse,
 )
+from .fob_valuation_service import get_fob_valuation_service, revalue_fob_valuation_service
 from .service import (
     create_settlement_service,
     recalculate_settlement_service,
@@ -229,3 +231,28 @@ def approve_actual_landed_cost(
     CLO-02: اعتماد تكلفة الوصول الفعلية للشحنة وتحديث حالة الملف وإغلاق TSK-0902 وإطلاق مهمة الملف الشامل TSK-0903.
     """
     return approve_actual_landed_cost_service(db, payload, actor=current_user.username)
+
+
+@router.get("/fob-valuation/{import_file_id}", response_model=FobValuationResponse)
+def get_fob_valuation(
+    import_file_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(VIEW),
+):
+    """
+    تقييم الفوب الصافي الموحد للملف (قيمة البضاعة بعد استبعاد هامش التمويل والخصم، سعر الصرف المثبت حسب مسار الدفع،
+    الوعاء الجمركي بسعر تاريخ الإقرار، وإعادة تقييم الحساب المفتوح). قراءة فقط.
+    """
+    return get_fob_valuation_service(db, import_file_id)
+
+
+@router.post("/fob-valuation/{import_file_id}/revalue", response_model=FobValuationResponse)
+def revalue_fob_valuation(
+    import_file_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(CALCULATE),
+):
+    """
+    إعادة تقييم الفوب الصافي وحفظ اللقطة على ملف الشحنة (تحديث سعر التثبيت وفروق إعادة تقييم الحساب المفتوح).
+    """
+    return revalue_fob_valuation_service(db, import_file_id, actor=current_user.username)
