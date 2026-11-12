@@ -12,6 +12,7 @@ import '../../import_files/providers/import_files_provider.dart';
 import '../../projects/providers/projects_provider.dart';
 import '../../purchase_orders/providers/purchase_orders_provider.dart';
 import '../../transport_locations/providers/transport_locations_provider.dart';
+import '../models/shipping_scenario_model.dart';
 import '../providers/shipping_scenarios_provider.dart';
 import '../widgets/saved_scenarios_registry_tab.dart';
 import '../widgets/search_and_clone_study_dialog.dart';
@@ -68,6 +69,26 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
     }
   }
 
+  /// Switches the visible tab. The [IndexedStack] and the side nav read `_tabController.index`
+  /// during build, so the change must go through `setState`; the tab is inflated on first visit.
+  void _switchToTab(int index) {
+    if (!mounted) return;
+    setState(() {
+      _tabController.index = index;
+      if (index == 0) _hasVisitedTab0 = true;
+      if (index == 1) _hasVisitedTab1 = true;
+    });
+  }
+
+  /// Opens [session] in the evaluator tab. Loading waits one frame so the evaluator exists
+  /// even when the screen was opened directly on the saved-evaluations log.
+  void _openInEvaluator(ShippingEvaluationModel session, {bool showLoadedSnackbar = true}) {
+    _switchToTab(0);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _evaluatorKey.currentState?.loadSessionForEditing(session, showLoadedSnackbar: showLoadedSnackbar);
+    });
+  }
+
   void _refreshData({bool force = false}) {
     if (force) {
       ref.invalidate(shippingScenariosProvider);
@@ -112,10 +133,7 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
                   context,
                   ref,
                   session,
-                  onClonedSuccess: (cloned) {
-                    _evaluatorKey.currentState?.loadSessionForEditing(cloned, showLoadedSnackbar: false);
-                    _tabController.animateTo(0);
-                  },
+                  onClonedSuccess: (cloned) => _openInEvaluator(cloned, showLoadedSnackbar: false),
                 );
               },
             ),
@@ -175,11 +193,7 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
         headerColor: AppTheme.cobalt,
         tabs: tabs,
         selectedIndex: _tabController.index,
-        onTabSelected: (index) => setState(() {
-          _tabController.index = index;
-          if (index == 0) _hasVisitedTab0 = true;
-          if (index == 1) _hasVisitedTab1 = true;
-        }),
+        onTabSelected: _switchToTab,
         selectedImportFileId: widget.initialImportFileId,
         onShipmentStatusChanged: () => _refreshData(force: true),
         headerActions: [
@@ -213,17 +227,14 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
                 ? ShippingScenarioEvaluatorTab(
                     key: _evaluatorKey,
                     initialImportFileId: widget.initialImportFileId,
-                    onSwitchToRegistry: () => _tabController.animateTo(1),
+                    onSwitchToRegistry: () => _switchToTab(1),
                     onRefreshData: () => _refreshData(force: true),
                   )
                 : const SizedBox.shrink(),
             _hasVisitedTab1
                 ? SavedScenariosRegistryTab(
-                    onEditSession: (sess) {
-                      _evaluatorKey.currentState?.loadSessionForEditing(sess);
-                      _tabController.animateTo(0);
-                    },
-                    onSwitchToEvaluator: () => _tabController.animateTo(0),
+                    onEditSession: _openInEvaluator,
+                    onSwitchToEvaluator: () => _switchToTab(0),
                   )
                 : const SizedBox.shrink(),
           ],
