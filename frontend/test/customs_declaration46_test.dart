@@ -72,6 +72,19 @@ class _MockCurrenciesNotifier extends CurrenciesNotifier {
   }
 }
 
+/// Customs rates by day: the backend `as_of_date` history (Trello MzO3XGmf / H10).
+class _DatedCurrenciesNotifier extends _MockCurrenciesNotifier {
+  final Map<String, double> ratesByDay;
+  final List<DateTime?> requestedDays = [];
+  _DatedCurrenciesNotifier(super.initial, this.ratesByDay);
+
+  @override
+  Future<double?> fetchCustomsExchangeRate({required String currencyCode, DateTime? onDate}) async {
+    requestedDays.add(onDate);
+    return ratesByDay[onDate?.toIso8601String().substring(0, 10)];
+  }
+}
+
 /// A PO linked to [fileId] whose single line carries [hsCode].
 PurchaseOrderModel _poWithHs(int fileId, String hsCode) => PurchaseOrderModel.fromJson({
       'po_id': 1,
@@ -250,6 +263,79 @@ void main() {
       // 3. Verify Regulatory Approvals & Inspections Board
       expect(find.textContaining('الهيئة العامة للرقابة على الصادرات والواردات'), findsOneWidget);
       expect(find.textContaining('العروض والموافقات المطلوبة والاشتراطات الرقابية'), findsOneWidget);
+    });
+
+    testWidgets('Study figures use the customs FX rate of the declaration date, not the latest rate', (tester) async {
+      final datedFile = ImportFileModel.fromJson({
+        'import_file_id': 7,
+        'import_file_code': 'IMP-2026-0007',
+        'company_name': 'Al-Sorour Logistics',
+        'supplier_name': 'Milano Industrial SpA',
+        'current_module': 'Customs Clearance',
+        'current_stage': 'Declaration 46',
+        'next_action': 'Submit Form 46',
+        'form46_date': '2026-03-01',
+        'invoices_data': [
+          {'invoice_no': 'INV-1', 'amount': 1000.0, 'currency': 'USD'},
+        ],
+        'created_at': '2026-03-01T00:00:00Z',
+        'updated_at': '2026-03-01T00:00:00Z',
+      });
+      final tariff = CustomsTariffModel(
+        tariffId: 1,
+        hsCode: '8471.30.00',
+        hsDescription: 'Laptops',
+        customsDutyRate: 10.0,
+        vatRate: 14.0,
+        scheduleTaxRate: 0.0,
+        developmentFeeRate: 0.0,
+        importFeeRate: 0.0,
+        customsServiceFeeRate: 1.0,
+        requiresCoo: false,
+        requiresInspection: false,
+        requiresAcid: true,
+        effectiveFrom: DateTime(2026, 1, 1),
+        isActive: true,
+        createdAt: DateTime(2026, 1, 1),
+        updatedAt: DateTime(2026, 1, 1),
+      );
+      final currencies = _DatedCurrenciesNotifier([_currency('USD', 48.5)], {'2026-03-01': 49.0});
+
+      tester.view.physicalSize = const Size(1280, 900);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            importFilesProvider.overrideWith((ref) => _MockImportFilesNotifier([datedFile])),
+            customsTariffProvider.overrideWith((ref) => _MockCustomsTariffNotifier([tariff])),
+            purchaseOrdersProvider.overrideWith((ref) => _MockPurchaseOrdersNotifier([_poWithHs(7, '8471.30.00')])),
+            currenciesProvider.overrideWith((ref) => currencies),
+          ],
+          child: const MaterialApp(
+            locale: Locale('ar'),
+            home: AppLocalizationsProvider(
+              locale: Locale('ar'),
+              child: Directionality(
+                textDirection: TextDirection.rtl,
+                child: Scaffold(
+                  body: CustomsDeclaration46Screen(initialSubTab: 0, initialImportFileId: 7),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pump(const Duration(milliseconds: 400));
+      await tester.pump(const Duration(milliseconds: 400));
+
+      expect(currencies.requestedDays, contains(DateTime(2026, 3, 1)));
+      expect(find.text('49.0000'), findsWidgets);
+      expect(find.text('48.5000'), findsNothing);
     });
 
     testWidgets('Screen 24: Renders SubTab 1 Registry, KPI cards, and opens Tariff Assessment dialog', (tester) async {
