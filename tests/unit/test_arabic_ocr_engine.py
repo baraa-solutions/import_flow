@@ -8,8 +8,8 @@ import os
 import pytest
 from pathlib import Path
 
-# rapidocr_onnxruntime is an optional runtime dependency (not in requirements.txt); the engine falls back
-# gracefully without it, so tests that need the real engine only run where it is installed.
+# rapidocr_onnxruntime is pinned in requirements.txt for Python < 3.13 only (it has no newer wheels); the engine
+# falls back gracefully without it, so tests that need the real engine only run where it is installed.
 RAPIDOCR_INSTALLED = importlib.util.find_spec("rapidocr_onnxruntime") is not None
 requires_rapidocr = pytest.mark.skipif(not RAPIDOCR_INSTALLED, reason="rapidocr_onnxruntime is not installed")
 
@@ -38,11 +38,12 @@ def test_arabic_ocr_engine_initialization():
     """Verifies that get_arabic_ocr_engine successfully initializes RapidOCR with the Arabic model."""
     engine = get_arabic_ocr_engine()
     assert engine is not None
-    assert hasattr(engine, "text_recognizer")
-    # Verify Arabic vocabulary is loaded
-    dict_chars = engine.text_recognizer.character_dict_path
-    assert dict_chars is not None
-    assert len(dict_chars) > 0
+    # rapidocr_onnxruntime >= 1.3 exposes the recognizer as text_rec; older releases as text_recognizer
+    recognizer = getattr(engine, "text_rec", None) or getattr(engine, "text_recognizer", None)
+    assert recognizer is not None
+    # Verify the Arabic vocabulary (dict.txt) is loaded, not the default Chinese/English one
+    characters = recognizer.postprocess_op.character
+    assert "ب" in characters and "A" in characters
 
 
 def test_normalize_ocr_text():

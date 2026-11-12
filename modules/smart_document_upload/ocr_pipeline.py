@@ -17,12 +17,14 @@ Turns an uploaded file into plain text for the master-data entity extractor:
 
 from __future__ import annotations
 
+import importlib.util
 import io
 import logging
 import os
 import re
 import shutil
 import subprocess
+import sys
 import unicodedata
 from functools import lru_cache
 from dataclasses import dataclass, field
@@ -305,6 +307,67 @@ def available_ocr_engines() -> List[str]:
     if binary:
         engines.append("pytesseract" if _pytesseract_installed() else "tesseract-cli")
     return engines
+
+
+OCR_STATUS_OK = "OK"                    # bundled RapidOCR with its models and the Arabic recognizer
+OCR_STATUS_PARTIAL = "PARTIAL"          # some engine works, but not the full bundled RapidOCR + Arabic setup
+OCR_STATUS_UNAVAILABLE = "UNAVAILABLE"  # images / scanned PDFs cannot be read
+
+
+def _package_dir(name: str) -> Optional[str]:
+    """Folder of an importable package without importing it (works for PyInstaller's bundled packages)."""
+    try:
+        spec = importlib.util.find_spec(name)
+    except (ImportError, ValueError):
+        return None
+    if spec is None:
+        return None
+    locations = list(spec.submodule_search_locations or [])
+    if locations:
+        return locations[0]
+    return os.path.dirname(spec.origin) if spec.origin else None
+
+
+def _rapidocr_models_present(package_dir: Optional[str]) -> bool:
+    if not package_dir:
+        return False
+    models_dir = os.path.join(package_dir, "models")
+    has_models = os.path.isdir(models_dir) and any(n.endswith(".onnx") for n in os.listdir(models_dir))
+    return has_models and os.path.isfile(os.path.join(package_dir, "config.yaml"))
+
+
+def ocr_self_check() -> Dict[str, Any]:
+    """Cheap OCR readiness report (no model is loaded): which engines exist and whether the RapidOCR bundle
+    (package + onnxruntime + det/cls/rec models + config + Arabic recognizer) is complete. Used by the deep
+    health probe so a backend.exe built without its OCR data is detected on the client machine."""
+    from modules.import_documentation.arabic_ocr_engine import arabic_rec_model_present, resolve_arabic_models_dir
+
+    rapidocr_dir = _package_dir("rapidocr_onnxruntime")
+    rapidocr_installed = rapidocr_dir is not None and _package_dir("onnxruntime") is not None
+    rapidocr_models = _rapidocr_models_present(rapidocr_dir)
+    arabic_model = arabic_rec_model_present(resolve_arabic_models_dir())
+
+    engines: List[str] = []
+    if rapidocr_installed and rapidocr_models:
+        engines.append("rapidocr")
+    binary = find_tesseract_binary()
+    if binary:
+        engines.append("pytesseract" if _pytesseract_installed() else "tesseract-cli")
+
+    if "rapidocr" in engines and arabic_model:
+        status = OCR_STATUS_OK
+    elif engines:
+        status = OCR_STATUS_PARTIAL
+    else:
+        status = OCR_STATUS_UNAVAILABLE
+    return {
+        "status": status,
+        "engines": engines,
+        "frozen": bool(getattr(sys, "frozen", False)),
+        "rapidocr_installed": rapidocr_installed,
+        "rapidocr_models_present": rapidocr_models,
+        "arabic_rec_model_present": arabic_model,
+    }
 
 
 def run_ocr_on_image(image: Any) -> Tuple[str, str]:

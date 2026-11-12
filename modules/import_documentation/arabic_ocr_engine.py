@@ -10,6 +10,7 @@ from __future__ import annotations
 import io
 import os
 import re
+import sys
 import logging
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
@@ -19,41 +20,88 @@ from PIL import Image
 
 logger = logging.getLogger(__name__)
 
-# Model directories
-MODELS_DIR = Path(__file__).resolve().parent / "models" / "arabic_ocr"
-REC_MODEL_PATH = MODELS_DIR / "rec.onnx"
-REC_KEYS_PATH = MODELS_DIR / "dict.txt"
+# Arabic recognition model (rec.onnx + dict.txt). The default RapidOCR det / cls models stay in use; only the
+# text recognizer is swapped, and its dictionary also covers Latin letters and digits (bilingual documents).
+# In the PyInstaller build these files are added at ARABIC_OCR_MODELS_BUNDLE_SUBDIR (build_backend_exe.py).
+ARABIC_OCR_MODELS_BUNDLE_SUBDIR = "modules/import_documentation/models/arabic_ocr"
+REC_MODEL_FILENAME = "rec.onnx"
+REC_KEYS_FILENAME = "dict.txt"
+
+
+def resolve_arabic_models_dir() -> Path:
+    """Folder holding the Arabic rec model: the PyInstaller bundle root (``sys._MEIPASS``) when frozen, else
+    the source tree next to this module."""
+    bundle_root = getattr(sys, "_MEIPASS", None)
+    if getattr(sys, "frozen", False) and bundle_root:
+        return Path(bundle_root).joinpath(*ARABIC_OCR_MODELS_BUNDLE_SUBDIR.split("/"))
+    return Path(__file__).resolve().parent / "models" / "arabic_ocr"
+
+
+def arabic_rec_model_present(models_dir: Optional[Path] = None) -> bool:
+    folder = models_dir or resolve_arabic_models_dir()
+    return (folder / REC_MODEL_FILENAME).is_file() and (folder / REC_KEYS_FILENAME).is_file()
+
+
+MODELS_DIR = resolve_arabic_models_dir()
+REC_MODEL_PATH = MODELS_DIR / REC_MODEL_FILENAME
+REC_KEYS_PATH = MODELS_DIR / REC_KEYS_FILENAME
 
 # Lazy-loaded singleton
 _arabic_ocr_engine: Optional[Any] = None
+_arabic_rec_loaded: bool = False
+
+
+def arabic_rec_model_loaded() -> bool:
+    """True once the singleton engine was built with the Arabic recognizer (not the default Chinese/English one)."""
+    return _arabic_rec_loaded
+
+
+def _build_legacy_arabic_engine(rec_model: Path, rec_keys: Path) -> Any:
+    """rapidocr_onnxruntime < 1.3 (``rapid_ocr_api`` / ``ch_ppocr_v3_rec`` layout, no keyword overrides)."""
+    from rapidocr_onnxruntime import RapidOCR
+    from rapidocr_onnxruntime.rapid_ocr_api import root_dir, read_yaml, concat_model_path
+    from rapidocr_onnxruntime.ch_ppocr_v3_rec.text_recognize import TextRecognizer
+
+    config = concat_model_path(read_yaml(str(root_dir / "config.yaml")))
+    config["Rec"]["model_path"] = str(rec_model)
+    config["Rec"]["keys_path"] = str(rec_keys)
+    engine = RapidOCR()
+    engine.text_recognizer = TextRecognizer(config["Rec"])
+    return engine
+
+
+def build_rapidocr_engine(models_dir: Optional[Path] = None) -> Tuple[Any, bool]:
+    """Builds a RapidOCR engine, with the Arabic recognizer when its model files exist.
+
+    Returns ``(engine, arabic_rec_loaded)``. Raises ImportError when rapidocr_onnxruntime is not installed."""
+    from rapidocr_onnxruntime import RapidOCR
+
+    folder = models_dir or resolve_arabic_models_dir()
+    if not arabic_rec_model_present(folder):
+        logger.warning("Arabic OCR model files not found at %s. Using the default RapidOCR recognizer.", folder)
+        return RapidOCR(), False
+
+    rec_model, rec_keys = folder / REC_MODEL_FILENAME, folder / REC_KEYS_FILENAME
+    try:
+        # rapidocr_onnxruntime >= 1.3: keyword overrides of the Rec section
+        return RapidOCR(rec_model_path=str(rec_model), rec_keys_path=str(rec_keys)), True
+    except TypeError:
+        return _build_legacy_arabic_engine(rec_model, rec_keys), True
 
 
 def get_arabic_ocr_engine():
-    """Returns a singleton instance of the Arabic-capable RapidOCR engine."""
-    global _arabic_ocr_engine
+    """Returns a singleton instance of the Arabic-capable RapidOCR engine (None when RapidOCR is unavailable)."""
+    global _arabic_ocr_engine, _arabic_rec_loaded
     if _arabic_ocr_engine is not None:
         return _arabic_ocr_engine
 
     try:
-        from rapidocr_onnxruntime import RapidOCR
-        from rapidocr_onnxruntime.rapid_ocr_api import root_dir, read_yaml, concat_model_path
-        from rapidocr_onnxruntime.ch_ppocr_v3_rec.text_recognize import TextRecognizer
-
-        if REC_MODEL_PATH.exists() and REC_KEYS_PATH.exists():
-            config = read_yaml(str(root_dir / "config.yaml"))
-            config = concat_model_path(config)
-            config["Rec"]["model_path"] = str(REC_MODEL_PATH)
-            config["Rec"]["keys_path"] = str(REC_KEYS_PATH)
-
-            engine = RapidOCR()
-            engine.text_recognizer = TextRecognizer(config["Rec"])
-            _arabic_ocr_engine = engine
+        _arabic_ocr_engine, _arabic_rec_loaded = build_rapidocr_engine()
+        if _arabic_rec_loaded:
             logger.info("ArabicRapidOCR engine initialized successfully with ONNX Arabic model.")
-        else:
-            logger.warning(f"Arabic OCR model files not found at {MODELS_DIR}. Falling back to default RapidOCR.")
-            _arabic_ocr_engine = RapidOCR()
     except Exception as e:
         logger.warning(f"Failed to initialize ArabicRapidOCR: {e}. Falling back to default RapidOCR.")
+        _arabic_rec_loaded = False
         try:
             from rapidocr_onnxruntime import RapidOCR
             _arabic_ocr_engine = RapidOCR()

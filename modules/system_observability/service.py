@@ -12,7 +12,7 @@ from datetime import datetime, date, timezone, timedelta
 import logging
 
 logger = logging.getLogger(__name__)
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Tuple
 from pathlib import Path
 
 from sqlalchemy.orm import Session
@@ -613,7 +613,11 @@ class DeepHealthProbeService:
             backup_freshness = "MISSING"
             issues.append("Backups directory does not exist")
 
-        # 5. Overall Verdict
+        # 5. OCR bundle (image / scanned-PDF reading). Only the installed build must ship RapidOCR; a dev
+        #    machine without it is not an issue.
+        ocr_status, ocr_engines = DeepHealthProbeService.check_ocr(issues)
+
+        # 6. Overall Verdict
         if not write_probe or integrity_res != "ok" or disk_status == "CRITICAL":
             verdict = "CRITICAL"
         elif issues:
@@ -630,8 +634,28 @@ class DeepHealthProbeService:
             free_disk_space_gb=free_gb,
             disk_status=disk_status,
             backup_freshness=backup_freshness,
+            ocr_status=ocr_status,
+            ocr_engines=ocr_engines,
             issues=issues,
         )
+
+    @staticmethod
+    def check_ocr(issues: List[str]) -> Tuple[str, List[str]]:
+        """OCR readiness; appends an issue when the frozen backend.exe lacks its bundled RapidOCR + Arabic model."""
+        try:
+            from modules.smart_document_upload.ocr_pipeline import OCR_STATUS_OK, ocr_self_check
+
+            report = ocr_self_check()
+        except Exception as e:
+            issues.append(f"OCR self-check failed: {e}")
+            return "UNKNOWN", []
+        if report["frozen"] and report["status"] != OCR_STATUS_OK:
+            issues.append(
+                f"OCR bundle incomplete ({report['status']}): rapidocr_installed={report['rapidocr_installed']}, "
+                f"rapidocr_models={report['rapidocr_models_present']}, "
+                f"arabic_rec_model={report['arabic_rec_model_present']}"
+            )
+        return report["status"], list(report["engines"])
 
 
 # ==============================================================================
