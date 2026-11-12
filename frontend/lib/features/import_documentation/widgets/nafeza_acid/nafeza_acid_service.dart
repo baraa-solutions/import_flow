@@ -122,6 +122,11 @@ class NafezaAcidService {
         foreignExporterCountryCode: parsedData['exporter_country_code']?.toString().trim() ?? (existing?.foreignExporterCountryCode ?? 'CN'),
         address: parsedData['exporter_address']?.toString().trim() ?? (existing?.address ?? 'No.16 Kangsheng Road, Changshu, China'),
         phone: parsedData['exporter_phone']?.toString().trim() ?? existing?.phone,
+        // Expiry fields are cleared by an explicit null on update, so carry them over.
+        wipoExpiry: existing?.wipoExpiry,
+        euipoExpiry: existing?.euipoExpiry,
+        globalBrandExpiry: existing?.globalBrandExpiry,
+        iso9001Expiry: existing?.iso9001Expiry,
         isActive: true,
       );
 

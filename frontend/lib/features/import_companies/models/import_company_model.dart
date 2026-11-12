@@ -1,3 +1,4 @@
+import '../../../core/utils/certificate_expiry.dart';
 class ImportCompanyModel {
   final int? companyId;
   final String importerName;
@@ -26,6 +27,11 @@ class ImportCompanyModel {
   final String? globalBrandNumber;
   final bool hasIso9001;
   final String? iso9001Number;
+  final DateTime? nafezaTokenExpiry;
+  final DateTime? wipoExpiry;
+  final DateTime? euipoExpiry;
+  final DateTime? globalBrandExpiry;
+  final DateTime? iso9001Expiry;
   final bool isActive;
   final String? notes;
 
@@ -68,6 +74,11 @@ class ImportCompanyModel {
     this.globalBrandNumber,
     this.hasIso9001 = false,
     this.iso9001Number,
+    this.nafezaTokenExpiry,
+    this.wipoExpiry,
+    this.euipoExpiry,
+    this.globalBrandExpiry,
+    this.iso9001Expiry,
     this.isActive = true,
     this.notes,
   }) : mobile = mobile ?? mobileNumber,
@@ -123,10 +134,23 @@ class ImportCompanyModel {
       globalBrandNumber: json['global_brand_number']?.toString(),
       hasIso9001: parseBool(json['has_iso_9001']),
       iso9001Number: json['iso_9001_number']?.toString(),
+      nafezaTokenExpiry: CertificateExpiry.parse(json['nafeza_token_expiry']),
+      wipoExpiry: CertificateExpiry.parse(json['wipo_expiry']),
+      euipoExpiry: CertificateExpiry.parse(json['euipo_expiry']),
+      globalBrandExpiry: CertificateExpiry.parse(json['global_brand_expiry']),
+      iso9001Expiry: CertificateExpiry.parse(json['iso_9001_expiry']),
       isActive: parseBool(json['is_active'], defaultValue: true),
       notes: json['notes']?.toString(),
     );
   }
+
+  /// Soonest expiry among the certificates that are enabled (and the Nafeza token), for one table badge.
+  DateTime? get soonestCertificateExpiry => CertificateExpiry.soonest([
+        nafezaTokenExpiry, if (hasWipo) wipoExpiry,
+        if (hasEuipo) euipoExpiry,
+        if (hasGlobalBrand) globalBrandExpiry,
+        if (hasIso9001) iso9001Expiry,
+      ]);
 
   Map<String, dynamic> toJson() {
     return {
@@ -156,6 +180,11 @@ class ImportCompanyModel {
       'global_brand_number': globalBrandNumber,
       'has_iso_9001': hasIso9001,
       'iso_9001_number': iso9001Number,
+      'nafeza_token_expiry': CertificateExpiry.toJsonDate(nafezaTokenExpiry),
+      'wipo_expiry': CertificateExpiry.toJsonDate(wipoExpiry),
+      'euipo_expiry': CertificateExpiry.toJsonDate(euipoExpiry),
+      'global_brand_expiry': CertificateExpiry.toJsonDate(globalBrandExpiry),
+      'iso_9001_expiry': CertificateExpiry.toJsonDate(iso9001Expiry),
       'is_active': isActive,
       'notes': notes,
     };

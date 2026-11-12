@@ -3,6 +3,7 @@ from datetime import datetime, timezone
 from sqlalchemy import Boolean
 from sqlalchemy import Column
 from sqlalchemy import DateTime
+from sqlalchemy import Date
 from sqlalchemy import Float
 from sqlalchemy import Integer
 from sqlalchemy import String
@@ -204,6 +205,11 @@ class Supplier(Base):
     global_brand_number = Column(String(100), nullable=True)
     has_iso_9001 = Column(Boolean, default=False, nullable=False)
     iso_9001_number = Column(String(100), nullable=True)
+    # Expiry dates (Trello TJ6Guorp): nullable — rows saved before the feature have none.
+    wipo_expiry = Column(Date, nullable=True)
+    euipo_expiry = Column(Date, nullable=True)
+    global_brand_expiry = Column(Date, nullable=True)
+    iso_9001_expiry = Column(Date, nullable=True)
 
     registered_decree_43 = Column(
         Boolean,

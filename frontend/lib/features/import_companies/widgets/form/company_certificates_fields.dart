@@ -24,6 +24,10 @@ class CompanyCertificatesFields extends StatelessWidget {
   final TextEditingController iso9001Ctrl;
   final ValueChanged<bool?> onIso9001Changed;
 
+  /// Expiry dates keyed by 'nafeza_token', 'wipo', 'euipo', 'global_brand', 'iso_9001'.
+  final Map<String, DateTime?> expiries;
+  final void Function(String key, DateTime? value) onExpiryChanged;
+
   const CompanyCertificatesFields({
     super.key,
     required this.companyToEdit,
@@ -42,7 +46,20 @@ class CompanyCertificatesFields extends StatelessWidget {
     required this.hasIso9001,
     required this.iso9001Ctrl,
     required this.onIso9001Changed,
+    required this.expiries,
+    required this.onExpiryChanged,
   });
+
+  Widget _expiry(String key, bool isAr) => Padding(
+        padding: const EdgeInsets.only(bottom: 8.0),
+        child: CertificateExpiryField(
+          key: ValueKey('expiry_$key'),
+          value: expiries[key],
+          isArabic: isAr,
+          label: isAr ? 'تاريخ الانتهاء' : 'Expiry Date',
+          onChanged: (v) => onExpiryChanged(key, v),
+        ),
+      );
 
   @override
   Widget build(BuildContext context) {
@@ -108,6 +125,8 @@ class CompanyCertificatesFields extends StatelessWidget {
                   ],
                 ),
               ),
+              const SizedBox(height: 8),
+              _expiry('nafeza_token', isAr),
             ],
           ),
         ),
@@ -151,6 +170,7 @@ class CompanyCertificatesFields extends StatelessWidget {
                     hint: 'e.g. 1234567',
                   ),
                 ),
+                _expiry('wipo', isAr),
               ],
               CheckboxListTile(
                 dense: true,
@@ -170,6 +190,7 @@ class CompanyCertificatesFields extends StatelessWidget {
                     hint: 'e.g. 018345678',
                   ),
                 ),
+                _expiry('euipo', isAr),
               ],
               CheckboxListTile(
                 dense: true,
@@ -191,6 +212,7 @@ class CompanyCertificatesFields extends StatelessWidget {
                     hint: 'e.g. GBD-987654',
                   ),
                 ),
+                _expiry('global_brand', isAr),
               ],
               CheckboxListTile(
                 dense: true,
@@ -210,6 +232,7 @@ class CompanyCertificatesFields extends StatelessWidget {
                     hint: 'e.g. ISO-9001-2015-XYZ',
                   ),
                 ),
+                _expiry('iso_9001', isAr),
               ],
             ],
           ),

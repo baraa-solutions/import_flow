@@ -235,6 +235,15 @@ class ImportCompaniesDataTable extends StatelessWidget {
                     _buildExpiryBadge(context, company.daysUntilVatExpiry, l10n.badgeVatExpiry),
                     const SizedBox(height: 4),
                     _buildExpiryBadge(context, company.daysUntilRegExpiry, l10n.badgeComReg),
+                    if (company.soonestCertificateExpiry != null) ...[
+                      const SizedBox(height: 4),
+                      CertificateExpiryBadge(
+                        key: ValueKey('companyCertExpiry_${company.companyId}'),
+                        expiry: company.soonestCertificateExpiry,
+                        isArabic: Localizations.localeOf(context).languageCode == 'ar',
+                        prefix: Localizations.localeOf(context).languageCode == 'ar' ? 'الشهادات' : 'Certificates',
+                      ),
+                    ],
                   ],
                 ),
               ),
