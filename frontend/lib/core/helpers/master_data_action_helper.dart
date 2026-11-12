@@ -9,6 +9,7 @@ import '../localization/app_localizations.dart';
 import '../network/dio_client.dart';
 import '../services/file_save_helper.dart';
 import '../theme/app_theme.dart';
+import '../constants/upload_file_types.dart';
 
 /// Central helper for Master Data operations (CSV/Excel/PDF Export, Template Download, Excel Import)
 /// designed to be seamlessly integrated with [ActionToolbar] across all Type B screens.
@@ -108,7 +109,7 @@ class MasterDataActionHelper {
     try {
       final result = await FilePicker.pickFiles(
         type: FileType.custom,
-        allowedExtensions: ['xlsx', 'xls'],
+        allowedExtensions: UploadFileTypes.excelImport,
         withData: true,
       );
 

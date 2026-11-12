@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 from database.database import get_db
 from modules.auth.permissions import authenticate_ws_token
 from modules.auth.router import get_current_user, require_admin
+from modules.users.model import User
 from modules.common.pagination import Page, PageParams
 from .schemas import NotificationCreate, NotificationResponse, NotificationSummary
 from .service import NotificationService
@@ -106,9 +107,10 @@ async def create_notification(
 def mark_notification_as_read(
     notification_id: int,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     service = NotificationService(db)
-    updated = service.mark_read(notification_id)
+    updated = service.mark_read(notification_id, user=current_user)
     return updated
 
 
@@ -116,9 +118,10 @@ def mark_notification_as_read(
 def mark_all_notifications_as_read(
     target_role: Optional[str] = Query(None),
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     service = NotificationService(db)
-    count = service.mark_all_read(target_role=target_role)
+    count = service.mark_all_read(target_role=target_role, user=current_user)
     return {"message": "All notifications marked as read", "count": count}
 
 

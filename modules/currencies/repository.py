@@ -1,4 +1,5 @@
 from datetime import date
+from modules.common.audit_stamp import SYSTEM_ACTOR, set_created_info
 from typing import List, Optional
 
 from sqlalchemy import or_
@@ -41,7 +42,7 @@ class CurrencyRepository:
 
         return query.order_by(Currency.is_base_currency.desc(), Currency.currency_code.asc()).all()
 
-    def create_currency(self, data: CurrencyCreate) -> Currency:
+    def create_currency(self, data: CurrencyCreate, actor: str = SYSTEM_ACTOR) -> Currency:
         currency = Currency(
             currency_code=data.currency_code.upper().strip(),
             currency_name=data.currency_name.strip(),
@@ -50,6 +51,7 @@ class CurrencyRepository:
             decimal_places=data.decimal_places,
             is_active=True,
         )
+        set_created_info(currency, actor)
         self.db.add(currency)
         self.db.commit()
         self.db.refresh(currency)

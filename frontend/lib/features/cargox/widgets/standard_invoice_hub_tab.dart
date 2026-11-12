@@ -18,6 +18,7 @@ import 'standard_invoice_hub/invoice_hub_header_bar.dart';
 import 'standard_invoice_hub/invoice_hub_items_table.dart';
 import 'standard_invoice_hub/invoice_hub_reconciliation_section.dart';
 import 'standard_invoice_hub/invoice_hub_registry_view.dart';
+import '../../../core/constants/upload_file_types.dart';
 
 /// 🎯 StandardInvoiceHubTab Coordinator
 /// Radical decomposition conforming to Enterprise Clean Architecture:
@@ -148,7 +149,7 @@ class _StandardInvoiceHubTabState extends ConsumerState<StandardInvoiceHubTab> w
       return;
     }
 
-    final result = await FilePicker.pickFiles(type: FileType.custom, allowedExtensions: ['xlsx', 'xls'], withData: true);
+    final result = await FilePicker.pickFiles(type: FileType.custom, allowedExtensions: UploadFileTypes.excelImport, withData: true);
     if (result != null && result.files.isNotEmpty) {
       final file = result.files.first;
       if (file.bytes == null) return;

@@ -145,9 +145,25 @@ DATABASE_PATH = os.getenv("DATABASE_PATH", str(default_db_path()))
 
 ADMIN_INITIAL_PASSWORD = resolve_admin_initial_password(IS_PRODUCTION_BUILD)
 
-# Authentication & Session Lifetime (7 days for Desktop ERP, 14 days refresh grace period)
-JWT_ACCESS_TOKEN_EXPIRE_SECONDS = int(os.getenv("JWT_ACCESS_TOKEN_EXPIRE_SECONDS", str(86400 * 7)))
+# Authentication & Session Lifetime: short-lived access token (60 min) renewed silently through
+# POST /auth/refresh (the desktop client retries the failed call), within a 14-day refresh grace period.
+JWT_ACCESS_TOKEN_EXPIRE_SECONDS = int(os.getenv("JWT_ACCESS_TOKEN_EXPIRE_SECONDS", str(60 * 60)))
 JWT_REFRESH_GRACE_PERIOD_SECONDS = int(os.getenv("JWT_REFRESH_GRACE_PERIOD_SECONDS", str(86400 * 14)))
+
+# CORS allow-list: exact origins from CORS_ALLOWED_ORIGINS (comma separated, e.g. a hosted web build), plus
+# localhost / private-network origins (desktop app, LAN web build) unless CORS_ALLOW_PRIVATE_NETWORK_ORIGINS=false.
+# A wildcard ("*") or "null" entry is ignored: credentials are never echoed to an arbitrary origin.
+def parse_cors_allowed_origins(raw: str) -> tuple:
+    origins = []
+    for item in (raw or "").split(","):
+        origin = item.strip().rstrip("/")
+        if origin and origin not in ("*", "null") and origin.startswith(("http://", "https://")):
+            origins.append(origin)
+    return tuple(dict.fromkeys(origins))
+
+
+CORS_ALLOWED_ORIGINS = parse_cors_allowed_origins(os.getenv("CORS_ALLOWED_ORIGINS", ""))
+CORS_ALLOW_PRIVATE_NETWORK_ORIGINS = os.getenv("CORS_ALLOW_PRIVATE_NETWORK_ORIGINS", "true").lower() in ("true", "1")
 
 # Trusted reverse proxy IPs (for X-Forwarded-For evaluation in login limiter)
 raw_trusted = os.getenv("TRUSTED_PROXY_IPS", "")
