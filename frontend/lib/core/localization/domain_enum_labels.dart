@@ -646,6 +646,7 @@ class DomainEnums {
       'Per Vehicle': 'PER_VEHICLE',
       'Per Night (لكل ليلة)': 'PER_NIGHT',
       'Per Night': 'PER_NIGHT',
+      'Per Day (لكل يوم)': 'PER_DAY',
       'Per Day': 'PER_DAY',
       'Per Inspection (لكل عرض)': 'PER_INSPECTION',
       'Per Inspection': 'PER_INSPECTION',

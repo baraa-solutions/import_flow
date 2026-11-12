@@ -1,0 +1,12 @@
+Permissions: every create, edit and delete action now needs an explicit permission, sessions renew automatically every hour without logging you out, and uploaded files are checked for type and size.
+Simulation mode: test results from Nafeza, CargoX and e-signing carry a clear "simulation" mark, and the installed app never presents a simulated result as real.
+Payment pathways: freight booking waits for the advance SWIFT transfer or the issued letter of credit, CAD documents and open-account closing are tied to their stages, and a card shows the missing steps.
+Shipment lifecycle board: the stage strip is now a compact matrix with no horizontal scrolling on 1366-wide screens, and it marks stages blocked by payment.
+FOB valuation: goods value is counted once at the actual exchange rate of each payment pathway, and financing costs are kept out of the customs base.
+Actual landed cost: bank charges and realized exchange differences are now included.
+Supplier statement: balance per currency, 30/60/90-day aging, and a credit limit that blocks a new purchase order when exceeded (with a manager override).
+Air freight: record air waybills with number validation, volumetric and chargeable weight, and draft waybill review.
+Customs tariff: changing an item's rate creates a new dated version instead of overwriting the old one.
+Company and supplier certificates and the Nafeza token: expiry dates with a days-to-renewal counter.
+Document reading: company details can be extracted from images and scanned PDFs (Arabic and English) with no extra installation, and IBAN, SWIFT and account numbers are read correctly.
+Other improvements: clearer button and text colours (dark mode too), export files named after the entity, logistics invoices linked to the import file and project, and more accurate reading of broker quotations, invoices and packing lists.

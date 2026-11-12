@@ -1926,4 +1926,49 @@ const Map<String, Map<String, String>> systemMessageCatalogAr = {
   'SETTLEMENT_RESERVED_INVOICE_NO': {
     'note': 'رقم الفاتورة \'{invoice_no}\' يستخدم البادئة المحجوزة لتسويات إعادة الاحتساب، ولا يُنشأ إلا من محرك إعادة الاحتساب.',
   },
+  'PAYMENT_PATHWAY_LOCKED': {
+    'note': 'لا يمكن تغيير مسار الدفع للملف {import_file_code} لوجود أدوات تمويل أو طلبات صرف قائمة على المسار الحالي ({payment_term}). يجب إلغاؤها أولاً.',
+  },
+  'PAYMENT_PATHWAY_CONFLICT': {
+    'note': 'التمويل من نوع ({requested_type}) يتعارض مع مسار الدفع المعتمد للملف {import_file_code}.',
+  },
+  'PAYMENT_INSTRUMENT_ALREADY_OPEN': {
+    'note': 'يوجد بالفعل أداة تمويل رئيسية قائمة للملف {import_file_code} ({instrument_number}). يجب إلغاؤها قبل فتح أداة جديدة.',
+  },
+  'PAYMENT_MILESTONE_GATE_BLOCKED': {
+    'note': 'لا يمكن نقل ملف الشحنة {import_file_code} عبر البوابة ({gate}) على مسار الدفع ({payment_term}) قبل استيفاء البوابات المصرفية المطلوبة.',
+  },
+  'FOB_NET_VALUE_INVALID': {
+    'note': 'قيمة الفوب الصافية للفاتورة {invoice_no} غير صحيحة: الخصم وهامش التمويل لا يجوز أن يكونا سالبين أو أن يتجاوزا إجمالي الفاتورة.',
+  },
+  'FOB_DOUBLE_COUNT_DETECTED': {
+    'note': 'تم رصد تكرار في احتساب قيمة البضاعة (FOB) في تسوية الملف: قيمة الفوب يجب أن تُحتسب مرة واحدة فقط.',
+  },
+  'FOB_DUPLICATE_INVOICE_IGNORED': {
+    'note': 'تم تجاهل الفاتورة التجارية المكررة {invoice_no} في تقييم قيمة الفوب.',
+  },
+  'FOB_CUSTOMS_DATE_PENDING': {
+    'note': 'لم يتم تسجيل تاريخ الإقرار الجمركي بعد: سيتم احتساب وعاء الفوب الجمركي عند توفره.',
+  },
+  'FOB_CUSTOMS_RATE_MISSING': {
+    'note': 'لا يوجد سعر صرف جمركي للعملة {currency} بتاريخ {on_date}: تعذر احتساب وعاء الفوب الجمركي لهذه العملة.',
+  },
+  'FOB_MTM_RATE_MISSING': {
+    'note': 'لا يوجد سعر صرف للعملة {currency} بتاريخ {on_date}: تعذر إعادة تقييم المستحق المفتوح للمورد.',
+  },
+  'SUPPLIER_CREDIT_LIMIT_EXCEEDED': {
+    'note': 'تجاوز الحد الائتماني للمورد: الحد {limit_amount} {currency}، المستخدم {utilization_amount}، المطلوب {requested_amount}. يلزم اعتماد استثنائي من مدير النظام مع ذكر السبب.',
+  },
+  'SUPPLIER_CREDIT_LIMIT_INVALID': {
+    'note': 'إعداد الحد الائتماني للمورد غير صحيح ({field}).',
+  },
+  'SUPPLIER_CREDIT_OVERRIDE_FORBIDDEN': {
+    'note': 'تجاوز الحد الائتماني للمورد يتطلب اعتماد مدير النظام (ADMIN).',
+  },
+  'SUPPLIER_LEDGER_EGP_PAYMENT_NOT_CONVERTED': {
+    'note': 'تعذر تحويل دفعة بالجنيه المصري على الملف {import_file_code} إلى عملة الملف ({reason}).',
+  },
+  'SUPPLIER_LEDGER_FILE_NOT_VALUED': {
+    'note': 'تعذر تقييم الملف {import_file_code} في حساب المورد ({reason}).',
+  },
 };

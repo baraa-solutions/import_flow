@@ -70,7 +70,9 @@ def _is_permission_callable(call: object) -> bool:
         return False
     if getattr(call, "__name__", "") in PERMISSION_CALLABLE_NAMES:
         return True
-    return getattr(call, "__qualname__", "").startswith("require_permission.")
+    qualname = getattr(call, "__qualname__", "")
+    # require_any_permission (smart upload) enforces "one of" several RBAC codes + a per-module check.
+    return qualname.startswith("require_permission.") or qualname.startswith("require_any_permission.")
 
 
 def _dependant_has_permission(dependant: object) -> bool:

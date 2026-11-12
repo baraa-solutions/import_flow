@@ -30,7 +30,7 @@
 ; =====================================================================
 
 #define MyAppName "Sorour Logistics"
-#define MyAppVersion "2.5.1"
+#define MyAppVersion "2.6.0"
 #define MyAppPublisher "Sorour Logistics"
 #define MyAppURL "https://sorourlogistics.com"
 ; The app is started through frontend.exe itself (it starts backend.exe and waits for /health).
@@ -54,7 +54,7 @@ DefaultDirName={autopf}\{#MyAppName}
 DefaultGroupName={#MyAppName}
 AllowNoIcons=yes
 OutputDir=..\dist\releases
-OutputBaseFilename=Sorour_Logistics_Setup_v2.5.1
+OutputBaseFilename=Sorour_Logistics_Setup_v2.6.0
 SetupIconFile={#AppIconPath}
 Compression=lzma2/max
 SolidCompression=yes

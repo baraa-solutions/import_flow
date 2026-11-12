@@ -581,6 +581,7 @@
       "Per Container (لكل حاوية إضافية)": "PER_CONTAINER",
       "Per Container (لكل حاوية)": "PER_CONTAINER",
       "Per Container (لكل نقلة وزن)": "PER_CONTAINER",
+      "Per Day (لكل يوم)": "PER_DAY",
       "Per Inspection (لكل عرض)": "PER_INSPECTION",
       "Per Inspection (لكل كشف)": "PER_INSPECTION",
       "Per Invoice (لكل فاتورة)": "PER_INVOICE",
