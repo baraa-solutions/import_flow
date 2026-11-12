@@ -14,6 +14,17 @@ class SupplierTrademarkSection extends StatelessWidget {
     required this.onStateChanged,
   });
 
+  Widget _expiry(String key, bool isAr) => Padding(
+        padding: const EdgeInsets.only(bottom: 8.0),
+        child: CertificateExpiryField(
+          key: ValueKey('supplier_expiry_$key'),
+          value: controllers.expiries[key],
+          isArabic: isAr,
+          label: isAr ? 'تاريخ الانتهاء' : 'Expiry Date',
+          onChanged: (v) => onStateChanged(() => controllers.expiries[key] = v),
+        ),
+      );
+
   @override
   Widget build(BuildContext context) {
     final isAr = Localizations.localeOf(context).languageCode == 'ar';
@@ -58,6 +69,7 @@ class SupplierTrademarkSection extends StatelessWidget {
                 hint: 'e.g. 1234567',
               ),
             ),
+            _expiry('wipo', isAr),
           ],
           CheckboxListTile(
             dense: true,
@@ -78,6 +90,7 @@ class SupplierTrademarkSection extends StatelessWidget {
                 hint: 'e.g. 018345678',
               ),
             ),
+            _expiry('euipo', isAr),
           ],
           CheckboxListTile(
             dense: true,
@@ -98,6 +111,7 @@ class SupplierTrademarkSection extends StatelessWidget {
                 hint: 'e.g. GBD-987654',
               ),
             ),
+            _expiry('global_brand', isAr),
           ],
           CheckboxListTile(
             dense: true,
@@ -118,6 +132,7 @@ class SupplierTrademarkSection extends StatelessWidget {
                 hint: 'e.g. ISO-9001-2015-XYZ',
               ),
             ),
+            _expiry('iso_9001', isAr),
           ],
         ],
       ),

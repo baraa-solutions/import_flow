@@ -21,31 +21,11 @@ import '../../features/import_files/models/import_file_model.dart';
 import '../../features/shipment_updates/models/shipment_update_model.dart';
 import '../../features/import_requirements/models/import_requirement_model.dart';
 import '../../features/demurrage_detention/models/demurrage_model.dart';
+import '../utils/app_format.dart';
 
 class MasterDataExportService {
   /// Standardized safe date formatting for export documents (YYYY-MM-DD).
-  static String formatDateSafe(dynamic dt) {
-    if (dt == null) return '-';
-    if (dt is DateTime) {
-      final y = dt.year.toString().padLeft(4, '0');
-      final m = dt.month.toString().padLeft(2, '0');
-      final d = dt.day.toString().padLeft(2, '0');
-      return '$y-$m-$d';
-    }
-    final str = dt.toString().trim();
-    if (str.isEmpty || str == 'null' || str == '-') return '-';
-    final parsed = DateTime.tryParse(str);
-    if (parsed != null) {
-      final y = parsed.year.toString().padLeft(4, '0');
-      final m = parsed.month.toString().padLeft(2, '0');
-      final d = parsed.day.toString().padLeft(2, '0');
-      return '$y-$m-$d';
-    }
-    if (str.length >= 10 && RegExp(r'^\d{4}-\d{2}-\d{2}').hasMatch(str)) {
-      return str.substring(0, 10);
-    }
-    return str;
-  }
+  static String formatDateSafe(dynamic dt) => AppFormat.date(dt);
 
   static String _formatDate(dynamic dt) => formatDateSafe(dt);
 

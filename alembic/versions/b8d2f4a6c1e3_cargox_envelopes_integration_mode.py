@@ -3,7 +3,7 @@
 Production Mock Guard (Trello NLv0Dpj5). Existing rows stay NULL ("unknown / not sent").
 
 Revision ID: b8d2f4a6c1e3
-Revises: a7c1e9d3f5b2
+Revises: b3d5f7a9c1e2
 Create Date: 2026-11-12 10:00:00.000000
 
 """
@@ -15,7 +15,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision: str = 'b8d2f4a6c1e3'
-down_revision: Union[str, Sequence[str], None] = 'a7c1e9d3f5b2'
+down_revision: Union[str, Sequence[str], None] = 'b3d5f7a9c1e2'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
