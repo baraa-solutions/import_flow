@@ -65,7 +65,10 @@ Dio _recordingDio(List<String> paths, [List<Object?>? bodies]) {
   final dio = Dio(BaseOptions(baseUrl: 'http://test.local'));
   dio.interceptors.add(InterceptorsWrapper(onRequest: (options, handler) {
     final path = options.path;
-    paths.add(path);
+    // Query included: the air-freight records of a file are scoped by `?import_file_id=`.
+    paths.add(options.queryParameters.isEmpty
+        ? path
+        : '$path?${Uri(queryParameters: options.queryParameters.map((k, v) => MapEntry(k, '$v'))).query}');
     bodies?.add(options.data);
     Object data = <String, dynamic>{};
     if (path.endsWith('/unallocated-po-items')) {
@@ -112,6 +115,8 @@ Dio _recordingDio(List<String> paths, [List<Object?>? bodies]) {
       data = {'items': [], 'total': 0};
     } else if (path.contains('/multimodal-freight/') || path.contains('/container-tracking/')) {
       data = {'items': [], 'total': 0};
+    } else if (path.contains('/air-freight/')) {
+      data = <dynamic>[];
     }
     handler.resolve(Response(requestOptions: options, statusCode: 200, data: data));
   }));
@@ -149,9 +154,13 @@ Future<void> _pickFile(WidgetTester tester, String code) async {
   await tester.pumpAndSettle();
 }
 
+/// A module call carries the file id in its path (`/shipments/<id>/`) or as the `import_file_id` query.
+bool _scopedTo(String uri, int id) => uri.contains('/shipments/$id/') || uri.contains('import_file_id=$id');
+
 bool _isModuleCall(String path) =>
     path.contains('/split-shipments/') ||
     path.contains('/multimodal-freight/') ||
+    path.contains('/air-freight/') ||
     path.contains('/container-tracking/');
 
 void main() {
@@ -180,7 +189,7 @@ void main() {
 
         final moduleCalls = paths.where(_isModuleCall).toList();
         expect(moduleCalls, isNotEmpty);
-        expect(moduleCalls.every((p) => p.contains('/shipments/77/')), isTrue, reason: '$moduleCalls');
+        expect(moduleCalls.every((p) => _scopedTo(p, 77)), isTrue, reason: '$moduleCalls');
         expect(find.byKey(ImportFileRequiredState.stateKey), findsNothing);
       });
 
@@ -191,7 +200,7 @@ void main() {
 
         final moduleCalls = paths.where(_isModuleCall).toList();
         expect(moduleCalls, isNotEmpty);
-        expect(moduleCalls.every((p) => p.contains('/shipments/88/')), isTrue, reason: '$moduleCalls');
+        expect(moduleCalls.every((p) => _scopedTo(p, 88)), isTrue, reason: '$moduleCalls');
         expect(find.byKey(ImportFileRequiredState.stateKey), findsNothing);
       });
     });

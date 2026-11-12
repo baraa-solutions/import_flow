@@ -206,6 +206,7 @@ from modules.legal_claims.router import router as legal_claims_router
 from modules.container_tracking.router import router as container_tracking_router
 from modules.split_shipments.router import router as split_shipments_router
 from modules.multimodal_freight.router import router as multimodal_freight_router
+from modules.air_freight.router import router as air_freight_router
 from modules.regulatory_matrix.router import router as regulatory_matrix_router
 from modules.trade_finance.router import router as trade_finance_router
 from modules.logistics_exceptions.router import router as logistics_exceptions_router
@@ -476,6 +477,7 @@ app.include_router(legal_claims_router)
 app.include_router(container_tracking_router)
 app.include_router(split_shipments_router)
 app.include_router(multimodal_freight_router)
+app.include_router(air_freight_router)
 app.include_router(regulatory_matrix_router)
 app.include_router(trade_finance_router)
 app.include_router(logistics_exceptions_router)
