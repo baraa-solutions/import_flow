@@ -258,6 +258,23 @@ void main() {
         findsOneWidget,
       );
       expect(find.text('تاريخ الانتهاء المستهدف'), findsOneWidget);
+
+      // A new project starts blank: no supplier / incoterm is silently taken from the first row.
+      final dialog = find.byType(ProjectFormDialog);
+      expect(find.descendant(of: dialog, matching: find.text('Shanghai Solar Tech Ltd')), findsNothing);
+      expect(find.descendant(of: dialog, matching: find.text('FOB (Free On Board)')), findsNothing);
+
+      // Submitting without choosing them shows the required errors and creates nothing.
+      final l10n = AppLocalizations.of(tester.element(dialog));
+      await tester.enterText(find.widgetWithText(TextFormField, 'اسم المشروع *'), 'مشروع تجريبي');
+      await tester.enterText(find.widgetWithText(TextFormField, 'مدير أو مسؤول المشروع *'), 'م. كمال');
+      final submit = find.text(l10n.createProjectSubmitBtn);
+      await tester.ensureVisible(submit);
+      await tester.tap(submit);
+      await tester.pumpAndSettle();
+      expect(find.text(l10n.fieldRequired), findsNWidgets(2));
+      expect(find.byType(ProjectFormDialog), findsOneWidget);
+      expect(find.text('PRJ-2026-099'), findsNothing);
     });
   });
 }
