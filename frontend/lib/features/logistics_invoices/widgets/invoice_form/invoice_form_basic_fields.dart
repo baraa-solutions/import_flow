@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import '../../../../core/theme/app_theme.dart';
 import '../../../../core/widgets/widgets.dart';
+import '../../../import_files/models/import_file_model.dart';
 
 class InvoiceFormBasicFields extends StatelessWidget {
   final bool isArabic;
@@ -8,9 +10,11 @@ class InvoiceFormBasicFields extends StatelessWidget {
   final ValueChanged<String?> onPartnerTypeChanged;
   final TextEditingController invoiceNumberCtrl;
   final TextEditingController partnerNameCtrl;
-  final TextEditingController shipmentIdCtrl;
+  /// Import file the invoice bills (logistics_service_invoices.shipment_id); null until picked.
+  final int? shipmentId;
+  final List<ImportFileModel> importFiles;
   final TextEditingController blNumberCtrl;
-  final ValueChanged<int> onShipmentIdChanged;
+  final ValueChanged<int?> onShipmentIdChanged;
   final ValueChanged<String> onBlNumberChanged;
   final String currency;
   final ValueChanged<String?> onCurrencyChanged;
@@ -26,7 +30,8 @@ class InvoiceFormBasicFields extends StatelessWidget {
     required this.onPartnerTypeChanged,
     required this.invoiceNumberCtrl,
     required this.partnerNameCtrl,
-    required this.shipmentIdCtrl,
+    required this.shipmentId,
+    required this.importFiles,
     required this.blNumberCtrl,
     required this.onShipmentIdChanged,
     required this.onBlNumberChanged,
@@ -36,6 +41,11 @@ class InvoiceFormBasicFields extends StatelessWidget {
     required this.onExchangeRateChanged,
     required this.onFetchCbeRate,
   });
+
+  String? get _projectNames {
+    final names = importFiles.where((f) => f.importFileId == shipmentId).firstOrNull?.projectNames?.trim();
+    return names == null || names.isEmpty ? null : names;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -103,18 +113,38 @@ class InvoiceFormBasicFields extends StatelessWidget {
           children: [
             Expanded(
               flex: 2,
-              child: TextFormField(
-                controller: shipmentIdCtrl,
-                decoration: InputDecoration(
-                  labelText: isArabic ? 'رقم الشحنة *' : 'Shipment ID *',
-                  isDense: true,
-                  border: const OutlineInputBorder(),
-                ),
-                keyboardType: TextInputType.number,
-                onChanged: (v) {
-                  final parsed = int.tryParse(v);
-                  if (parsed != null) onShipmentIdChanged(parsed);
-                },
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  SearchableDropdownField<int>(
+                    key: const ValueKey('invoiceImportFileField'),
+                    value: shipmentId,
+                    labelText: isArabic ? 'ملف الشحنة *' : 'Import File *',
+                    hintText: isArabic ? 'اختر ملف الشحنة' : 'Select the import file',
+                    isRequired: true,
+                    validator: (v) => v == null ? (isArabic ? 'مطلوب' : 'Required') : null,
+                    items: importFiles
+                        .map((f) => SearchableDropdownItem<int>(
+                              value: f.importFileId,
+                              label: f.importFileCode,
+                              subtitle: f.supplierName,
+                              searchValue: '${f.importFileCode} ${f.customFileNumber ?? ''} ${f.supplierName} '
+                                  '${f.companyName} ${f.projectNames ?? ''}',
+                            ))
+                        .toList(),
+                    onChanged: isEditMode ? null : onShipmentIdChanged,
+                  ),
+                  if (_projectNames != null) ...[
+                    const SizedBox(height: 4),
+                    AppStatusBadge(
+                      key: const ValueKey('invoiceProjectBadge'),
+                      label: '${isArabic ? 'المشروع / مركز التكلفة' : 'Project / Cost Center'}: $_projectNames',
+                      severity: AppSeverity.info,
+                      size: AppStatusBadgeSize.small,
+                    ),
+                  ],
+                ],
               ),
             ),
             const SizedBox(width: 12),

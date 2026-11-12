@@ -13404,6 +13404,7 @@ class AppLocalizationsEn extends AppLocalizations {
   @override String get settlementClo01PartyBroker => 'Broker & Port';
   @override String get settlementClo01PartyTransport => 'Inland Transport';
   @override String get settlementClo01PartyDemurrage => 'Demurrage Charges';
+  @override String get settlementClo01PartyBank => 'Bank & Financing';
   @override String get settlementClo01NoInvoices => 'No invoices recorded for this party';
   @override String get settlementClo01ColInvoice => 'Invoice No / Reference';
   @override String get settlementClo01ColParty => 'Party / Creditor';
