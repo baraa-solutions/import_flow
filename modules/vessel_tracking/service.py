@@ -29,7 +29,6 @@ from modules.customs_clearance import repository as customs_repo
 from modules.demurrage_detention.model import DemurrageTracking
 from modules.smart_tasks.model import SmartTask
 from modules.notifications.model import SystemNotification
-from modules.common.file_tracking import set_file_tracking
 from modules.common.system_messages import msg
 from modules.common.errors import best_effort
 
@@ -367,10 +366,15 @@ class VesselTrackingService:
             latest_pos.eta_predicted = naive_arrival
 
         # 3. Advance ImportFile stage & tracking
-        set_file_tracking(
+        # Arrival is recorded either way; the payment pathway gate (e.g. CAD/LC documents released before
+        # Bank Form 4) may hold the file where it is with a pending-milestone next action.
+        from modules.import_files.import_file_payment_pathway_service import advance_tracking_or_hold
+
+        advance_tracking_or_hold(
+            self.db,
             file_obj,
             step_code="STEP_13",
-            phase_id="5",
+            phase_id=5,
             next_action=msg("NA_CS_PAY_DELIVERY_ORDER"),
         )
         if hasattr(file_obj, "inland_actual_arrival_date"):

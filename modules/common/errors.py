@@ -34,7 +34,28 @@ def best_effort(db: Session, fn: Callable[..., T], label: str, *args: Any, **kwa
     back, the error is logged with ``label`` and ``None`` is returned."""
     try:
         return fn(*args, **kwargs)
+    except Exception as exc:
+        db.rollback()
+        if _is_payment_gate_block(exc):
+            # A payment-pathway milestone gate kept the file in place: surface it (next action + notification)
+            # instead of only logging it.
+            logger.info("%s held by payment pathway gate: %s", label, getattr(exc, "detail", exc))
+            _record_payment_gate_hold(db, exc)
+        else:
+            logger.exception("%s failed", label)
+        return None
+
+
+def _is_payment_gate_block(exc: BaseException) -> bool:
+    detail = getattr(exc, "detail", None)
+    return isinstance(detail, dict) and detail.get("code") == "PAYMENT_MILESTONE_GATE_BLOCKED"
+
+
+def _record_payment_gate_hold(db: Session, exc: BaseException) -> None:
+    try:
+        from modules.import_files.import_file_payment_pathway_service import record_payment_gate_hold
+
+        record_payment_gate_hold(db, exc)
     except Exception:
         db.rollback()
-        logger.exception("%s failed", label)
-        return None
+        logger.exception("Recording the payment pathway hold failed")

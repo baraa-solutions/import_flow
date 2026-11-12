@@ -133,3 +133,42 @@ def validate_status_transition(current_status: Optional[str], target_status: str
             **{"from": current_status or "", "to": target_status},
         )
 
+
+def validate_payment_pathway_gate(
+    import_file_code: Optional[str],
+    payment_term: Optional[str],
+    blocked: List[tuple],
+    gate_labels: Optional[dict] = None,
+    import_file_id: Optional[int] = None,
+) -> None:
+    """GP-002 stage gate of the exclusive payment pathway (modules/import_files/payment_milestones.py).
+
+    ``blocked`` = ``[(gate, [missing milestone codes]), ...]`` from ``payment_milestones.blocking_milestones``.
+    Raises 409 ``PAYMENT_MILESTONE_GATE_BLOCKED`` naming the first unsatisfied gate and every missing
+    milestone (Arabic ``message`` + English ``message_en``)."""
+    if not blocked:
+        return
+    from modules.import_files.payment_milestones import MILESTONES
+    from modules.trade_finance.payment_pathway import pathway_error
+
+    gate, missing = blocked[0]
+    label_en, label_ar = (gate_labels or {}).get(gate, (gate, gate))
+    missing_ar = "، ".join(MILESTONES[c].label_ar for c in missing)
+    missing_en = "; ".join(MILESTONES[c].label_en for c in missing)
+    raise pathway_error(
+        status.HTTP_409_CONFLICT,
+        "PAYMENT_MILESTONE_GATE_BLOCKED",
+        f"لا يمكن نقل ملف الشحنة {import_file_code} إلى ({label_ar}) على مسار الدفع ({payment_term}) "
+        f"قبل استيفاء البوابات المصرفية التالية: {missing_ar}.",
+        message_en=(
+            f"Import file {import_file_code} cannot move to ({label_en}) on payment pathway ({payment_term}) "
+            f"until these banking milestones are met: {missing_en}."
+        ),
+        import_file_id=import_file_id,
+        import_file_code=import_file_code,
+        payment_term=payment_term,
+        gate=gate,
+        missing_milestones=list(missing),
+        blocked_gates=[{"gate": g, "missing_milestones": list(m)} for g, m in blocked],
+    )
+

@@ -1731,6 +1731,16 @@ CATALOG: Dict[str, Dict[str, str]] = {
     "IF_STATUS_TRANSITION_INVALID": {
         "note": "Cannot transition import file status from {from} to {to}.",
     },
+    # ── Payment pathway milestone gates (Trello p0RG1Nxm) ─────────────────────
+    "NA_PAYMENT_MILESTONE_PENDING": {
+        "action": "Complete the {payment_term_enum_payment_term} banking milestones before {gate}: "
+        "{missing_milestones}",
+    },
+    "PAYMENT_MILESTONE_GATE_HOLD": {
+        "title": "Shipment held by payment pathway gate: {import_file_code}",
+        "body": "Import file {import_file_code} ({payment_term_enum_payment_term}) was not moved to {gate}: "
+        "pending banking milestones {missing_milestones}.",
+    },
     # ── System parameters (BEX-T17) ───────────────────────────────────────────
     "SYSPARAM_UNKNOWN": {
         "note": "System parameter '{param_key}' is unknown or does not exist.",

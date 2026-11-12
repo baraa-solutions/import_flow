@@ -673,3 +673,68 @@ def get_search_insights(
         "avg_landed_currency": "EGP",
     }
 
+
+
+def get_financing_evidence(db: Session, import_file_id: int):
+    """Active financing facts of a file for the payment-pathway milestone gates: non-cancelled trade-finance
+    instruments, non-rejected payment requests and active warehouse receiving records (GRN)."""
+    from modules.financial_approval.model import PaymentRequestSession
+    from modules.financial_approval.validators import normalize_payment_type
+    from modules.import_files.payment_milestones import FinancingEvidence, InstrumentEvidence, PaymentEvidence
+    from modules.trade_finance.model import ImportFinanceInstrument
+    from modules.warehouse_receiving.model import WarehouseReceivingRecord
+
+    instruments = (
+        db.query(
+            ImportFinanceInstrument.instrument_type,
+            ImportFinanceInstrument.status,
+            ImportFinanceInstrument.shipment_deadline,
+        )
+        .filter(
+            ImportFinanceInstrument.import_file_id == import_file_id,
+            ImportFinanceInstrument.is_active == True,  # noqa: E712
+            ImportFinanceInstrument.status != "CANCELLED",
+        )
+        .all()
+    )
+    payments = (
+        db.query(
+            PaymentRequestSession.payment_type,
+            PaymentRequestSession.status,
+            PaymentRequestSession.swift_reference_no,
+        )
+        .filter(
+            PaymentRequestSession.import_file_id == import_file_id,
+            PaymentRequestSession.is_active == True,  # noqa: E712
+            PaymentRequestSession.status != "Rejected",
+        )
+        .all()
+    )
+    grn_count = (
+        db.query(func.count(WarehouseReceivingRecord.receiving_id))
+        .filter(
+            WarehouseReceivingRecord.import_file_id == import_file_id,
+            WarehouseReceivingRecord.is_active == True,  # noqa: E712
+        )
+        .scalar()
+        or 0
+    )
+    return FinancingEvidence(
+        instruments=tuple(
+            InstrumentEvidence(
+                instrument_type=(row.instrument_type or "").upper(),
+                status=(row.status or "").upper(),
+                shipment_deadline=row.shipment_deadline.isoformat() if row.shipment_deadline else None,
+            )
+            for row in instruments
+        ),
+        payments=tuple(
+            PaymentEvidence(
+                payment_type=normalize_payment_type(row.payment_type),
+                status=row.status,
+                swift_reference_no=row.swift_reference_no,
+            )
+            for row in payments
+        ),
+        grn_count=int(grn_count),
+    )

@@ -104,6 +104,9 @@ def close_import_file_service(
         # Draft: the client checklist is stored for the record only.
         checklist = {k: v for k, v in schema.closure_checklist.model_dump().items() if v is not None}
     else:
+        # Payment pathway closure gate (e.g. Open Account: GRN + deferred supplier payment settled).
+        from modules.import_files.import_file_payment_pathway_service import enforce_payment_pathway_gate
+        enforce_payment_pathway_gate(db, imp_file, closing=True)
         # FC-01: the server gate decides; the stored checklist is the server's view at closure time.
         gate = evaluate_file_closure_gate(db, imp_file)
         if not gate.can_close:

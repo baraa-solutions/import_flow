@@ -39,6 +39,7 @@ from modules.common.clock import cairo_today
 from modules.common.regex_patterns import ACID_PATTERN
 from modules.common.system_messages import msg, render_en
 from modules.common.file_tracking import set_file_tracking
+from modules.import_files.import_file_payment_pathway_service import advance_tracking_or_hold
 from modules.import_files.model import ImportFile
 from modules.purchase_orders.model import PurchaseOrder
 from modules.users.model import User
@@ -1075,8 +1076,11 @@ def create_customs_approval_session_service(
             repo.create_session,
         )
 
-    if final:
-        set_file_tracking(import_file, step_code="STEP_10", next_action=msg("NA_STEP10_UPLOAD_APPROVED_TO_CARGOX"))
+    # The approval is saved either way; the payment pathway gate (e.g. CAD collection notice before phase 4)
+    # decides whether the file moves to STEP_10 now or is held with a pending-milestone next action.
+    if final and advance_tracking_or_hold(
+        db, import_file, step_code="STEP_10", next_action=msg("NA_STEP10_UPLOAD_APPROVED_TO_CARGOX")
+    ):
         if (import_file.progress_percent or 0.0) < 60.0:
             import_file.progress_percent = 60.0
 
