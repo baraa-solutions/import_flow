@@ -206,6 +206,7 @@ from modules.legal_claims.router import router as legal_claims_router
 from modules.container_tracking.router import router as container_tracking_router
 from modules.split_shipments.router import router as split_shipments_router
 from modules.multimodal_freight.router import router as multimodal_freight_router
+from modules.air_freight.router import router as air_freight_router
 from modules.regulatory_matrix.router import router as regulatory_matrix_router
 from modules.trade_finance.router import router as trade_finance_router
 from modules.logistics_exceptions.router import router as logistics_exceptions_router
@@ -310,8 +311,13 @@ LOCAL_ORIGIN_REGEX = CORS_ALLOWED_ORIGIN_REGEX
 
 
 def is_cors_origin_allowed(origin: str) -> bool:
-    """True only for an http(s) origin on localhost / a private network address (CORS_ALLOWED_ORIGIN_REGEX)."""
-    return bool(origin and _re.match(CORS_ALLOWED_ORIGIN_REGEX, origin))
+    """True for an origin in the configured allow-list (settings.CORS_ALLOWED_ORIGINS) or, unless disabled by
+    CORS_ALLOW_PRIVATE_NETWORK_ORIGINS=false, an http(s) origin on localhost / a private network address."""
+    if not origin:
+        return False
+    if origin.rstrip("/") in _settings.CORS_ALLOWED_ORIGINS:
+        return True
+    return bool(_settings.CORS_ALLOW_PRIVATE_NETWORK_ORIGINS and _re.match(CORS_ALLOWED_ORIGIN_REGEX, origin))
 
 
 @app.middleware("http")
@@ -376,7 +382,7 @@ async def global_exception_handler(request: Request, exc: Exception):
 
     logging.getLogger("main").error(f"Unhandled server error: {exc}", exc_info=True)
     raw_origin = request.headers.get("origin", "")
-    is_allowed = bool(raw_origin and re.match(LOCAL_ORIGIN_REGEX, raw_origin))
+    is_allowed = is_cors_origin_allowed(raw_origin)
     headers = {
         "X-Content-Type-Options": "nosniff",
         "X-Frame-Options": "DENY",
@@ -476,6 +482,7 @@ app.include_router(legal_claims_router)
 app.include_router(container_tracking_router)
 app.include_router(split_shipments_router)
 app.include_router(multimodal_freight_router)
+app.include_router(air_freight_router)
 app.include_router(regulatory_matrix_router)
 app.include_router(trade_finance_router)
 app.include_router(logistics_exceptions_router)

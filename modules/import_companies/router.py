@@ -1,6 +1,9 @@
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
+from modules.common.upload_guard import EXCEL_EXTENSIONS, read_upload_bytes
 from modules.auth.router import get_current_user
+from modules.auth.permissions import require_permission
+from modules.users.model import User
 
 from sqlalchemy.orm import Session
 
@@ -19,6 +22,8 @@ from .service import get_company_by_id
 from .service import update_import_company
 from .service import delete_import_company
 from .service import restore_import_company
+
+PARTNERS_MANAGE = "business_partners.manage"
 
 
 # ==================================================
@@ -42,12 +47,14 @@ import_router = APIRouter(
 )
 def create_company(
     company: ImportCompanyCreate,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission(PARTNERS_MANAGE)),
 ):
 
     return create_import_company(
         db,
-        company
+        company,
+        actor=current_user.username,
     )
 
 
@@ -124,8 +131,12 @@ def download_excel_template():
 
 
 @import_router.post("/import-excel")
-async def import_excel_companies(file: UploadFile = File(...), db: Session = Depends(get_db)):
-    file_bytes = await file.read()
+async def import_excel_companies(
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission(PARTNERS_MANAGE)),
+):
+    file_bytes = await read_upload_bytes(file, EXCEL_EXTENSIONS)
     cols = ['importer_name', 'address', 'country', 'importer_id', 'importer_id_expiry', 'vat_id', 'vat_id_expiry', 'registration_number', 'registration_expiry', 'phone', 'email']
     rows = MasterDataExportImportHelper.parse_excel_file(file_bytes, cols)
 
@@ -157,7 +168,7 @@ async def import_excel_companies(file: UploadFile = File(...), db: Session = Dep
                 phone=r.get('phone'),
                 email=r.get('email'),
             )
-            create_import_company(db, schema)
+            create_import_company(db, schema, actor=current_user.username)
             imported_count += 1
         except Exception as e:
             errors.append(f"Row {idx}: {str(e)}")
@@ -293,13 +304,15 @@ def get_company(
 def update_company(
     company_id: int,
     company: ImportCompanyUpdate,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission(PARTNERS_MANAGE)),
 ):
 
     updated_company = update_import_company(
         db,
         company_id,
-        company
+        company,
+        actor=current_user.username,
     )
 
     if updated_company is None:
@@ -321,12 +334,14 @@ def update_company(
 )
 def delete_company(
     company_id: int,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission(PARTNERS_MANAGE)),
 ):
 
     deleted_company = delete_import_company(
         db,
-        company_id
+        company_id,
+        actor=current_user.username,
     )
 
     if deleted_company is None:
@@ -348,12 +363,14 @@ def delete_company(
 )
 def restore_company(
     company_id: int,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission(PARTNERS_MANAGE)),
 ):
 
     restored_company = restore_import_company(
         db,
-        company_id
+        company_id,
+        actor=current_user.username,
     )
 
     if restored_company is None:
@@ -362,4 +379,4 @@ def restore_company(
             detail="Import Company not found"
         )
 
-    return restored_company
+    return restored_company

@@ -2,6 +2,7 @@ from datetime import date
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
+from modules.common.upload_guard import TEXT_EXTENSIONS, read_upload_bytes, safe_filename
 from fastapi.responses import Response
 from sqlalchemy.orm import Session
 
@@ -412,8 +413,8 @@ async def upload_customs_tariffs(file: UploadFile = File(...), db: Session = Dep
     """
     Upload Excel/CSV file containing Nafeza/Egyptian Customs Tariffs (HS Codes) for bulk creation or update.
     """
-    contents = await file.read()
-    res = bulk_import_tariffs_service(db, contents, file.filename or "uploaded.csv")
+    contents = await read_upload_bytes(file, TEXT_EXTENSIONS)
+    res = bulk_import_tariffs_service(db, contents, safe_filename(file.filename, "uploaded.csv"))
     memory_cache.clear_prefix("customs_tariff:")
     return res
 

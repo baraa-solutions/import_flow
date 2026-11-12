@@ -1,6 +1,7 @@
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, Query, status, UploadFile, File
+from modules.common.upload_guard import EXCEL_EXTENSIONS, read_upload_bytes
 from modules.auth.router import get_current_user
 from modules.auth.permissions import require_permission
 from sqlalchemy.orm import Session
@@ -144,7 +145,7 @@ def download_projects_excel_template():
 
 @router.post("/import-excel", dependencies=[Depends(require_permission("master_data.edit"))])
 async def import_excel_projects(file: UploadFile = File(...), db: Session = Depends(get_db)):
-    file_bytes = await file.read()
+    file_bytes = await read_upload_bytes(file, EXCEL_EXTENSIONS)
     cols = ['project_code', 'project_name', 'client_name', 'manager_name', 'budget', 'currency', 'company_id', 'description']
     rows = MasterDataExportImportHelper.parse_excel_file(file_bytes, cols)
     service = ProjectService(db)

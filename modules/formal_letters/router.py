@@ -4,6 +4,7 @@ FastAPI Router for AI Formal Letter Drafting (AI-DRAFT-014)
 
 from typing import List
 from fastapi import APIRouter, Depends, status
+from modules.auth.permissions import require_permission
 from modules.auth.router import get_current_user
 from sqlalchemy.orm import Session
 from database.database import get_db
@@ -37,6 +38,7 @@ def get_letter_templates_endpoint():
     response_model=FormalLetterResponse,
     status_code=status.HTTP_201_CREATED,
     summary="توليد وميكنة خطاب رسمي معتمد ببيانات الشحنة وحفظه بالسجل",
+    dependencies=[Depends(require_permission("import_documentation.upload"))],
 )
 def generate_formal_letter_endpoint(req: FormalLetterGenerateRequest, db: Session = Depends(get_db)):
     return generate_formal_letter_service(db, req)

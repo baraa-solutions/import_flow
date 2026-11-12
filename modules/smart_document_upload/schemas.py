@@ -68,6 +68,10 @@ class SmartUploadResponse(BaseModel):
     # ── AI Quotation & Completeness Validation Layer (AI-EXTRACT-VALIDATE-001)
     validation_report: Optional[Dict[str, Any]] = None
 
+    # ── Universal Entity Extractor diagnostics ──────────────────────────────
+    fields_found: Optional[List[str]] = None              # recognized entity fields (master-data modules only)
+    document_text_info: Optional[Dict[str, Any]] = None   # kind / method (text_layer|ocr|mixed) / OCR engine / pages
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Upload Session list/detail

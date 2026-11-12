@@ -1,5 +1,6 @@
 from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, status, Query
+from modules.auth.permissions import require_permission
 from modules.auth.router import get_current_user
 from sqlalchemy.orm import Session
 from typing import List, Optional
@@ -47,12 +48,12 @@ def get_latest_snapshots(db: Session = Depends(get_db)):
 @freight_data_router.post(
     "/snapshots/sync",
     response_model=FreightIndexSyncResponse,
-    summary="Manually trigger SFX weekly freight index sync via shaq-freight"
+    summary="Manually trigger SFX weekly freight index sync via shaq-freight", dependencies=[Depends(require_permission("quotations.manage"))]
 )
 @freight_data_router.post(
     "/sync-shaq-freight",
     response_model=FreightIndexSyncResponse,
-    summary="Alias: Manually trigger SFX weekly freight index sync via shaq-freight"
+    summary="Alias: Manually trigger SFX weekly freight index sync via shaq-freight", dependencies=[Depends(require_permission("quotations.manage"))]
 )
 def sync_freight_index(db: Session = Depends(get_db)):
     service = FreightDataService(db)
@@ -80,7 +81,7 @@ def get_demurrage_rules(shipping_line: Optional[str] = None, db: Session = Depen
 @freight_data_router.post(
     "/demurrage-rules/sync",
     response_model=DemurrageRuleResponse,
-    summary="Trigger quota-protected rule sync for a carrier via ShippingRates.org"
+    summary="Trigger quota-protected rule sync for a carrier via ShippingRates.org", dependencies=[Depends(require_permission("demurrage_detention.manage"))]
 )
 def sync_demurrage_rule(
     shipping_line: str = Query(..., description="Carrier name e.g. maersk, msc, cma_cgm"),
@@ -105,7 +106,7 @@ def get_port_tariffs(port_authority: Optional[str] = None, db: Session = Depends
     "/port-tariffs",
     response_model=PortDemurrageTariffResponse,
     status_code=status.HTTP_201_CREATED,
-    summary="Register a new official port authority decree version"
+    summary="Register a new official port authority decree version", dependencies=[Depends(require_permission("quotations.manage"))]
 )
 def create_port_tariff(payload: PortDemurrageTariffCreate, db: Session = Depends(get_db)):
     service = FreightDataService(db)
@@ -127,7 +128,7 @@ def create_port_tariff(payload: PortDemurrageTariffCreate, db: Session = Depends
 @freight_data_router.post(
     "/calculate-dual-demurrage",
     response_model=DualDemurrageCalculateResponse,
-    summary="Instant local calculation of USD carrier detention & EGP port storage"
+    summary="Instant local calculation of USD carrier detention & EGP port storage", dependencies=[Depends(require_permission("demurrage_detention.manage"))]
 )
 def calculate_dual_demurrage(payload: DualDemurrageCalculateRequest, db: Session = Depends(get_db)):
     service = FreightDataService(db)

@@ -295,14 +295,14 @@ class ExtractorControllers {
     if (ext['swift_code'] != null) swiftCodeCtrl.text = ext['swift_code'].toString();
     if (ext['bank_name'] != null) bankNameCtrl.text = ext['bank_name'].toString();
     if (ext['branch_name'] != null) branchNameCtrl.text = ext['branch_name'].toString();
-    if (ext['bank_account'] != null) {
-      bankAccountCtrl.text = ext['bank_account'].toString();
-      accountNumberCtrl.text = ext['bank_account'].toString();
-    } else if (ext['account_number'] != null) {
-      bankAccountCtrl.text = ext['account_number'].toString();
-      accountNumberCtrl.text = ext['account_number'].toString();
+    // Account number and IBAN stay in their own fields: an IBAN is never copied into the account number.
+    final ibanValue = ext['iban']?.toString();
+    final accountValue = ext['account_number'] ?? ext['bank_account'];
+    if (accountValue != null && accountValue.toString().isNotEmpty && accountValue.toString() != ibanValue) {
+      bankAccountCtrl.text = accountValue.toString();
+      accountNumberCtrl.text = accountValue.toString();
     }
-    if (ext['iban'] != null) ibanCtrl.text = ext['iban'].toString();
+    if (ibanValue != null && ibanValue.isNotEmpty) ibanCtrl.text = ibanValue;
     if (ext['notes'] != null) notesCtrl.text = ext['notes'].toString();
     if (ext['has_iso'] != null) hasIso = ext['has_iso'] == true || ext['has_iso'] == 'true';
     if (ext['registered_decree_43'] != null) registeredDecree43 = ext['registered_decree_43'] == true || ext['registered_decree_43'] == 'true';

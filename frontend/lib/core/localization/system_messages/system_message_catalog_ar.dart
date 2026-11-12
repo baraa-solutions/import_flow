@@ -1682,6 +1682,60 @@ const Map<String, Map<String, String>> systemMessageCatalogAr = {
   'TRM_NOT_FOUND': {
     'note': 'تدبير الحماية التجارية رقم {measure_id} غير موجود.',
   },
+  'AIR_AWB_FORMAT_INVALID': {
+    'note': 'رقم بوليصة الشحن الجوي \'{awb_number}\' يجب أن يتكون من 11 رقماً (3 أرقام كود الناقل + 8 أرقام).',
+  },
+  'AIR_AWB_CHECK_DIGIT_INVALID': {
+    'note': 'رقم التحقق في بوليصة الشحن الجوي \'{awb_number}\' غير صحيح (الخانة الأخيرة يجب أن تساوي باقي قسمة الرقم التسلسلي على 7).',
+  },
+  'AIR_MODE_INVALID': {
+    'note': 'نمط الشحن \'{shipment_mode}\' غير صالح للبوليصة الجوية: استخدم جوي (AIR) أو بريد سريع (COURIER).',
+  },
+  'AIR_SUB_MODE_INVALID': {
+    'note': 'النمط الفرعي \'{shipment_sub_mode}\' لا يتبع نمط الشحن {shipment_mode}.',
+  },
+  'AIR_IMPORT_FILE_NOT_FOUND': {
+    'note': 'ملف الاستيراد رقم {import_file_id} غير موجود.',
+  },
+  'AIR_AIRPORT_NOT_FOUND': {
+    'note': 'المطار رقم {location_id} غير موجود أو غير مفعل.',
+  },
+  'AIR_LOCATION_NOT_AIRPORT': {
+    'note': 'الموقع \'{location_name}\' ليس مطاراً.',
+  },
+  'AIR_SAME_AIRPORTS': {
+    'note': 'مطار القيام ومطار الوصول لا يمكن أن يكونا نفس المطار.',
+  },
+  'AIR_AIRLINE_NOT_FOUND': {
+    'note': 'شركة الطيران / الناقل رقم {provider_id} غير موجود أو غير مفعل.',
+  },
+  'AIR_DATES_INVALID': {
+    'note': 'تاريخ الوصول ({arrival_date}) لا يمكن أن يسبق تاريخ الرحلة ({flight_date}).',
+  },
+  'AIR_AWB_DUPLICATE': {
+    'note': 'البوليصة الجوية {awb_number} مسجلة بالفعل في السجل {air_record_code}.',
+  },
+  'AIR_RECORD_NOT_FOUND': {
+    'note': 'سجل البوليصة الجوية رقم {air_record_id} غير موجود.',
+  },
+  'AIR_REVIEW_NOT_FOUND': {
+    'note': 'جلسة مراجعة البوليصة الجوية رقم {awb_review_id} غير موجودة.',
+  },
+  'AIR_REVIEW_ALREADY_DECIDED': {
+    'note': 'تم اتخاذ قرار نهائي في هذه المراجعة بالفعل ({status}).',
+  },
+  'AIR_REVIEW_BLOCKING_MISMATCH': {
+    'note': 'لا يمكن اعتماد مسودة البوليصة الجوية مع وجود {open_discrepancies_count} اختلاف جوهري.',
+  },
+  'AIR_REVIEW_FIELD_MISSING': {
+    'note': 'الحقل {field} غير موجود في مسودة البوليصة الجوية.',
+  },
+  'AIR_REVIEW_FIELD_MISMATCH': {
+    'note': 'الحقل {field} في المسودة \'{draft_value}\' بينما سجل الشحنة \'{system_value}\'.',
+  },
+  'AIR_REVIEW_WEIGHT_OUT_OF_TOLERANCE': {
+    'note': 'الحقل {field} في المسودة {draft_value} كجم يختلف عن سجل الشحنة {system_value} كجم بأكثر من {tolerance_pct}%.',
+  },
   'CT_TRADE_REMEDY_ORIGIN_MISSING': {
     'note': 'البند {hs_code} عليه تدبير {measure_type} حسب بلد المنشأ؛ حدّد بلد المنشأ لحساب الرسم.',
   },
