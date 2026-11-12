@@ -27,6 +27,7 @@ from modules.common.sequence_generator import generate_reference_code
 from . import repository, validators
 from .model import AirShipmentRecord, DraftAwbReviewSession
 from .schemas import (
+    AirFreightSettings,
     AirPackageLine,
     AirShipmentRecordCreate,
     AirShipmentRecordUpdate,
@@ -69,6 +70,15 @@ def free_storage_days(db: Session) -> int:
 def weight_tolerance_pct(db: Session) -> float:
     return sp.get_float_parameter(
         db, sp.AIR_AWB_WEIGHT_TOLERANCE_PCT, sp.DEFAULT_AIR_AWB_WEIGHT_TOLERANCE_PCT, min_value=0, max_value=100
+    )
+
+
+def air_freight_settings(db: Session) -> AirFreightSettings:
+    return AirFreightSettings(
+        air_volumetric_divisor=volumetric_divisor(db, shipment_modes.AIR),
+        courier_volumetric_divisor=volumetric_divisor(db, shipment_modes.COURIER),
+        free_storage_days=free_storage_days(db),
+        weight_tolerance_pct=weight_tolerance_pct(db),
     )
 
 
@@ -191,7 +201,8 @@ def _validated_fields(db: Session, data: Dict[str, Any], exclude_id: Optional[in
         data.get("shipment_mode"), data.get("shipment_sub_mode")
     )
     data["mawb_number"], data["airline_prefix"] = validators.validate_awb_number(data.get("mawb_number"))
-    data["hawb_number"] = (data.get("hawb_number") or "").strip() or None
+    # House AWB numbers are stored upper-case so "hawb-1" and "HAWB-1" are the same document (unique index).
+    data["hawb_number"] = (data.get("hawb_number") or "").strip().upper() or None
     validators.validate_airline(db, data.get("airline_id"))
     validators.validate_airport(db, data.get("origin_airport_id"))
     validators.validate_airport(db, data.get("destination_airport_id"))
@@ -298,13 +309,27 @@ def names_match(draft: Optional[str], system: Optional[str], ratio: float = NAME
     return a == b or difflib.SequenceMatcher(None, a, b).ratio() >= ratio
 
 
-def airport_code_matches(draft_code: Optional[str], un_locode: Optional[str]) -> bool:
-    """Draft airport given as UN/LOCODE (``EGCAI``) or as the IATA-style last three letters (``CAI``)."""
+AIRPORT_MATCH, AIRPORT_MISMATCH, AIRPORT_UNKNOWN = "MATCH", "MISMATCH", "UNKNOWN"
+
+
+def airport_code_matches(draft_code: Optional[str], un_locode: Optional[str]) -> str:
+    """Compare a draft airport code with the record airport's UN/LOCODE (``transport_locations`` has no IATA
+    column). Returns MATCH, MISMATCH or UNKNOWN:
+
+    - same code (``EGCAI`` / ``EGCAI``) -> MATCH; two different location codes (5+ chars) -> MISMATCH;
+    - a 3-letter IATA code found in the location part of the LOCODE (``CAI`` in ``EGCAI``, ``SZX`` in
+      ``CNSZXA``) -> MATCH;
+    - any other IATA code -> UNKNOWN: IATA and UN/LOCODE often differ (``IST`` / ``TRISL``, ``HRG`` / ``EGHRK``),
+      so the engine cannot decide and reports a non-blocking warning instead of a false blocking mismatch."""
     d = (draft_code or "").strip().upper().replace(" ", "")
     u = (un_locode or "").strip().upper().replace(" ", "")
     if not d or not u:
-        return False
-    return d == u or (len(d) == 3 and len(u) == 5 and u[2:] == d)
+        return AIRPORT_UNKNOWN
+    if d == u:
+        return AIRPORT_MATCH
+    if len(d) == 3 and d.isalpha():
+        return AIRPORT_MATCH if d in u[2:] else AIRPORT_UNKNOWN
+    return AIRPORT_MISMATCH
 
 
 def _within_tolerance(draft: float, system: float, tolerance_pct: float) -> bool:
@@ -387,8 +412,11 @@ def review_draft_awb(
         elif not system_value:
             add(check, "WARNING", False, draft_value, None)
         else:
-            state = "MATCH" if airport_code_matches(draft_value, system_value) else "MISMATCH"
-            add(check, state, True, draft_value, system_value)
+            result = airport_code_matches(draft_value, system_value)
+            if result == AIRPORT_UNKNOWN:
+                add(check, "WARNING", False, draft_value, system_value)
+            else:
+                add(check, result, True, draft_value, system_value)
 
     # Pieces
     system_pieces = reference.get("pieces_count")

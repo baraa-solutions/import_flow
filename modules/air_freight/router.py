@@ -11,6 +11,7 @@ from modules.users.model import User
 from . import service, validators
 from .model import AirShipmentRecord
 from .schemas import (
+    AirFreightSettings,
     AirShipmentRecordCreate,
     AirShipmentRecordResponse,
     AirShipmentRecordUpdate,
@@ -33,6 +34,11 @@ def _out(db: Session, record: AirShipmentRecord) -> AirShipmentRecordResponse:
     out = AirShipmentRecordResponse.model_validate(record)
     out.storage = service.storage_status_of(db, record)
     return out
+
+
+@router.get("/settings", response_model=AirFreightSettings)
+def get_air_freight_settings(db: Session = Depends(get_db), _: User = Depends(can_view)):
+    return service.air_freight_settings(db)
 
 
 @router.post("/chargeable-weight", response_model=ChargeableWeightResult)

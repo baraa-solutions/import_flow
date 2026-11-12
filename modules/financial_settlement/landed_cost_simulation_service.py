@@ -199,8 +199,17 @@ def simulate_estimated_landed_cost_service(
 
     # Fallback to invoices or estimated_cost if no items (Q4: no invented value or HS code)
     if not items_raw and imp_file.invoices_data:
+        from .fob_valuation_service import net_fob_foreign
+
         for inv in imp_file.invoices_data:
-            inv_amt = float(inv.get("amount") or 0.0)
+            # Net goods value only: the supplier financing markup and discount never enter the customs base
+            # (single net FOB rule, qJZNzixC).
+            inv_amt = net_fob_foreign(
+                float(inv.get("amount") or 0.0),
+                float(inv.get("discount_amount") or 0.0),
+                float(inv.get("financing_markup_amount") or 0.0),
+                inv.get("invoice_no") or inv.get("invoice_number"),
+            )
             if inv_amt > 0:
                 inv_curr = inv.get("currency")
                 if not inv_curr or not str(inv_curr).strip():

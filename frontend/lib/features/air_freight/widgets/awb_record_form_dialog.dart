@@ -56,14 +56,14 @@ class _PackageRow {
   static String _fmt(double v) => v == v.roundToDouble() ? v.toStringAsFixed(0) : '$v';
 
   AirPackageInput toInput() => AirPackageInput(
-    length: double.tryParse(length.text) ?? 0,
-    width: double.tryParse(width.text) ?? 0,
-    height: double.tryParse(height.text) ?? 0,
-    dimensionUnit: dimensionUnit,
-    quantity: int.tryParse(quantity.text) ?? 1,
-    grossWeight: double.tryParse(gross.text) ?? 0,
-    weightUnit: weightUnit,
-  );
+        length: double.tryParse(length.text) ?? 0,
+        width: double.tryParse(width.text) ?? 0,
+        height: double.tryParse(height.text) ?? 0,
+        dimensionUnit: dimensionUnit,
+        quantity: int.tryParse(quantity.text) ?? 1,
+        grossWeight: double.tryParse(gross.text) ?? 0,
+        weightUnit: weightUnit,
+      );
 
   void dispose() {
     for (final c in [length, width, height, quantity, gross]) {
@@ -100,6 +100,7 @@ class _AwbRecordFormDialogState extends ConsumerState<AwbRecordFormDialog> {
     // Master data is reloaded live each time the dialog opens (no stale cache).
     ref.invalidate(airportOptionsProvider);
     ref.invalidate(airlineOptionsProvider);
+    ref.invalidate(airFreightSettingsProvider);
     _gross.addListener(_refreshPreview);
   }
 
@@ -119,20 +120,21 @@ class _AwbRecordFormDialogState extends ConsumerState<AwbRecordFormDialog> {
   }
 
   /// The stored divisor while the mode is unchanged; otherwise the standard one of the selected mode
-  /// (the server applies the configured value on save).
+  /// from the server settings (system parameters), the IATA / courier standard until they load.
   double get _divisor {
     final record = widget.record;
     if (record != null && record.shipmentMode == _mode && record.volumetricDivisor != null) {
       return record.volumetricDivisor!;
     }
-    return _mode == 'COURIER' ? 5000 : 6000;
+    return ref.watch(airFreightSettingsProvider).asData?.value.divisorFor(_mode) ??
+        AirFreightSettings.fallback.divisorFor(_mode);
   }
 
   ChargeableWeightPreview get _preview => AirWeightCalculator.calculate(
-    _packages.map((p) => p.toInput()).toList(),
-    divisor: _divisor,
-    totalGrossKg: double.tryParse(_gross.text),
-  );
+        _packages.map((p) => p.toInput()).toList(),
+        divisor: _divisor,
+        totalGrossKg: double.tryParse(_gross.text),
+      );
 
   String? _optionalNumber(String? v, {bool integer = false}) {
     final text = (v ?? '').trim();
@@ -196,17 +198,17 @@ class _AwbRecordFormDialogState extends ConsumerState<AwbRecordFormDialog> {
           .toList();
 
   Widget _row(List<Widget> children) => Padding(
-    padding: const EdgeInsets.only(bottom: 12),
-    child: Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        for (var i = 0; i < children.length; i++) ...[
-          if (i > 0) const SizedBox(width: 12),
-          Expanded(child: children[i]),
-        ],
-      ],
-    ),
-  );
+        padding: const EdgeInsets.only(bottom: 12),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            for (var i = 0; i < children.length; i++) ...[
+              if (i > 0) const SizedBox(width: 12),
+              Expanded(child: children[i]),
+            ],
+          ],
+        ),
+      );
 
   @override
   Widget build(BuildContext context) {
@@ -411,18 +413,18 @@ class _AwbRecordFormDialogState extends ConsumerState<AwbRecordFormDialog> {
   }
 
   Widget _numField(TextEditingController c, String label, {bool integer = false}) => TextFormField(
-    controller: c,
-    textDirection: TextDirection.ltr,
-    keyboardType: TextInputType.numberWithOptions(decimal: !integer),
-    decoration: InputDecoration(labelText: label, isDense: true),
-    onChanged: (_) => setState(() {}),
-    validator: (v) {
-      final value = integer ? int.tryParse(v ?? '')?.toDouble() : double.tryParse(v ?? '');
-      if (value == null) return 'مطلوب';
-      if (integer ? value < 1 : value < 0) return 'غير صحيح';
-      return null;
-    },
-  );
+        controller: c,
+        textDirection: TextDirection.ltr,
+        keyboardType: TextInputType.numberWithOptions(decimal: !integer),
+        decoration: InputDecoration(labelText: label, isDense: true),
+        onChanged: (_) => setState(() {}),
+        validator: (v) {
+          final value = integer ? int.tryParse(v ?? '')?.toDouble() : double.tryParse(v ?? '');
+          if (value == null) return 'مطلوب';
+          if (integer ? value < 1 : value < 0) return 'غير صحيح';
+          return null;
+        },
+      );
 
   Widget _buildPackageRow(int index) {
     final p = _packages[index];
@@ -473,22 +475,22 @@ class _AwbRecordFormDialogState extends ConsumerState<AwbRecordFormDialog> {
 
   Widget _buildPreview(ChargeableWeightPreview preview) {
     Widget metric(String label, String value, {bool highlight = false}) => Expanded(
-      child: Column(
-        children: [
-          Text(label, style: const TextStyle(fontSize: 12, color: AppTheme.charcoal)),
-          const SizedBox(height: 4),
-          Text(
-            value,
-            textDirection: TextDirection.ltr,
-            style: TextStyle(
-              fontWeight: FontWeight.bold,
-              fontSize: highlight ? 18 : 14,
-              color: highlight ? AppTheme.cobalt : AppTheme.charcoal,
-            ),
+          child: Column(
+            children: [
+              Text(label, style: const TextStyle(fontSize: 12, color: AppTheme.charcoal)),
+              const SizedBox(height: 4),
+              Text(
+                value,
+                textDirection: TextDirection.ltr,
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: highlight ? 18 : 14,
+                  color: highlight ? AppTheme.cobalt : AppTheme.charcoal,
+                ),
+              ),
+            ],
           ),
-        ],
-      ),
-    );
+        );
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(

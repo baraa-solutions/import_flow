@@ -122,6 +122,21 @@ void main() {
       expect(awbCheckLabelsAr.containsKey(review.checklist.single.check), isTrue);
     });
 
+    test('AirFreightSettings parses server divisors and falls back to the standards', () {
+      final s = AirFreightSettings.fromJson({
+        'air_volumetric_divisor': 5500,
+        'courier_volumetric_divisor': 4000,
+        'free_storage_days': 5,
+        'weight_tolerance_pct': 1,
+      });
+      expect(s.divisorFor('AIR'), 5500);
+      expect(s.divisorFor('COURIER'), 4000);
+      expect(s.freeStorageDays, 5);
+      final empty = AirFreightSettings.fromJson(const {});
+      expect(empty.divisorFor('AIR'), 6000);
+      expect(empty.divisorFor('COURIER'), 5000);
+    });
+
     test('sub-mode lists mirror the backend taxonomy', () {
       expect(airSubModes['AIR'], contains('GENERAL_CARGO'));
       expect(airSubModes['COURIER'], ['EXPRESS', 'POSTAL']);

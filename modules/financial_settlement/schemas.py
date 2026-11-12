@@ -1,5 +1,5 @@
 from typing import Optional, List, Dict, Any, Literal
-from datetime import datetime
+from datetime import date, datetime
 from pydantic import BaseModel, ConfigDict, Field, model_validator, field_validator
 from modules.common.legacy_rows import LegacyRowTolerantModel, read_model
 
@@ -482,3 +482,64 @@ class ApproveActualLandedCostResponse(BaseModel):
     message: str
 
 
+
+
+# ── Single Net FOB Valuation (Trello qJZNzixC) ─────────────────────────────────
+
+class FobInvoiceValuationSchema(BaseModel):
+    """One commercial invoice of the net FOB valuation (foreign amounts in the invoice currency)."""
+    invoice_no: str
+    invoice_date: Optional[date] = None
+    currency: str
+    gross_amount: float
+    discount_amount: float = 0.0
+    financing_markup_amount: float = 0.0
+    net_fob_foreign: float
+    payable_foreign: float
+    anchored_foreign: float = 0.0
+    anchor_rate: Optional[float] = None
+    fallback_rate: float
+    applied_rate: float
+    net_fob_egp: float
+    financing_markup_egp: float = 0.0
+    payable_egp: float
+    rate_source: str
+    rate_date: Optional[date] = None
+    customs_rate: Optional[float] = None
+    customs_value_egp: Optional[float] = None
+
+
+class MarkToMarketExposureSchema(BaseModel):
+    """Open Account revaluation of the unsettled amount (unrealized; positive = loss). Never in the landed cost."""
+    currency: str
+    open_foreign: float
+    booked_rate: float
+    current_rate: float
+    as_of: date
+    unrealized_fx_egp: float
+
+
+class FobValuationResponse(BaseModel):
+    """The single source of truth for the goods value of an import file and the FX anchor applied to it."""
+    import_file_id: int
+    basis: str = Field(..., description="INVOICE, ESTIMATE or NONE")
+    payment_term: Optional[str] = None
+    fob_currency: Optional[str] = Field(None, description="null for a multi-currency file")
+    fob_foreign_amount: Optional[float] = None
+    fob_exchange_rate: Optional[float] = Field(None, description="Applied (anchored) accounting rate")
+    fob_total_egp: float = 0.0
+    financing_markup_amount: Optional[float] = None
+    financing_markup_egp: float = 0.0
+    discount_amount: Optional[float] = None
+    payable_total_egp: float = 0.0
+    rate_source: Optional[str] = None
+    rate_date: Optional[date] = None
+    declaration_date: Optional[date] = None
+    customs_exchange_rate: Optional[float] = None
+    customs_value_egp: Optional[float] = Field(None, description="Customs FOB base: net FOB x customs rate on the Form 46 date")
+    unrealized_fx_egp: Optional[float] = None
+    duplicates_ignored: List[str] = []
+    lines: List[FobInvoiceValuationSchema] = []
+    mark_to_market: List[MarkToMarketExposureSchema] = []
+    messages: List[SettlementMessage] = []
+    snapshot_at: Optional[datetime] = None

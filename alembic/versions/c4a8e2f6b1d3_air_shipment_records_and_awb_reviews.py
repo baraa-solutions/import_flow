@@ -1,11 +1,11 @@
 """air freight suite: air_shipment_records and draft_awb_review_sessions
 
-Trello 6wcX4CQ6. New tables only (no change to existing rows): one air waybill per record (MAWB / HAWB,
+Trello 6wcX4CQ6. New tables only (plus a partial unique index: one MAWB without HAWB) (no change to existing rows): one air waybill per record (MAWB / HAWB,
 airline + airports as master-data FKs, gross / volumetric / chargeable weight components, airport storage) and
 the draft AWB review sessions. Soft delete columns; no cascade delete.
 
 Revision ID: c4a8e2f6b1d3
-Revises: b8d2f4a6c1e3
+Revises: c4e8a2f6b1d9
 Create Date: 2026-11-12 14:00:00.000000
 
 """
@@ -17,7 +17,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision: str = 'c4a8e2f6b1d3'
-down_revision: Union[str, Sequence[str], None] = 'b8d2f4a6c1e3'
+down_revision: Union[str, Sequence[str], None] = 'c4e8a2f6b1d9'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
@@ -85,6 +85,11 @@ def upgrade() -> None:
             ('destination_airport_id', False), ('is_active', False),
         ):
             op.create_index(f'ix_{RECORDS}_{column}', RECORDS, [column], unique=unique)
+        # A master AWB without a house number is unique on its own (NULL never collides in the UNIQUE above).
+        op.create_index(
+            'uq_air_shipment_records_mawb_direct', RECORDS, ['mawb_number'], unique=True,
+            sqlite_where=sa.text('hawb_number IS NULL'), postgresql_where=sa.text('hawb_number IS NULL'),
+        )
 
     if REVIEWS not in tables:
         op.create_table(

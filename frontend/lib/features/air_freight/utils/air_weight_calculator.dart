@@ -28,24 +28,24 @@ class AirPackageInput {
   });
 
   Map<String, dynamic> toJson() => {
-    'length': length,
-    'width': width,
-    'height': height,
-    'dimension_unit': dimensionUnit,
-    'quantity': quantity,
-    'gross_weight': grossWeight,
-    'weight_unit': weightUnit,
-  };
+        'length': length,
+        'width': width,
+        'height': height,
+        'dimension_unit': dimensionUnit,
+        'quantity': quantity,
+        'gross_weight': grossWeight,
+        'weight_unit': weightUnit,
+      };
 
   factory AirPackageInput.fromJson(Map<String, dynamic> json) => AirPackageInput(
-    length: (json['length'] as num?)?.toDouble() ?? 0,
-    width: (json['width'] as num?)?.toDouble() ?? 0,
-    height: (json['height'] as num?)?.toDouble() ?? 0,
-    dimensionUnit: json['dimension_unit'] as String? ?? 'cm',
-    quantity: (json['quantity'] as num?)?.toInt() ?? 1,
-    grossWeight: (json['gross_weight'] as num?)?.toDouble() ?? 0,
-    weightUnit: json['weight_unit'] as String? ?? 'kg',
-  );
+        length: (json['length'] as num?)?.toDouble() ?? 0,
+        width: (json['width'] as num?)?.toDouble() ?? 0,
+        height: (json['height'] as num?)?.toDouble() ?? 0,
+        dimensionUnit: json['dimension_unit'] as String? ?? 'cm',
+        quantity: (json['quantity'] as num?)?.toInt() ?? 1,
+        grossWeight: (json['gross_weight'] as num?)?.toDouble() ?? 0,
+        weightUnit: json['weight_unit'] as String? ?? 'kg',
+      );
 }
 
 class ChargeableWeightPreview {

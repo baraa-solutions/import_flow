@@ -93,6 +93,12 @@ final airlineOptionsProvider = FutureProvider.autoDispose<List<AirMasterOption>>
   }).toList();
 });
 
+/// Configured air-freight constants (`GET /air-freight/settings`); reloaded whenever the AWB form opens.
+final airFreightSettingsProvider = FutureProvider.autoDispose<AirFreightSettings>((ref) async {
+  final res = await ref.watch(dioProvider).get('$_base/settings');
+  return AirFreightSettings.fromJson((res.data as Map).cast<String, dynamic>());
+});
+
 /// Review history of one AWB record, newest version first.
 final draftAwbReviewsProvider = FutureProvider.autoDispose.family<List<DraftAwbReview>, int>((ref, airRecordId) async {
   return ref.watch(airFreightRepositoryProvider).listReviews(airRecordId);

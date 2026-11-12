@@ -316,7 +316,7 @@ def test_clean_draft_is_reviewed_without_blockers(db, air_record):
 
 def test_blocking_mismatches_require_revision_and_block_approval(db, air_record):
     draft = _good_draft(awb_number="176-12345676", consignee_name="Another Trading", pieces_count=3,
-                        gross_weight_kg=45, chargeable_weight_kg=130, destination_airport_code="ALY")
+                        gross_weight_kg=45, chargeable_weight_kg=130, destination_airport_code="EGALY")
     review = svc.create_review(db, DraftAwbReviewCreate(air_record_id=air_record.air_record_id, draft=draft), "agent")
     codes = [r["code"] for r in review.blocking_reasons_coded]
     assert review.status == "REVISION_REQUIRED" and review.open_discrepancies_count == 6
@@ -354,10 +354,70 @@ def test_missing_draft_fields_block_and_unknown_reference_warns():
     assert {c["check"]: c["status"] for c in checklist}["awb_number"] == "WARNING"
 
 
-@pytest.mark.parametrize("draft, locode, ok", [("CAI", "EGCAI", True), ("egcai", "EGCAI", True), ("ALY", "EGCAI", False),
-                                               ("", "EGCAI", False)])
-def test_airport_code_matches(draft, locode, ok):
-    assert svc.airport_code_matches(draft, locode) is ok
+@pytest.mark.parametrize("draft, locode, expected", [
+    ("CAI", "EGCAI", "MATCH"),
+    ("egcai", "EGCAI", "MATCH"),
+    ("SZX", "CNSZXA", "MATCH"),     # seeded 6-char code containing the IATA code
+    ("IST", "TRISL", "UNKNOWN"),    # IATA differs from UN/LOCODE: cannot decide
+    ("HRG", "EGHRK", "UNKNOWN"),
+    ("ALY", "EGCAI", "UNKNOWN"),
+    ("EGALY", "EGCAI", "MISMATCH"),  # two location codes: decidable
+    ("", "EGCAI", "UNKNOWN"),
+])
+def test_airport_code_matches(draft, locode, expected):
+    assert svc.airport_code_matches(draft, locode) == expected
+
+
+@pytest.mark.parametrize("draft_code, locode", [("SZX", "CNSZXA"), ("IST", "TRISL"), ("HRG", "EGHRK")])
+def test_iata_codes_never_block_approval(draft_code, locode):
+    reference = {"awb_number": VALID_AWB, "consignee_name": "Sorour Logistics", "pieces_count": 2,
+                 "gross_weight_kg": 40.0, "chargeable_weight_kg": 100.0,
+                 "origin_airport_code": locode, "destination_airport_code": "EGCAI"}
+    draft = _good_draft(origin_airport_code=draft_code)
+    checklist, blocking = svc.review_draft_awb(draft, reference, 0.5)
+    origin = {c["check"]: c for c in checklist}["origin_airport_code"]
+    assert blocking == []
+    assert origin["blocking"] is False and origin["status"] in ("MATCH", "WARNING")
+
+
+def test_full_locode_mismatch_still_blocks():
+    reference = {"awb_number": VALID_AWB, "consignee_name": "Sorour Logistics", "pieces_count": 2,
+                 "gross_weight_kg": 40.0, "chargeable_weight_kg": 100.0,
+                 "origin_airport_code": "CNSZX", "destination_airport_code": "EGCAI"}
+    _, blocking = svc.review_draft_awb(_good_draft(destination_airport_code="EGALY"), reference, 0.5)
+    assert [r["params"]["field"] for r in blocking] == ["destination_airport_code"]
+
+
+def test_hawb_is_case_insensitive_and_stored_upper(db):
+    first = _record(db, hawb_number=" hawb-7 ")
+    assert first.hawb_number == "HAWB-7"
+    with pytest.raises(CodedHTTPException) as exc:
+        _record(db, hawb_number="HAWB-7")
+    assert _code(exc) == "AIR_AWB_DUPLICATE"
+
+
+def test_database_rejects_second_direct_mawb(db):
+    """Partial unique index: one MAWB without HAWB, even if application validation is bypassed."""
+    from sqlalchemy.exc import IntegrityError
+    from modules.air_freight.model import AirShipmentRecord
+
+    db.add(AirShipmentRecord(air_record_code="AWB-X1", import_file_id=1, mawb_number=VALID_AWB))
+    db.commit()
+    db.add(AirShipmentRecord(air_record_code="AWB-X2", import_file_id=1, mawb_number=VALID_AWB))
+    with pytest.raises(IntegrityError):
+        db.commit()
+    db.rollback()
+    db.add(AirShipmentRecord(air_record_code="AWB-X3", import_file_id=1, mawb_number=VALID_AWB, hawb_number="H1"))
+    db.commit()
+
+
+def test_settings_expose_configured_divisors(db):
+    settings = svc.air_freight_settings(db)
+    assert (settings.air_volumetric_divisor, settings.courier_volumetric_divisor) == (6000, 5000)
+    assert (settings.free_storage_days, settings.weight_tolerance_pct) == (3, 0.5)
+    db.add(sp.SystemParameter(param_key=sp.COURIER_VOLUMETRIC_DIVISOR, param_value="4000"))
+    db.commit()
+    assert svc.air_freight_settings(db).courier_volumetric_divisor == 4000
 
 
 def test_review_of_unknown_record_and_review(db):

@@ -19,6 +19,7 @@ from sqlalchemy import (
     DateTime,
     Float,
     ForeignKey,
+    Index,
     Integer,
     String,
     Text,
@@ -86,6 +87,14 @@ class AirShipmentRecord(Base):
     __table_args__ = (
         # One master AWB is one physical consignment; NULL (not known yet) repeats freely.
         UniqueConstraint("mawb_number", "hawb_number", name="uq_air_shipment_records_mawb_hawb"),
+        # NULLs never collide in the constraint above: a master AWB without a house number is unique on its own.
+        Index(
+            "uq_air_shipment_records_mawb_direct",
+            "mawb_number",
+            unique=True,
+            sqlite_where=text("hawb_number IS NULL"),
+            postgresql_where=text("hawb_number IS NULL"),
+        ),
     )
 
 

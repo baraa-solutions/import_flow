@@ -183,6 +183,14 @@ class DraftAwbReviewResponse(BaseModel):
     created_at: Optional[datetime] = None
 
 
+class AirFreightSettings(BaseModel):
+    """Configured constants (system parameters) the client needs for previews."""
+    air_volumetric_divisor: float
+    courier_volumetric_divisor: float
+    free_storage_days: int
+    weight_tolerance_pct: float
+
+
 class AwbNumberCheck(BaseModel):
     awb_number: str
     is_valid: bool

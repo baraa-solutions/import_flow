@@ -1,6 +1,7 @@
 """Database access of the air freight suite (queries only, no business rules)."""
 from typing import List, Optional
 
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from modules.external_service_providers.model import ExternalServiceProvider
@@ -45,10 +46,11 @@ def list_air_records(db: Session, import_file_id: Optional[int] = None, include_
 def find_by_awb(
     db: Session, mawb_number: str, hawb_number: Optional[str], exclude_id: Optional[int] = None
 ) -> Optional[AirShipmentRecord]:
-    """Any record (active or soft-deleted) with the same MAWB and house number (``None`` matches ``None``)."""
+    """Any record (active or soft-deleted) with the same MAWB and house number (``None`` matches ``None``;
+    house numbers compare case-insensitively)."""
     query = db.query(AirShipmentRecord).filter(AirShipmentRecord.mawb_number == mawb_number)
     if hawb_number:
-        query = query.filter(AirShipmentRecord.hawb_number == hawb_number)
+        query = query.filter(func.upper(AirShipmentRecord.hawb_number) == hawb_number.strip().upper())
     else:
         query = query.filter(AirShipmentRecord.hawb_number.is_(None))
     if exclude_id is not None:
