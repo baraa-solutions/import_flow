@@ -445,3 +445,46 @@ class SearchInsightsResponse(BaseModel):
     latest_freight_currency: str = "USD"
     avg_landed_cost: Optional[float] = None
     avg_landed_currency: str = "EGP"
+
+
+# ── Payment pathway milestone gates (PaymentPathwayGuard) ─────────────────────
+
+class PaymentMilestoneStatus(BaseModel):
+    code: str
+    label_en: str
+    label_ar: str
+    evidence_en: str
+    evidence_ar: str
+    is_completed: bool
+    required_before_gate: Optional[str] = None
+    required_before_label_en: Optional[str] = None
+    required_before_label_ar: Optional[str] = None
+
+
+class PaymentGateStatus(BaseModel):
+    gate: str = Field(..., description="PHASE_n, STEP_xx or CLOSURE")
+    label_en: str
+    label_ar: str
+    required_milestones: List[str] = []
+    missing_milestones: List[str] = []
+    is_satisfied: bool
+    is_passed: bool
+    is_waived: bool = False
+
+
+class PaymentPathwayStatusResponse(BaseModel):
+    import_file_id: int
+    import_file_code: Optional[str] = None
+    payment_term: Optional[str] = None
+    payment_term_label_en: Optional[str] = None
+    is_pathway_set: bool
+    current_phase_id: Optional[int] = None
+    current_step_code: Optional[str] = None
+    milestones: List[PaymentMilestoneStatus] = []
+    gates: List[PaymentGateStatus] = []
+    completed_count: int = 0
+    total_count: int = 0
+    next_blocking_gate: Optional[str] = None
+    is_blocked: bool = False
+    blocking_reasons_en: List[str] = []
+    blocking_reasons_ar: List[str] = []

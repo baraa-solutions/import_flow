@@ -961,6 +961,15 @@ def advance_lifecycle_step_service(
     else:
         validators.validate_multi_step_codes(target_step_codes)
 
+    # Payment pathway milestone gates (SWIFT advance / LC / CAD / Open Account)
+    from modules.import_files.import_file_payment_pathway_service import enforce_payment_pathway_gate
+    enforce_payment_pathway_gate(
+        db,
+        file_rec,
+        to_step=target_step_codes[0] if target_step_codes else completed_step_code,
+        closing=completed_step_code == "STEP_21",
+    )
+
     # Gatekeeper check (Checklist Enforcement)
     if enforce_gatekeeper and file_rec and file_rec.import_file_id:
         chk_target = target_step_codes[0] if target_step_codes else completed_step_code

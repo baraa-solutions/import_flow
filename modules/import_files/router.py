@@ -26,6 +26,7 @@ from modules.import_files.schemas import (
     CloneImportFileRequest,
     CreatePartialBatchRequest,
     SearchInsightsResponse,
+    PaymentPathwayStatusResponse,
 )
 import modules.import_files.service as service
 from modules.auth.permissions import require_permission
@@ -309,6 +310,19 @@ def get_freight_rfq_data(
             detail=f"ملف الاستيراد '{import_file_id}' غير موجود.",
         )
     return service.generate_freight_rfq_service(db, item.import_file_id, recipient_name=recipient_name)
+
+
+@router.get(
+    "/{import_file_id}/payment-pathway",
+    response_model=PaymentPathwayStatusResponse,
+    summary="Payment pathway milestones: completed / pending banking milestones and lifecycle gates",
+)
+def get_payment_pathway_status(
+    import_file_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("import_files.view")),
+):
+    return service.get_payment_pathway_status_service(db, import_file_id)
 
 
 @router.get(

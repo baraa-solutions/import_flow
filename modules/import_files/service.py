@@ -5,6 +5,7 @@ Decomposed into focused domain sub-services:
 - import_file_lifecycle_service.py: Creation, formulas, transitions, cloning, batches, freight RFQ.
 - import_file_hold_service.py: Hold codes, reasons, regulatory locks, halts, and release validations.
 - import_file_cost_service.py: Master reports, landed cost summaries, customs duty references, export rows.
+- import_file_payment_pathway_service.py: Payment pathway milestone gates and their status.
 
 This coordinator file provides 100% backward compatibility for router.py, submodules, and tests.
 """
@@ -62,6 +63,12 @@ from modules.import_files.import_file_cost_service import (
     generate_master_report_service,
     get_landed_cost_summary_service,
     build_export_rows,
+)
+
+# Re-exports from import_file_payment_pathway_service
+from modules.import_files.import_file_payment_pathway_service import (
+    enforce_payment_pathway_gate,
+    get_payment_pathway_status_service,
 )
 
 
