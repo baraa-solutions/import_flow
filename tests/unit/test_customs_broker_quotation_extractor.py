@@ -433,3 +433,48 @@ def test_notes_keep_numbers_and_ocr_wrapped_words():
     assert "كشف الجميع" in result["notes"]
     assert "1000" in result["notes"] and "2000" in result["notes"]
     assert "ايصالات رسمية" in result["notes"]
+
+
+def _inland_items(text: str) -> dict:
+    result = CustomsBrokerQuotationExtractor().extract(text, {})
+    return {
+        c["expense_name"]: c
+        for c in result["expenses_catalog"]
+        if c["category"].startswith("Inland Transport")
+    }
+
+
+def test_demurrage_ground_row_is_not_relabelled_as_transport():
+    text = (
+        "ميناء الاسكندرية\n"
+        "بياتة الحاويات والشاحنات\n"
+        "ارضية الحاوية 40 قدم لليوم 500\n"
+    )
+    items = _inland_items(text)
+    assert "نقل حاوية 40 قدم (إسكندرية - قاهرة)" not in items
+    # Seed catalog rows may still list 40ft transport; the 500 ground row must not be one of them.
+    assert not any(name.startswith("نقل حاوية 40") and c["price"] == 500.0 for name, c in items.items())
+    ground = items["ارضية الحاوية 40 قدم لليوم"]
+    assert ground["price"] == 500.0
+    assert ground["pricing_unit"] == "Per Day (لكل يوم)"
+
+
+def test_40ft_weight_tiers_are_not_misread_as_20ft_after_digit_normalization():
+    text = (
+        "ميناء الاسكندرية\n"
+        "النقل من الاسكندرية للقاهرة\n"
+        "الحاوية ٤٠ قدم اقل من ٢٠ طن 8000\n"
+        "الحاوية ٤٠ قدم اكثر من ٢٠ طن 9500\n"
+    )
+    items = _inland_items(text)
+    assert "نقل حاوية 20 قدم حتى 10 طن (إسكندرية - قاهرة)" not in items
+    assert "نقل حاوية 20 قدم أكثر من 10 طن (إسكندرية - قاهرة)" not in items
+    assert items["نقل حاوية 40 قدم أقل من 20 طن (إسكندرية - قاهرة)"]["price"] == 8000.0
+    assert items["نقل حاوية 40 قدم أكثر من 20 طن (إسكندرية - قاهرة)"]["price"] == 9500.0
+
+
+def test_bare_greater_than_sign_is_not_an_over_tier():
+    from modules.smart_document_upload.extractors.customs_broker_quotation import _is_over_tier
+
+    assert _is_over_tier("نقل حاوية 20 قدم > 10 طن")
+    assert not _is_over_tier("نقل حاوية 20 قدم -> القاهرة")

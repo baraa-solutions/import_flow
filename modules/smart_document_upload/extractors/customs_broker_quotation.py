@@ -62,7 +62,43 @@ PORT_NAME_AR: Dict[str, str] = {
 DEFAULT_PORT_NAME = "Alexandria Port (ميناء الإسكندرية)"
 
 # "More than N tons" in rate cards: formal and Egyptian colloquial forms.
-OVER_TIER_WORDS = ("اكثر", "أكثر", "اكبر", "أكبر", "زيادة", "زياده", "فوق", ">")
+OVER_TIER_WORDS = ("اكثر", "أكثر", "اكبر", "أكبر", "زيادة", "زياده", "فوق")
+UNDER_TIER_WORDS = ("اقل", "أقل", "حتى", "حتي")
+# A bare ">" / "<" counts as a tier only when it directly precedes a number ("> 10 طن").
+_OVER_TIER_SYMBOL = re.compile(r">\s*\d")
+_UNDER_TIER_SYMBOL = re.compile(r"<\s*\d")
+
+# Container size token (20 / 40): a standalone number that is not a weight ("20 طن"),
+# a multiplier ("20*2") or part of a larger number / decimal. Text is already 0-9 normalized.
+_CONTAINER_SIZE = re.compile(
+    r"(?<![\d.,*])(20|40)(?![\d.,])(?!\s*\*)(?!\s*(?:طن|ton|kg|كجم|كيلو))",
+    re.IGNORECASE,
+)
+_WEIGHT_THRESHOLD = re.compile(r"(?<![\d.,])(\d+(?:\.\d+)?)\s*(?:طن|ton)", re.IGNORECASE)
+# Ground-storage / per-day rows are demurrage even when the row repeats "الحاوية 40 قدم".
+_DEMURRAGE_ROW = re.compile(r"بياتة|بياته|ارضية|أرضية|ارضيه|أرضيه|لليوم|يوميا|يومياً|per\s*day", re.IGNORECASE)
+_PER_DAY_ROW = re.compile(r"لليوم|يوميا|يومياً|per\s*day", re.IGNORECASE)
+
+
+def _container_size(name: str) -> Optional[str]:
+    match = _CONTAINER_SIZE.search(name)
+    return match.group(1) if match else None
+
+
+def _is_over_tier(name: str) -> bool:
+    return any(word in name for word in OVER_TIER_WORDS) or bool(_OVER_TIER_SYMBOL.search(name))
+
+
+def _is_under_tier(name: str) -> bool:
+    return any(word in name for word in UNDER_TIER_WORDS) or bool(_UNDER_TIER_SYMBOL.search(name))
+
+
+def _weight_threshold(name: str, default: str) -> str:
+    match = _WEIGHT_THRESHOLD.search(name)
+    if not match:
+        return default
+    value = match.group(1)
+    return value[:-2] if value.endswith(".0") else value
 
 # OCR splits a word across lines with a trailing tatweel ("كشـ" + "ف الجميع").
 _TATWEEL_LINE_BREAK = re.compile(r"ـ[ \t]*\r?\n[ \t]*")
@@ -1317,19 +1353,27 @@ class CustomsBrokerQuotationExtractor(BaseExtractor):
 
             elif current_section in ("TRANSPORT", "DEMURRAGE"):
                 category = "Inland Transport (نقل بري وشاحنات)"
-                if "دبابة" in norm_name or "1 طن" in norm_name or "١ طن" in norm_name:
+                container_size = _container_size(norm_name)
+                is_demurrage_row = bool(_DEMURRAGE_ROW.search(norm_name))
+                if "دبابة" in norm_name or re.search(r"(?<![\d.,])1\s*طن", norm_name):
                     norm_name = "نقل سيارة 1 طن دبابة (إسكندرية - قاهرة)"
                     unit = "Per Vehicle (لكل سيارة)"
-                elif "جامبو" in norm_name or "4 طن" in norm_name or "٤ طن" in norm_name:
+                elif "جامبو" in norm_name or re.search(r"(?<![\d.,])4\s*طن", norm_name):
                     norm_name = "نقل سيارة جامبو حتى 4 طن (إسكندرية - قاهرة)"
                     unit = "Per Vehicle (لكل سيارة)"
-                elif "فرداني" in norm_name or "7 طن" in norm_name or "٧ طن" in norm_name:
+                elif "فرداني" in norm_name or re.search(r"(?<![\d.,])7\s*طن", norm_name):
                     norm_name = "نقل سيارة فرداني حتى 7 طن (إسكندرية - قاهرة)"
                     unit = "Per Vehicle (لكل سيارة)"
-                elif "20" in norm_name and any(word in norm_name for word in OVER_TIER_WORDS):
+                elif not is_demurrage_row and container_size == "40" and _is_over_tier(norm_name):
+                    norm_name = f"نقل حاوية 40 قدم أكثر من {_weight_threshold(norm_name, '20')} طن (إسكندرية - قاهرة)"
+                    unit = "Per Container (لكل حاوية)"
+                elif not is_demurrage_row and container_size == "40" and _is_under_tier(norm_name):
+                    norm_name = f"نقل حاوية 40 قدم أقل من {_weight_threshold(norm_name, '20')} طن (إسكندرية - قاهرة)"
+                    unit = "Per Container (لكل حاوية)"
+                elif not is_demurrage_row and container_size == "20" and _is_over_tier(norm_name):
                     norm_name = "نقل حاوية 20 قدم أكثر من 10 طن (إسكندرية - قاهرة)"
                     unit = "Per Container (لكل حاوية)"
-                elif "20" in norm_name and ("اقل" in norm_name or "أقل" in norm_name or "10 طن" in norm_name):
+                elif not is_demurrage_row and container_size == "20" and (_is_under_tier(norm_name) or "10 طن" in norm_name):
                     norm_name = "نقل حاوية 20 قدم حتى 10 طن (إسكندرية - قاهرة)"
                     unit = "Per Container (لكل حاوية)"
                 elif "20*2" in norm_name or "20 * 2" in norm_name:
@@ -1345,7 +1389,11 @@ class CustomsBrokerQuotationExtractor(BaseExtractor):
                 elif "20*1" in norm_name or "20 * 1" in norm_name or ("20" in norm_name and "بياتة" in norm_name):
                     norm_name = "بياتة حاوية 20*1 (Overnight Demurrage)"
                     unit = "Per Night (لكل ليلة)"
-                elif "40" in norm_name:
+                elif is_demurrage_row:
+                    # Ground storage / per-day rows keep their own label; never relabel them as transport.
+                    if _PER_DAY_ROW.search(norm_name):
+                        unit = "Per Day (لكل يوم)"
+                elif current_section == "TRANSPORT" and container_size == "40":
                     # Rows under a transport header often omit "نقل" ("الحاوية ٤٠ قدم"): inherit the section.
                     norm_name = "نقل حاوية 40 قدم (إسكندرية - قاهرة)"
                     unit = "Per Container (لكل حاوية)"
