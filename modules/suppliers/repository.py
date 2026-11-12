@@ -140,7 +140,7 @@ def count_suppliers(db: Session) -> int:
 # ==================================================
 
 def update_supplier(db: Session, supplier: Supplier, supplier_data: SupplierUpdate) -> Supplier:
-    update_data = supplier_data.model_dump(exclude_unset=True, exclude_none=True)
+    update_data = supplier_data.to_update_dict()
     old_data = {
         k: getattr(supplier, k, None)
         for k in update_data.keys()
