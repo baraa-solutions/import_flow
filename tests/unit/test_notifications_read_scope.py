@@ -22,6 +22,7 @@ from modules.notifications.utils import (
     audience_names_for_roles,
     canonical_role,
     is_addressed_to,
+    normalize_audience,
 )
 
 # target_role values written by the producers on company/main (freight booking, ACID session, demurrage policy,
@@ -145,3 +146,102 @@ def test_operator_cannot_widen_scope_with_target_role(db):
 def test_mark_all_read_by_admin_is_unrestricted(db):
     assert NotificationService(db).mark_all_read(user=_user("ADMIN")) == len(PRODUCER_AUDIENCES)
     assert _unread(db) == []
+
+
+# ─── normalisation of legacy / free-text audiences ───────────────────────────
+
+def test_canonical_role_normalises_case_spaces_and_hyphens():
+    assert canonical_role(" Customs Broker ") == "CUSTOMS_OFFICER"
+    assert canonical_role("logistics-officer") == "LOGISTICS_OPERATOR"
+    assert canonical_role("general manager") == "GENERAL_MANAGER"
+
+
+def test_legacy_free_text_audience_is_cleared_by_mapped_role(db):
+    legacy = SystemNotification(title="legacy", message="m", target_role="Customs Broker")
+    db.add(legacy)
+    db.commit()
+    NotificationService(db).mark_all_read(user=_user("CUSTOMS_OFFICER", "CUSTOMS_OFFICER"))
+    db.refresh(legacy)
+    assert legacy.is_read is True
+
+
+def test_legacy_free_text_audience_is_not_cleared_by_other_roles(db):
+    legacy = SystemNotification(title="legacy", message="m", target_role="Customs Broker")
+    db.add(legacy)
+    db.commit()
+    NotificationService(db).mark_all_read(user=_user("LOGISTICS_OPERATOR", "LOGISTICS_OPERATOR"))
+    db.refresh(legacy)
+    assert legacy.is_read is False
+    with pytest.raises(HTTPException):
+        NotificationService(db).mark_read(legacy.notification_id, user=_user("LOGISTICS_OPERATOR", "LOGISTICS_OPERATOR"))
+    officer = _user("CUSTOMS_OFFICER", "CUSTOMS_OFFICER")
+    assert NotificationService(db).mark_read(legacy.notification_id, user=officer).is_read is True
+
+
+# ─── every producer in modules/ uses a known audience ────────────────────────
+
+def _producer_audiences():
+    """(file:line, value) for every string literal passed as a notification target_role in modules/:
+    target_role= keywords, "target_role": dict entries, and positional arguments of local helpers whose
+    parameter is named target_role (e.g. payment_request_service._notify(..., "FINANCE_OFFICER"))."""
+    import ast
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[2] / "modules"
+    found = []
+    for path in root.rglob("*.py"):
+        tree = ast.parse(path.read_text(encoding="utf-8-sig"))  # some sources carry a UTF-8 BOM
+        rel = path.relative_to(root.parent)
+        positional = {}
+        for node in ast.walk(tree):
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                names = [a.arg for a in node.args.args]
+                if "target_role" in names:
+                    bound = 1 if names and names[0] in ("self", "cls") else 0
+                    positional[node.name] = names.index("target_role") - bound
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Call):
+                for kw in node.keywords:
+                    if kw.arg == "target_role" and isinstance(kw.value, ast.Constant) and isinstance(kw.value.value, str):
+                        found.append((f"{rel}:{node.lineno}", kw.value.value))
+                func_name = getattr(node.func, "id", None) or getattr(node.func, "attr", None)
+                idx = positional.get(func_name)
+                if idx is not None and len(node.args) > idx:
+                    arg = node.args[idx]
+                    if isinstance(arg, ast.Constant) and isinstance(arg.value, str):
+                        found.append((f"{rel}:{node.lineno}", arg.value))
+            elif isinstance(node, ast.Dict):
+                for key, value in zip(node.keys, node.values):
+                    if (isinstance(key, ast.Constant) and key.value == "target_role"
+                            and isinstance(value, ast.Constant) and isinstance(value.value, str)):
+                        found.append((f"{rel}:{node.lineno}", value.value))
+    return found
+
+
+def test_producer_scan_finds_the_known_writers():
+    values = {value for _where, value in _producer_audiences()}
+    assert {"LOGISTICS_OFFICER", "CUSTOMS_BROKER", "FINANCE_OFFICER", "COORDINATOR"} <= values
+
+
+def test_every_producer_audience_canonicalises_to_a_seeded_role():
+    allowed = {r["code"] for r in ROLES_CONFIG} | {"ALL"}
+    bad = [f"{where}: {value!r}" for where, value in _producer_audiences() if canonical_role(value) not in allowed]
+    assert not bad, "notification target_role values that reach no role:\n" + "\n".join(bad)
+
+
+def test_every_producer_audience_is_written_normalised():
+    bad = [f"{where}: {value!r}" for where, value in _producer_audiences() if value != normalize_audience(value)]
+    assert not bad, "write target_role in canonical form (UPPER_SNAKE):\n" + "\n".join(bad)
+
+
+# ─── POST /notifications validates the audience ──────────────────────────────
+
+def test_create_schema_rejects_unknown_audience():
+    from pydantic import ValidationError
+
+    from modules.notifications.schemas import NotificationCreate
+
+    with pytest.raises(ValidationError):
+        NotificationCreate(title="t", message="m", target_role="BOGUS_ROLE")
+    assert NotificationCreate(title="t", message="m", target_role="Customs Broker").target_role == "CUSTOMS_BROKER"
+    assert NotificationCreate(title="t", message="m").target_role == "ALL"

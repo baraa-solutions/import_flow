@@ -703,7 +703,7 @@ def record_items_verification_service(
                 message=render_en(alert_msg.code, alert_msg.params, "body"),
                 msg_code=alert_msg.code,
                 msg_params=alert_msg.params,
-                target_role="Customs Broker",
+                target_role="CUSTOMS_BROKER",
             ))
 
         _commit_follow_up(db, _regulatory_alert, "Regulatory screening alert")

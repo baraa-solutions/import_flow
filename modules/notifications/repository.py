@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from modules.common.pagination import PageParams, like_term, paginate
 from .model import SystemNotification
 from .schemas import NotificationCreate
+from .utils import normalized_target_role_column
 
 
 NOTIFICATION_SORT_MAP = {
@@ -113,13 +114,15 @@ class NotificationRepository:
         return db_obj
 
     def mark_all_as_read(self, target_role: Optional[str] = None, audience_names: Optional[Iterable[str]] = None) -> int:
-        """Marks unread notifications read. ``audience_names`` (non-admin callers: the raw target_role values
-        addressed to them, see notifications.utils) limits the update; ``None`` means unrestricted (admin)."""
+        """Marks unread notifications read. ``audience_names`` (non-admin callers: the normalised target_role
+        values addressed to them, see notifications.utils) limits the update; ``None`` means unrestricted (admin).
+        Stored values are compared in normalised form, so legacy rows like "Customs Broker" match too."""
         query = self.db.query(SystemNotification).filter(SystemNotification.is_read == False)
         if target_role and target_role != "ALL":
             query = query.filter(SystemNotification.target_role.in_(["ALL", target_role]))
         if audience_names is not None:
-            query = query.filter(SystemNotification.target_role.in_(list(audience_names)))
+            normalized = normalized_target_role_column(SystemNotification.target_role)
+            query = query.filter(normalized.in_(sorted(audience_names)))
 
         updated_count = query.update({SystemNotification.is_read: True, SystemNotification.updated_at: datetime.now(timezone.utc)}, synchronize_session=False)
         self.db.commit()
