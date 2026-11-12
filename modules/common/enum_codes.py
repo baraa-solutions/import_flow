@@ -55,6 +55,7 @@ CONTAINER_TYPE = "CONTAINER_TYPE"
 SHIPMENT_MODE = "SHIPMENT_MODE"
 # Review wave (docs/plans/review-shared-needs.md)
 PAYMENT_TYPE = "PAYMENT_TYPE"
+PAYMENT_TERM = "PAYMENT_TERM"
 LEGAL_DOC_KIND = "LEGAL_DOC_KIND"
 LAB_TEST_RESULT = "LAB_TEST_RESULT"
 ODC_STATUS = "ODC_STATUS"
@@ -401,6 +402,14 @@ LABELS_EN: Dict[str, Dict[str, str]] = {
         "LETTER_OF_CREDIT": "Letter of Credit (L/C)",
         "DOCUMENTARY_COLLECTION": "Documentary Collection (CAD)",
         "FINAL_SETTLEMENT": "Final Settlement",
+    },
+    # Exclusive payment pathway of a shipment (import_files.payment_term; trade_finance.payment_pathway).
+    # Codes match trade-finance instrument types; English labels match the PO payment-terms options.
+    PAYMENT_TERM: {
+        "ADVANCE_PAYMENT": "Cash in Advance / SWIFT",
+        "LC": "Letter of Credit / LC",
+        "CAD": "CAD / Cash Against Documents",
+        "OPEN_ACCOUNT": "Open Account / Deferred Payment",
     },
     # Legal document of an expiry alert (import_documentation legal-docs check, message param doc_kind)
     LEGAL_DOC_KIND: {
@@ -807,6 +816,13 @@ _LEGACY: Dict[str, Dict[str, str]] = {
         "LC": "LETTER_OF_CREDIT",
         "Documentary Collection": "DOCUMENTARY_COLLECTION",
         "CAD": "DOCUMENTARY_COLLECTION",
+    },
+    PAYMENT_TERM: {
+        "Cash in Advance (دفعة مقدمة / سويفت)": "ADVANCE_PAYMENT",
+        "SWIFT": "ADVANCE_PAYMENT",
+        "Letter of Credit (اعتماد مستندي)": "LC",
+        "Cash Against Documents (تحصيل مستندي)": "CAD",
+        "Open Account (حساب مفتوح / دفع آجل)": "OPEN_ACCOUNT",
     },
     # Bilingual names the legal-docs check used as the alert title.
     LEGAL_DOC_KIND: {
