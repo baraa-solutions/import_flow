@@ -18,6 +18,7 @@ from modules.expense_catalog.seed_data import EXPENSE_CATALOG_SEED_DATA
 from modules.expense_catalog.broker_mapping_service import (
     BrokerMappingMemoryService,
     normalize_arabic_for_matching,
+    normalize_arabic_indic_numerals,
 )
 
 
@@ -45,22 +46,89 @@ PORT_NAME_MAP: Dict[str, str] = {
     "أكتوبر الجاف": "6th of October Dry Port",
 }
 
+# Arabic names used when the extractor composes an Arabic title (no English tokens: they flip BiDi order).
+PORT_NAME_AR: Dict[str, str] = {
+    "Alexandria Port": "الإسكندرية",
+    "El Dekheila Port": "الدخيلة",
+    "Sokhna Port": "السخنة",
+    "Port Said": "بورسعيد",
+    "East Port Said": "شرق بورسعيد",
+    "West Port Said": "غرب بورسعيد",
+    "Damietta Port": "دمياط",
+    "Adabiya Port": "الأدبية",
+    "Cairo Airport": "مطار القاهرة",
+    "6th of October Dry Port": "ميناء أكتوبر الجاف",
+}
+DEFAULT_PORT_NAME = "Alexandria Port (ميناء الإسكندرية)"
+
+# "More than N tons" in rate cards: formal and Egyptian colloquial forms.
+OVER_TIER_WORDS = ("اكثر", "أكثر", "اكبر", "أكبر", "زيادة", "زياده", "فوق")
+UNDER_TIER_WORDS = ("اقل", "أقل", "حتى", "حتي")
+# A bare ">" / "<" counts as a tier only when it directly precedes a number ("> 10 طن").
+_OVER_TIER_SYMBOL = re.compile(r">\s*\d")
+_UNDER_TIER_SYMBOL = re.compile(r"<\s*\d")
+
+# Container size token (20 / 40): a standalone number that is not a weight ("20 طن"),
+# a multiplier ("20*2") or part of a larger number / decimal. Text is already 0-9 normalized.
+_CONTAINER_SIZE = re.compile(
+    r"(?<![\d.,*])(20|40)(?![\d.,])(?!\s*\*)(?!\s*(?:طن|ton|kg|كجم|كيلو))",
+    re.IGNORECASE,
+)
+_WEIGHT_THRESHOLD = re.compile(r"(?<![\d.,])(\d+(?:\.\d+)?)\s*(?:طن|ton)", re.IGNORECASE)
+# Ground-storage / per-day rows are demurrage even when the row repeats "الحاوية 40 قدم".
+_DEMURRAGE_ROW = re.compile(r"بياتة|بياته|ارضية|أرضية|ارضيه|أرضيه|لليوم|يوميا|يومياً|per\s*day", re.IGNORECASE)
+_PER_DAY_ROW = re.compile(r"لليوم|يوميا|يومياً|per\s*day", re.IGNORECASE)
+
+
+def _container_size(name: str) -> Optional[str]:
+    match = _CONTAINER_SIZE.search(name)
+    return match.group(1) if match else None
+
+
+def _is_over_tier(name: str) -> bool:
+    return any(word in name for word in OVER_TIER_WORDS) or bool(_OVER_TIER_SYMBOL.search(name))
+
+
+def _is_under_tier(name: str) -> bool:
+    return any(word in name for word in UNDER_TIER_WORDS) or bool(_UNDER_TIER_SYMBOL.search(name))
+
+
+def _weight_threshold(name: str, default: str) -> str:
+    match = _WEIGHT_THRESHOLD.search(name)
+    if not match:
+        return default
+    value = match.group(1)
+    return value[:-2] if value.endswith(".0") else value
+
+# OCR splits a word across lines with a trailing tatweel ("كشـ" + "ف الجميع").
+_TATWEEL_LINE_BREAK = re.compile(r"ـ[ \t]*\r?\n[ \t]*")
+
+# Ignored only when the whole label is this word (a "الحاوية: 40HQ" header), not inside a priced row.
+_EXACT_IGNORE_LABELS = {"الحاوية"}
+
 
 class CustomsBrokerQuotationExtractor(BaseExtractor):
 
     def required_fields(self) -> List[str]:
         return ["broker_name", "port_name", "clearance_fee", "total_estimated_clearance_cost"]
 
+    @staticmethod
+    def _prepare_text(raw_text: str) -> str:
+        """Pre-processing before any regex: Eastern / Persian digits to 0-9 and OCR-wrapped words re-joined."""
+        text = normalize_arabic_indic_numerals(raw_text or "")
+        return _TATWEEL_LINE_BREAK.sub("", text)
+
     def extract(self, raw_text: str, spatial_boxes: dict) -> Dict[str, Any]:
-        text = raw_text or ""
+        text = self._prepare_text(raw_text)
 
         # 0. Independent reference count running before/independent of extraction (Sub-task 4.1)
         expected_info = QuotationValidationLayer.count_expected_items(text)
         expected_item_count = expected_info.get("expected_item_count", 0)
 
         broker_name = self._extract_broker_name(text)
-        port_name = self._extract_port(text)
-        title = self._extract_title(text, broker_name, port_name)
+        port_names = self._extract_ports(text)
+        port_name = port_names[0] if port_names else DEFAULT_PORT_NAME
+        title = self._extract_title(text, broker_name, port_names)
         container_type = self._extract_container_type(text)
 
         effective_from = self._extract_effective_from_date(text)
@@ -177,6 +245,7 @@ class CustomsBrokerQuotationExtractor(BaseExtractor):
             "title": title,
             "broker_name": broker_name,
             "port_name": port_name,
+            "port_names": port_names,
             "container_type": container_type,
             "effective_from": effective_from,
             "effective_to": validity_date,
@@ -197,16 +266,17 @@ class CustomsBrokerQuotationExtractor(BaseExtractor):
         }
         return result
 
-    def _extract_title(self, text: str, broker: Optional[str], port: Optional[str]) -> str:
+    def _extract_title(self, text: str, broker: Optional[str], ports: List[str]) -> str:
         match = self.find_first([
-            r"((?:بيان|عرض|لائق\s+بيان)\s+(?:ب)?أسعار\s+التخليص[^\n\r]{5,100})",
-            r"((?:قائمة|جدول)\s+أسعار\s+(?:التخليص|الخدمات)[^\n\r]{5,100})",
+            r"((?:بيان|عرض|لائق\s+بيان)\s+(?:ب)?[أا]سعار\s+التخليص[^\n\r]{5,160})",
+            r"((?:قائمة|جدول)\s+[أا]سعار\s+(?:التخليص|الخدمات)[^\n\r]{5,160})",
         ], text)
         if match:
             return match.strip()
         year_match = re.search(r"20[2-3][0-9]", text)
         year = year_match.group(0) if year_match else "2026"
-        return f"بيان بأسعار التخليص والنقل لميناء {port or 'الإسكندرية'} لعام {year}"
+        arabic_ports = " و".join(PORT_NAME_AR.get(p, p) for p in ports) or "الإسكندرية"
+        return f"بيان بأسعار التخليص والنقل لميناء {arabic_ports} لعام {year}"
 
     def _extract_effective_from_date(self, text: str) -> str:
         date_match = re.search(r"\b(20[2-3][0-9])[-/](0?[1-9]|1[0-2])[-/](0?[1-9]|[12][0-9]|3[01])\b", text)
@@ -236,12 +306,15 @@ class CustomsBrokerQuotationExtractor(BaseExtractor):
                 return clean_l[:60]
         return "شركة اسكندرية للأعمال الجمركية (ACC)"
 
-    def _extract_port(self, text: str) -> Optional[str]:
+    def _extract_ports(self, text: str) -> List[str]:
+        """Every port the quotation names (twin ports such as Alexandria + El Dekheila), in order of mention."""
         text_lower = text.lower()
-        for k, v in PORT_NAME_MAP.items():
-            if k in text_lower:
-                return v
-        return "Alexandria Port (ميناء الإسكندرية)"
+        first_seen: Dict[str, int] = {}
+        for key, port in PORT_NAME_MAP.items():
+            pos = text_lower.find(key)
+            if pos >= 0 and (port not in first_seen or pos < first_seen[port]):
+                first_seen[port] = pos
+        return sorted(first_seen, key=first_seen.get)
 
     def _extract_container_type(self, text: str) -> str:
         t = text.upper()
@@ -1079,7 +1152,7 @@ class CustomsBrokerQuotationExtractor(BaseExtractor):
         ignore_keywords = {
             "هاتف", "فاكس", "العنوان", "سجل", "بطاقة", "التاريخ", "ساري",
             "تلفون", "موبايل", "صلاحية", "إجمالي", "total", "phone", "date",
-            "fax", "شركة", "عناية", "الحاوية", "ميناء الوصول", "السادة", "صفحة", "page"
+            "fax", "شركة", "عناية", "ميناء الوصول", "السادة", "صفحة", "page"
         }
 
         for line in text.splitlines():
@@ -1181,7 +1254,7 @@ class CustomsBrokerQuotationExtractor(BaseExtractor):
                 continue
 
             clean_name = re.sub(r"^(?:EGP|ج\.م|جنيه|[\-–—•*])\s*", "", raw_name).strip()
-            if any(kw in clean_name.lower() for kw in ignore_keywords) or any(kw in clean_name for kw in ["سكاس", "تشطيبات", "مقاولات"]) or len(clean_name) < 3:
+            if clean_name.strip() in _EXACT_IGNORE_LABELS or any(kw in clean_name.lower() for kw in ignore_keywords) or any(kw in clean_name for kw in ["سكاس", "تشطيبات", "مقاولات"]) or len(clean_name) < 3:
                 continue
 
             price, min_p, max_p, p_notes, price_type = self._parse_price_details(raw_price_str)
@@ -1280,19 +1353,27 @@ class CustomsBrokerQuotationExtractor(BaseExtractor):
 
             elif current_section in ("TRANSPORT", "DEMURRAGE"):
                 category = "Inland Transport (نقل بري وشاحنات)"
-                if "دبابة" in norm_name or "1 طن" in norm_name or "١ طن" in norm_name:
+                container_size = _container_size(norm_name)
+                is_demurrage_row = bool(_DEMURRAGE_ROW.search(norm_name))
+                if "دبابة" in norm_name or re.search(r"(?<![\d.,])1\s*طن", norm_name):
                     norm_name = "نقل سيارة 1 طن دبابة (إسكندرية - قاهرة)"
                     unit = "Per Vehicle (لكل سيارة)"
-                elif "جامبو" in norm_name or "4 طن" in norm_name or "٤ طن" in norm_name:
+                elif "جامبو" in norm_name or re.search(r"(?<![\d.,])4\s*طن", norm_name):
                     norm_name = "نقل سيارة جامبو حتى 4 طن (إسكندرية - قاهرة)"
                     unit = "Per Vehicle (لكل سيارة)"
-                elif "فرداني" in norm_name or "7 طن" in norm_name or "٧ طن" in norm_name:
+                elif "فرداني" in norm_name or re.search(r"(?<![\d.,])7\s*طن", norm_name):
                     norm_name = "نقل سيارة فرداني حتى 7 طن (إسكندرية - قاهرة)"
                     unit = "Per Vehicle (لكل سيارة)"
-                elif "20" in norm_name and ("اكبر" in norm_name or "أكبر" in norm_name):
+                elif not is_demurrage_row and container_size == "40" and _is_over_tier(norm_name):
+                    norm_name = f"نقل حاوية 40 قدم أكثر من {_weight_threshold(norm_name, '20')} طن (إسكندرية - قاهرة)"
+                    unit = "Per Container (لكل حاوية)"
+                elif not is_demurrage_row and container_size == "40" and _is_under_tier(norm_name):
+                    norm_name = f"نقل حاوية 40 قدم أقل من {_weight_threshold(norm_name, '20')} طن (إسكندرية - قاهرة)"
+                    unit = "Per Container (لكل حاوية)"
+                elif not is_demurrage_row and container_size == "20" and _is_over_tier(norm_name):
                     norm_name = "نقل حاوية 20 قدم أكثر من 10 طن (إسكندرية - قاهرة)"
                     unit = "Per Container (لكل حاوية)"
-                elif "20" in norm_name and ("اقل" in norm_name or "أقل" in norm_name or "10 طن" in norm_name):
+                elif not is_demurrage_row and container_size == "20" and (_is_under_tier(norm_name) or "10 طن" in norm_name):
                     norm_name = "نقل حاوية 20 قدم حتى 10 طن (إسكندرية - قاهرة)"
                     unit = "Per Container (لكل حاوية)"
                 elif "20*2" in norm_name or "20 * 2" in norm_name:
@@ -1308,7 +1389,12 @@ class CustomsBrokerQuotationExtractor(BaseExtractor):
                 elif "20*1" in norm_name or "20 * 1" in norm_name or ("20" in norm_name and "بياتة" in norm_name):
                     norm_name = "بياتة حاوية 20*1 (Overnight Demurrage)"
                     unit = "Per Night (لكل ليلة)"
-                elif "40" in norm_name and "نقل" in norm_name:
+                elif is_demurrage_row:
+                    # Ground storage / per-day rows keep their own label; never relabel them as transport.
+                    if _PER_DAY_ROW.search(norm_name):
+                        unit = "Per Day (لكل يوم)"
+                elif current_section == "TRANSPORT" and container_size == "40":
+                    # Rows under a transport header often omit "نقل" ("الحاوية ٤٠ قدم"): inherit the section.
                     norm_name = "نقل حاوية 40 قدم (إسكندرية - قاهرة)"
                     unit = "Per Container (لكل حاوية)"
 

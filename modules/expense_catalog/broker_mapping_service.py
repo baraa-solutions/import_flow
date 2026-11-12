@@ -23,7 +23,13 @@ logger = logging.getLogger(__name__)
 DATA_DIR = Path(__file__).resolve().parent.parent.parent / "data"
 MAPPINGS_FILE = DATA_DIR / "broker_mappings.json"
 
-_EASTERN_TO_WESTERN = str.maketrans("٠١٢٣٤٥٦٧٨٩", "0123456789")
+# Arabic-Indic (U+0660..) and Extended / Persian (U+06F0..) digits, both seen in scanned Egyptian rate cards.
+_EASTERN_TO_WESTERN = str.maketrans("٠١٢٣٤٥٦٧٨٩۰۱۲۳۴۵۶۷۸۹", "01234567890123456789")
+
+
+def normalize_arabic_indic_numerals(text: str) -> str:
+    """Eastern digits (٠-٩ and ۰-۹) to 0-9, leaving every other character untouched."""
+    return text.translate(_EASTERN_TO_WESTERN) if text else ""
 
 
 def normalize_arabic_for_matching(text: str) -> str:
