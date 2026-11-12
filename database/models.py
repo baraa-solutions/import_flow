@@ -73,6 +73,7 @@ from modules.vendor_quality.model import VendorQualityAndPSI
 from modules.container_tracking.model import ContainerLifecycleUnit, ContainerDemurrageCharge
 from modules.split_shipments.model import SplitShipmentAllocation
 from modules.multimodal_freight.model import MultimodalFreightDetails
+from modules.air_freight.model import AirShipmentRecord, DraftAwbReviewSession
 from modules.regulatory_matrix.model import HsCodeRegulatoryRequirement
 from modules.trade_finance.model import ImportFinanceInstrument, LcBankCharge, FxHedgingAndVariance
 from modules.broker_custody.model import CustomsBrokerAdvance, BrokerSettlementReceipt

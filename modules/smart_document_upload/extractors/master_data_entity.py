@@ -10,6 +10,67 @@ import re
 from typing import Any, Dict, List, Optional
 
 from modules.smart_document_upload.extractors.base_extractor import BaseExtractor
+from modules.smart_document_upload.ocr_pipeline import normalize_extracted_text
+
+
+# ─── Identifier parsing building blocks ──────────────────────────────────────
+# A label, then optional filler words ("Registration", "No.", "رقم" ...) and separators (":", "#", "-"), then the
+# identifier. The identifier must contain a digit so a following word ("Registered", "Certificate") is never
+# captured as the value (the old single-regex patterns returned e.g. "Registration" or "2015").
+
+_SEPARATORS = r"[^\S\r\n]*(?:[:#=\-\u2013\u2014.()]+[^\S\r\n]*)*"
+# Phone labels: same separators without parentheses, so "(02) 2345-6789" keeps its area-code bracket.
+_PHONE_SEPARATORS = r"[^\S\r\n]*(?:[:#=\-\u2013\u2014.]+[^\S\r\n]*)*"
+_FILLER_EN = (
+    r"(?:platform|blockchain|registered|registration|reg|company|account|wallet|address|identifier|"
+    r"certificate|cert|international|trade\s*mark|trademark|mark|tm|database|code|number|num|no|nr|id)"
+)
+_FILLER_AR = r"(?:رقم|الرقم|معرف|المعرف|تسجيل|التسجيل|شهادة|الشهادة|حساب|الحساب|منصة|المنصة|كود|الكود)"
+_FILLER = rf"(?:{_SEPARATORS}(?:{_FILLER_EN}(?![A-Za-z0-9])|{_FILLER_AR}(?![\u0600-\u06FF])))*"
+# Identifier: one token, plus further space-separated *pure digit* groups ("4471 2290"); a following date or
+# word ("1234567 2023-05-01") is not absorbed.
+_IDENTIFIER_VALUE = r"([A-Za-z0-9][A-Za-z0-9\-_/.]*(?:[^\S\r\n][0-9]+(?![0-9A-Za-z\-_/.]))*)"
+_YEAR_ONLY = re.compile(r"(?:19|20)\d{2}")
+
+# IBAN lengths per country (ISO 13616 registry, subset of trade partners). Unknown countries: 15-34 chars.
+IBAN_LENGTHS = {
+    "EG": 29, "SA": 24, "AE": 23, "JO": 30, "KW": 30, "QA": 29, "BH": 22, "LB": 28, "TR": 26,
+    "DE": 22, "GB": 22, "IT": 27, "FR": 27, "ES": 24, "PT": 25, "NL": 18, "BE": 16, "LU": 20,
+    "CH": 21, "AT": 20, "PL": 28, "CZ": 24, "SK": 24, "HU": 28, "RO": 24, "BG": 22, "GR": 27,
+    "LT": 20, "LV": 21, "EE": 20, "FI": 18, "SE": 24, "DK": 18, "NO": 15, "IE": 22, "SI": 19,
+    "HR": 21, "CY": 28, "MT": 31, "PK": 24, "TN": 24, "MA": 28, "DZ": 26, "IQ": 23, "LY": 25,
+}
+_SWIFT_SHAPE = re.compile(r"[A-Z]{6}[A-Z0-9]{2}(?:[A-Z0-9]{3})?")
+
+
+def iban_checksum_valid(iban: str) -> bool:
+    """ISO 7064 mod-97 check of a compact IBAN."""
+    compact = re.sub(r"\s+", "", iban or "").upper()
+    if not re.fullmatch(r"[A-Z]{2}\d{2}[A-Z0-9]{11,30}", compact):
+        return False
+    rearranged = compact[4:] + compact[:4]
+    digits = "".join(str(int(ch, 36)) for ch in rearranged)
+    return int(digits) % 97 == 1
+
+
+def compact_iban_candidate(raw: str) -> Optional[str]:
+    """Trims an IBAN-shaped match to the country's length (OCR text often runs into the next label)."""
+    tokens = re.findall(r"[A-Za-z0-9]+", raw or "")
+    if not tokens:
+        return None
+    compact = "".join(tokens).upper()
+    country = compact[:2]
+    expected = IBAN_LENGTHS.get(country)
+    if expected:
+        return compact[:expected] if len(compact) >= expected else None
+    # Unknown country: stop at the first letters-only group after the bank code (e.g. a following "SWIFT").
+    kept = [tokens[0].upper()]
+    for token in tokens[1:]:
+        if len(kept) >= 2 and token.isalpha():
+            break
+        kept.append(token.upper())
+    candidate = "".join(kept)[:34]
+    return candidate if 15 <= len(candidate) <= 34 else None
 
 
 class MasterDataEntityExtractor(BaseExtractor):
@@ -29,8 +90,23 @@ class MasterDataEntityExtractor(BaseExtractor):
             score += 0.20
         return round(min(1.0, score), 2)
 
+    # Keys that are aliases / defaults of another key (not counted as "found" fields).
+    _NON_SIGNAL_KEYS = {
+        "supplier_registration_type", "foreign_exporter_id", "vat_id", "registration_number",
+        "importer_card_number", "nafeza_token_id", "cargox_platform_id", "clearance_license_number",
+        "insurance_coverage_types", "authorized_ports", "bank_account", "country", "supplier_type",
+        "credit_limit", "rating",
+    }
+
+    def found_fields(self, extracted: Dict[str, Any]) -> List[str]:
+        """Names of the fields that were actually recognized in the document (for the UI / diagnostics)."""
+        return [
+            key for key, value in (extracted or {}).items()
+            if key not in self._NON_SIGNAL_KEYS and value not in (None, "", False, [], {})
+        ]
+
     def extract(self, raw_text: str, spatial_boxes: dict = None, module_name: str = "generic") -> Dict[str, Any]:
-        text = raw_text or ""
+        text = normalize_extracted_text(raw_text or "")
         entity_type = "importer" if "importer" in module_name.lower() else ("supplier" if "supplier" in module_name.lower() else "generic")
 
         company_name = self._extract_company_name(text, entity_type=entity_type)
@@ -50,7 +126,13 @@ class MasterDataEntityExtractor(BaseExtractor):
         iso9001_num = self._clean_val(self._extract_iso_9001_number(text))
         nafeza_tok = self._clean_val(self._extract_nafeza_token(text))
         iban_val = self._clean_val(self._extract_iban(text))
-        acct_num = self._clean_val(self._extract_account_number(text))
+        acct_num = self._clean_val(self._extract_account_number(text, iban=iban_val))
+        swift_val = self._clean_val(self._extract_swift(text))
+        cargox_val = self._clean_val(self._extract_cargox_id(text))
+        has_wipo_val = has_wipo_val or bool(wipo_num)
+        has_euipo_val = has_euipo_val or bool(euipo_num)
+        has_gbd_val = has_gbd_val or bool(gbd_num)
+        has_iso9001_val = has_iso9001_val or bool(iso9001_num)
 
         result: Dict[str, Any] = {
             "company_name": company_name,
@@ -82,8 +164,8 @@ class MasterDataEntityExtractor(BaseExtractor):
             "vat_id_expiry": self._clean_val(self._extract_vat_expiry(text)),
             "nafeza_token": nafeza_tok,
             "nafeza_token_id": nafeza_tok,
-            "cargox_id": self._clean_val(self._extract_cargox_id(text)),
-            "cargox_platform_id": self._clean_val(self._extract_cargox_id(text)),
+            "cargox_id": cargox_val,
+            "cargox_platform_id": cargox_val,
             "license_number": self._clean_val(self._extract_broker_license(text)),
             "clearance_license_number": self._clean_val(self._extract_broker_license(text)),
             "transport_license_number": self._clean_val(self._extract_transport_license(text)),
@@ -101,8 +183,9 @@ class MasterDataEntityExtractor(BaseExtractor):
             "bank_name": self._clean_val(self._extract_bank_name(text)),
             "branch_name": self._clean_val(self._extract_branch_name(text)),
             "bank_code": self._clean_val(self._extract_bank_code(text)),
-            "swift_code": self._clean_val(self._extract_swift(text)),
-            "bank_account": acct_num or iban_val,
+            "swift_code": swift_val,
+            # Account number only: the IBAN has its own field (mixing them was the AC-2 bug).
+            "bank_account": acct_num,
             "account_number": acct_num,
             "iban": iban_val,
             "credit_limit": self._extract_credit_limit(text),
@@ -202,23 +285,6 @@ class MasterDataEntityExtractor(BaseExtractor):
             r"(?:CR\s+Expiry|Commercial\s+Reg\s+Expiry|انتهاء\s+السجل\s+التجاري)[^\S\r\n]*[:=]?[^\S\r\n]*([0-9]{4}[-/][0-9]{1,2}[-/][0-9]{1,2}|[0-9]{1,2}[-/][0-9]{1,2}[-/][0-9]{4})",
         ], text)
 
-    def _extract_cargox_id(self, text: str) -> Optional[str]:
-        explicit = self.find_first([
-            r"(?:CargoX\s+Platform\s+(?:Registered\s+)?ID|CargoX\s+Blockchain\s+ID|CargoX\s+Registered\s+ID|CargoX\s+ID|CargoX\s+Account(?:\s+No\.?)?|معرف\s+كارجو\s+إكس|كارجو\s+إكس)[^\S\r\n]*[:=]?[^\S\r\n]*([A-Za-z0-9\-_]{5,42})",
-            r"(?:CargoX\s+Platform\s+ID|CargoX\s+Blockchain\s+ID|CargoX\s+ID|Blockchain\s+ID|CargoX\s+Account)[^\S\r\n]*[:=]?[^\S\r\n]*(0x[a-fA-F0-9]{40}|CX-[A-Za-z0-9]{6,16}|[A-Za-z0-9\-_]{5,42})",
-            r"\b(0x[a-fA-F0-9]{40})\b",
-            r"\b(CX-[A-Za-z0-9]{5,20})\b",
-        ], text)
-        if explicit and explicit.upper() not in ["PLATFORM", "REGISTERED", "BLOCKCHAIN", "ACCOUNT", "ID"]:
-            return explicit.strip()
-        m = re.search(r"\b(0x[a-fA-F0-9]{40})\b", text)
-        if m:
-            return m.group(1).strip()
-        m_cx = re.search(r"\b(CX-[A-Za-z0-9]{5,20})\b", text)
-        if m_cx:
-            return m_cx.group(1).strip()
-        return None
-
     def _extract_importer_id(self, text: str) -> Optional[str]:
         return self.find_first([
             r"(?:Importer\s+Card|Import\s+Card|Egyptian\s+Importer\s+Tax\s+ID|Egyptian\s+Importer\s+ID|Importer\s+Tax\s+ID|Importer\s+ID|البطاقة\s+الاستيرادية|بطاقة\s+استيرادية|كود\s+المستورد|رقم\s+المستورد)[^\S\r\n]*[:=]?[^\S\r\n]*([0-9\-_]{4,15})",
@@ -231,6 +297,14 @@ class MasterDataEntityExtractor(BaseExtractor):
         ], text)
 
     def _extract_arabic_name(self, text: str) -> Optional[str]:
+        labeled = re.search(
+            r"(?:Arabic\s+Name|Name\s+in\s+Arabic|Company\s+Name\s*\((?:AR|Arabic)\)|الاسم\s+بالعربية|الاسم\s+العربي|"
+            r"اسم\s+الشركة|الاسم\s+التجاري|اسم\s+المنشأة|اسم\s+المؤسسة)[^\S\r\n]*[:=][^\S\r\n]*([^\r\n]{3,100})",
+            text,
+            re.IGNORECASE,
+        )
+        if labeled and re.search(r"[؀-ۿ]{3,}", labeled.group(1)):
+            return labeled.group(1).strip()
         lines = [l.strip() for l in text.splitlines() if l.strip()]
         for l in lines:
             if re.search(r"[\u0600-\u06FF]{3,}", l) and any(kw in l for kw in ["شركة", "مؤسسة", "مكتب", "للاستيراد", "للتجارة", "ش.م.م", "ذ.م.م"]):
@@ -280,9 +354,13 @@ class MasterDataEntityExtractor(BaseExtractor):
             if shipper_match and not any(stop in shipper_match.upper() for stop in system_stop_words):
                 return self._clean_val(shipper_match)
 
-        # 2. General labeled company detection
+        # 2. General labeled company detection: English labels first (the Latin name is the primary name; an
+        #    Arabic "اسم الشركة" line feeds arabic_name), then Arabic labels.
+        value_part = r"[^\S\r\n]*[:=][^\S\r\n]*(?!(?:CODE|REGISTRATION|ID|COUNTRY|ADDRESS|PHONE|TEL|TAX|VAT)\b)([^\r\n]{3,80})"
         labeled = self.find_first([
-            r"(?:Company\s+Name|Company|Consignee\s+Name|Shipper\s+Name|Supplier\s+Name|Exporter\s+Name|اسم\s+الشركة)[^\S\r\n]*[:=][^\S\r\n]*(?!(?:CODE|REGISTRATION|ID|COUNTRY|ADDRESS|PHONE|TEL|TAX|VAT)\b)([^\r\n]{3,80})",
+            r"(?:Company\s+Name(?:\s*\((?:EN|English)\))?|Legal\s+Name|Registered\s+Name|Trade\s+Name|Name\s+of\s+(?:the\s+)?Company|"
+            r"Company|Consignee\s+Name|Shipper\s+Name|Supplier\s+Name|Exporter\s+Name|Agency\s+Name|Carrier\s+Name)" + value_part,
+            r"(?:اسم\s+الشركة|الاسم\s+التجاري|اسم\s+المنشأة|اسم\s+المؤسسة)" + value_part,
         ], text)
         if labeled and not any(stop in labeled.upper() for stop in system_stop_words):
             return self._clean_val(labeled)
@@ -303,10 +381,12 @@ class MasterDataEntityExtractor(BaseExtractor):
                         return f"{prev} {cleaned_line}".strip()
                     return cleaned_line
 
-        # 4. Fallback to first clean valid line
-        first_clean = valid_lines[0]
-        if len(first_clean) > 3 and not any(stop in first_clean.upper() for stop in system_stop_words):
-            return first_clean
+        # 4. Fallback to the first clean line that reads like a name (OCR noise such as "--- PAGE 1 ---",
+        #    "|||" or a lone number is skipped)
+        for candidate in valid_lines:
+            letters = sum(1 for ch in candidate if ch.isalpha())
+            if len(candidate) > 3 and letters >= 3 and letters >= len(candidate) * 0.4 and not candidate.startswith("---"):
+                return candidate
 
         return None
 
@@ -316,18 +396,39 @@ class MasterDataEntityExtractor(BaseExtractor):
             r"\b(Factory\s+owner)\b",
         ], text)
 
+    # Phone-number value: starts with +, ( or a digit, single-line, at least 7 digits (checked in _labeled_phone).
+    _PHONE_VALUE = r"(\+?\(?[0-9][0-9 \-\(\)\.]{5,22}[0-9])"
+
+    def _labeled_phone(self, label_pattern: str, text: str) -> Optional[str]:
+        pattern = rf"(?:{label_pattern})(?:{_PHONE_SEPARATORS}(?:no|number|nr|phone)(?![A-Za-z]))?{_PHONE_SEPARATORS}{self._PHONE_VALUE}"
+        for m in re.finditer(pattern, text, re.IGNORECASE):
+            value = m.group(1).strip()
+            if len(re.sub(r"\D", "", value)) >= 7:
+                return value
+        return None
+
     def _extract_mobile(self, text: str) -> Optional[str]:
+        labeled = self._labeled_phone(
+            r"\bM\b\.?|\bMob(?:ile)?\b\.?|\bCell(?:ular)?\b|\bCel\b|\bGSM\b|\bWhats?App\b|محمول|موبايل|جوال|واتساب|واتس",
+            text,
+        )
+        if labeled:
+            return labeled
         return self.find_first([
-            r"(?:M|Mob|Mobile|Cell|Cel|محمول|موبايل|واتساب|WhatsApp)[^\S\r\n]*[:=]?[^\S\r\n]*(\+?[0-9\s\-]{8,20})",
             r"(\+20\s*1[0-5]\d{8})",
             r"\b(01[0-5]\d{8})\b",
             r"(0086\s*1[3-9]\d{9}|\+86\s*1[3-9]\d{9})",
         ], text)
 
     def _extract_phone(self, text: str) -> Optional[str]:
-        # 1. Explicit labeled match
+        # 1. Explicit labeled match ("Mobile Phone" / "Cell Phone" belong to the mobile field)
+        labeled = self._labeled_phone(
+            r"(?<!Mobile )(?<!Cell )\bPhone\b|\bTel(?:ephone)?\b\.?(?:[^\S\r\n]*/[^\S\r\n]*Fax)?|\bLandline\b|الهاتف|هاتف|تليفون|أرضي",
+            text,
+        )
+        if labeled:
+            return labeled
         found = self.find_first([
-            r"(?:Phone|Tel\.?|Telephone|الهاتف|هاتف|تليفون|أرضي)[^\S\r\n]*[:=]?[^\S\r\n]*(\+?[0-9\s\-\(\)]{8,20})",
             r"(\+44\s*1\d{3}\s*\d{5,6})",
             r"(\+39\s*0\d{2,4}\s*\d{5,8})",
             r"(\+86\s*\d{2,4}\s*\d{7,8})",
@@ -338,20 +439,27 @@ class MasterDataEntityExtractor(BaseExtractor):
 
         # 2. Egyptian landline / area code patterns (e.g. +2 (02) 23101798, +20 2 23101798, 02-23101798)
         landline = self.find_first([
-            r"(\+?2\s*\(?02\)?\s*[0-9\s\-]{7,10})",
-            r"(\+?20\s*\(?0\d{1,2}\)?\s*[0-9\s\-]{7,10})",
+            r"(\+2\s*\(?02\)?\s*[0-9\s\-]{7,10})",
+            r"(\+20\s*\(?0\d{1,2}\)?\s*[0-9\s\-]{7,10})",
             r"\b(02[- ]?[0-9\s\-]{7,9})\b",
         ], text)
         return landline
 
     def _extract_fax(self, text: str) -> Optional[str]:
-        return self.find_first([
-            r"(?:Fax|فاكس)[^\S\r\n]*[:=]?[^\S\r\n]*(\+?[0-9\s\-\(\)]{8,20})",
-        ], text)
+        return self._labeled_phone(r"\bFax\b\.?|\bTel(?:ephone)?\b\.?[^\S\r\n]*/[^\S\r\n]*Fax\b|فاكس", text)
 
     def _extract_website(self, text: str) -> Optional[str]:
+        labeled = re.search(
+            r"(?:\bWeb[^\S\r\n]*(?:site|page)?\b|\bURL\b|\bW\b|\bHome[^\S\r\n]*page\b|الموقع(?:[^\S\r\n]+الإلكتروني)?|موقع)"
+            r"[^\S\r\n]*[:=]?[^\S\r\n]*"
+            r"((?:https?://)?(?:www\.)?[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}(?:/[^\s]*)?)(?![A-Za-z0-9@])",
+            text,
+            re.IGNORECASE,
+        )
+        if labeled and "@" not in labeled.group(1):
+            return labeled.group(1).rstrip(".,;")
         return self.find_first([
-            r"(?:W|Web|Website|URL|الموقع|موقع)[^\S\r\n]*[:=]?[^\S\r\n]*(https?://[^\s]+|www\.[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})",
+            r"\b(https?://[^\s,;]+)",
             r"\b(www\.[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})\b",
         ], text)
 
@@ -531,27 +639,6 @@ class MasterDataEntityExtractor(BaseExtractor):
             r"Enterprise\s+code\s+([0-9]+)",
             r"Company\s+code\s*[:\s]*([0-9]+)",
             r"C\.R\.\s*([0-9]+)",
-        ], text)
-
-    def _extract_swift(self, text: str) -> Optional[str]:
-        explicit = self.find_first([
-            r"(?:SWIFT\s+Code|SWIFT/BIC|SWIFT|BIC|كود\s+السويفت|سويفت)[^\S\r\n]*[:=]?[^\S\r\n]*([A-Z0-9]{8,11})",
-        ], text)
-        if explicit:
-            return explicit.strip()
-
-        # Strict regex matching 8-11 char BIC with valid country code in pos 5-6
-        m = re.search(r"\b([A-Z]{4}(?:EG|US|CN|GB|DE|IT|FR|TR|SA|AE|ES|JP|KR|BR|RU|VN|CH|NL|BE|CA|AU|SG|HK)[A-Z0-9]{2}(?:[A-Z0-9]{3})?)\b", text)
-        if m:
-            val = m.group(1).strip()
-            if val.upper() not in ["SUPPLIER", "CONTAINER", "REGISTER", "IMPORTFLOW", "SHIPPER"]:
-                return val
-        return None
-
-    def _extract_iban(self, text: str) -> Optional[str]:
-        return self.find_first([
-            r"(?:IBAN|Account\s+No\.?|Account\s+Number|Account|الآيبان|الحساب|رقم\s+الحساب)[^\S\r\n]*[:=]?[^\S\r\n]*([A-Z0-9\s]{10,34})",
-            r"\b(EG\d{27})\b",
         ], text)
 
     def _extract_scac_code(self, text: str) -> Optional[str]:
@@ -824,60 +911,131 @@ class MasterDataEntityExtractor(BaseExtractor):
                 pass
         return 5.0
 
-    def _extract_account_number(self, text: str) -> Optional[str]:
-        for line in text.splitlines():
-            m = re.search(
-                r"(?:Account\s+Number|Account\s+No\.?|A/C\s+No\.?|A/C\s+Number|Bank\s+Account(?:\s+No\.?)?|رقم\s+الحساب|الحساب\s+البنكي)[^\S\r\n]*[:=]?[^\S\r\n]*([A-Za-z0-9\- ]{6,34})",
-                line,
-                re.IGNORECASE,
-            )
-            if not m:
-                m = re.search(
-                    r"(?:Account|A/C)[^\S\r\n]*[:=][^\S\r\n]*([A-Za-z0-9\- ]{6,34})",
-                    line,
-                    re.IGNORECASE,
-                )
-            if m:
-                cleaned = re.split(r"(?i)\b(?:SWIFT|BIC|IBAN|BANK|BRANCH)", m.group(1))[0].strip()
-                if cleaned:
-                    return cleaned
-        return None
-
     def _extract_has_wipo(self, text: str) -> bool:
         return bool(re.search(r"\b(?:WIPO|Madrid\s+Monitor|ويبو|مدريد)\b", text, re.IGNORECASE))
-
-    def _extract_wipo_number(self, text: str) -> Optional[str]:
-        return self.find_first([
-            r"(?:WIPO\s+Madrid\s+Monitor|WIPO\s+Registration|WIPO\s+No\.?|WIPO\s+ID|WIPO|Madrid\s+Monitor)[^\S\r\n]*[:=]?[^\S\r\n]*([A-Za-z0-9\-_/]{4,30})",
-            r"(?:رقم\s+الويبو|رقم\s+تسجيل\s+ويبو|ويبو)[^\S\r\n]*[:=]?[^\S\r\n]*([A-Za-z0-9\-_/]{4,30})",
-        ], text)
-
-    def _extract_has_euipo(self, text: str) -> bool:
-        return bool(re.search(r"\b(?:EUIPO|European\s+Union\s+Intellectual\s+Property|الاتحاد\s+الأوروبي)\b", text, re.IGNORECASE))
-
-    def _extract_euipo_number(self, text: str) -> Optional[str]:
-        return self.find_first([
-            r"(?:EUIPO\s+Registration|EUIPO\s+No\.?|EUIPO\s+ID|EUIPO)[^\S\r\n]*[:=]?[^\S\r\n]*([A-Za-z0-9\-_/]{4,30})",
-            r"(?:رقم\s+EUIPO|علامة\s+الاتحاد\s+الأوروبي)[^\S\r\n]*[:=]?[^\S\r\n]*([A-Za-z0-9\-_/]{4,30})",
-        ], text)
 
     def _extract_has_global_brand(self, text: str) -> bool:
         return bool(re.search(r"\b(?:Global\s+Brand\s+Database|Global\s+Brand|GBD|قاعدة\s+بيانات\s+العلامات)\b", text, re.IGNORECASE))
 
+    def _find_labeled_identifier(
+        self, label_pattern: str, text: str, reject_year_only: bool = False, min_len: int = 3
+    ) -> Optional[str]:
+        """First identifier (containing a digit) that follows ``label_pattern`` + filler words + separators."""
+        pattern = rf"(?:{label_pattern}){_FILLER}{_SEPARATORS}{_IDENTIFIER_VALUE}"
+        for m in re.finditer(pattern, text, re.IGNORECASE):
+            value = m.group(1).strip().rstrip(".-_/ ")
+            if len(value) < min_len or not re.search(r"\d", value):
+                continue
+            if reject_year_only and _YEAR_ONLY.fullmatch(value):
+                continue
+            return value
+        return None
+
+    def _extract_cargox_id(self, text: str) -> Optional[str]:
+        labeled = self._find_labeled_identifier(
+            r"\bCargo[^\S\r\n]*-?[^\S\r\n]*X\b|كارجو[^\S\r\n]*[إا]كس|كارجوكس|كارجو[^\S\r\n]*X",
+            text,
+            min_len=4,
+        )
+        if labeled:
+            return labeled
+        m = re.search(r"\b(0x[a-fA-F0-9]{40})\b", text)
+        if m:
+            return m.group(1)
+        m_cx = re.search(r"\b(CX-[A-Za-z0-9][A-Za-z0-9\-]{3,30})\b", text)
+        return m_cx.group(1) if m_cx else None
+
+    def _extract_swift(self, text: str) -> Optional[str]:
+        label = (
+            r"(?:\bSWIFT(?:[^\S\r\n]*/[^\S\r\n]*BIC)?(?:[^\S\r\n]*Code)?|\bBIC\b|كود[^\S\r\n]+السويفت|"
+            r"رمز[^\S\r\n]+السويفت|السويفت|سويفت)"
+        )
+        pattern = rf"{label}{_FILLER}{_SEPARATORS}([A-Za-z0-9]{{8,11}})\b"
+        for m in re.finditer(pattern, text, re.IGNORECASE):
+            value = m.group(1).upper()
+            if _SWIFT_SHAPE.fullmatch(value):
+                return value
+
+        # Unlabeled: 8/11-char BIC with a known country code in positions 5-6
+        m = re.search(r"\b([A-Z]{4}(?:EG|US|CN|GB|DE|IT|FR|TR|SA|AE|ES|JP|KR|BR|RU|VN|CH|NL|BE|CA|AU|SG|HK)[A-Z0-9]{2}(?:[A-Z0-9]{3})?)\b", text)
+        if m:
+            val = m.group(1).strip()
+            if val.upper() not in ["SUPPLIER", "CONTAINER", "REGISTER", "IMPORTFLOW", "SHIPPER"]:
+                return val
+        return None
+
+    def _extract_iban(self, text: str) -> Optional[str]:
+        # 1. Labeled IBAN (also an IBAN written under an "Account No." label). Structure is enough here:
+        #    an OCR slip in one digit must still reach the form so the user can correct it.
+        label = (
+            r"(?:\bIBAN\b|\bAccount[^\S\r\n]+(?:No\.?|Number)|\bA/C\b|الآيبان|الايبان|آيبان|ايبان|رقم[^\S\r\n]+الحساب)"
+        )
+        pattern = rf"{label}{_FILLER}{_SEPARATORS}([A-Za-z]{{2}}[0-9]{{2}}(?:[^\S\r\n]?[A-Za-z0-9]){{11,40}})"
+        for m in re.finditer(pattern, text, re.IGNORECASE):
+            candidate = compact_iban_candidate(m.group(1))
+            if candidate and re.fullmatch(r"[A-Z]{2}\d{2}[A-Z0-9]{11,30}", candidate):
+                return candidate
+
+        # 2. Unlabeled: only a checksum-valid IBAN is accepted.
+        for m in re.finditer(r"\b([A-Z]{2}[0-9]{2}(?:[^\S\r\n]?[A-Z0-9]){11,40})", text):
+            candidate = compact_iban_candidate(m.group(1))
+            if candidate and iban_checksum_valid(candidate):
+                return candidate
+        return None
+
+    def _extract_account_number(self, text: str, iban: Optional[str] = None) -> Optional[str]:
+        """Local account number (digits). Never the IBAN and never the SWIFT code."""
+        label = (
+            r"(?:\bA/C\b|\bAcc(?:ount)?\b\.?|\bBank[^\S\r\n]+Account\b|رقم[^\S\r\n]+الحساب|حساب[^\S\r\n]+رقم|"
+            r"الحساب[^\S\r\n]+البنكي|الحساب[^\S\r\n]+الجاري)"
+        )
+        pattern = rf"{label}{_FILLER}{_SEPARATORS}([0-9](?:[0-9\-]|[^\S\r\n](?=[0-9])){{4,40}})"
+        iban_compact = (iban or "").replace(" ", "").upper()
+        for m in re.finditer(pattern, text, re.IGNORECASE):
+            value = m.group(1).strip(" -")
+            digits = re.sub(r"\D", "", value)
+            if not 6 <= len(digits) <= 30:
+                continue
+            if iban_compact and digits == re.sub(r"\D", "", iban_compact):
+                continue
+            return value
+        return None
+
+    def _extract_wipo_number(self, text: str) -> Optional[str]:
+        return self._find_labeled_identifier(
+            r"\bWIPO\b(?:[^\S\r\n]*-?[^\S\r\n]*Madrid(?:[^\S\r\n]+Monitor)?)?|\bMadrid[^\S\r\n]+(?:Monitor|Protocol|System)\b|الويبو|ويبو|مدريد",
+            text,
+            reject_year_only=True,
+        )
+
+    def _extract_has_euipo(self, text: str) -> bool:
+        return bool(re.search(
+            r"\b(?:EUIPO|EUTM|European\s+Union\s+Intellectual\s+Property|European\s+Union\s+Trade\s*Mark)\b|علامة\s+الاتحاد\s+الأوروبي",
+            text,
+            re.IGNORECASE,
+        ))
+
+    def _extract_euipo_number(self, text: str) -> Optional[str]:
+        return self._find_labeled_identifier(
+            r"\bEUIPO\b|\bEUTM\b|European[^\S\r\n]+Union[^\S\r\n]+(?:Intellectual[^\S\r\n]+Property(?:[^\S\r\n]+Office)?|Trade[^\S\r\n]*Mark)|علامة[^\S\r\n]+الاتحاد[^\S\r\n]+الأوروبي",
+            text,
+            reject_year_only=True,
+        )
+
     def _extract_global_brand_number(self, text: str) -> Optional[str]:
-        return self.find_first([
-            r"(?:Global\s+Brand\s+Database|Global\s+Brand\s+ID|Global\s+Brand\s+No\.?|GBD)[^\S\r\n]*[:=]?[^\S\r\n]*([A-Za-z0-9\-_/]{4,30})",
-            r"(?:قاعدة\s+بيانات\s+العلامات\s+التجارية|رقم\s+العلامة\s+العالمية)[^\S\r\n]*[:=]?[^\S\r\n]*([A-Za-z0-9\-_/]{4,30})",
-        ], text)
+        return self._find_labeled_identifier(
+            r"\bGlobal[^\S\r\n]+Brands?(?:[^\S\r\n]+Database)?\b|\bGBD\b|قاعدة[^\S\r\n]+بيانات[^\S\r\n]+العلامات(?:[^\S\r\n]+التجارية)?|العلامة[^\S\r\n]+العالمية",
+            text,
+            reject_year_only=True,
+        )
 
     def _extract_has_iso_9001(self, text: str) -> bool:
-        return bool(re.search(r"\b(?:ISO\s*9001(?::2015)?|أيزو\s*9001)\b", text, re.IGNORECASE))
+        return bool(re.search(r"\bISO[\s\-]*9001\b|[أآا]يزو\s*9001", text, re.IGNORECASE))
 
     def _extract_iso_9001_number(self, text: str) -> Optional[str]:
-        return self.find_first([
-            r"(?:ISO\s*9001(?::2015)?\s+Certificate|ISO\s*9001\s+No\.?|ISO\s*9001\s+ID|ISO\s*9001)[^\S\r\n]*[:=]?[^\S\r\n]*([A-Za-z0-9\-_/]{4,30})",
-            r"(?:شهادة\s+أيزو\s*9001|رقم\s+أيزو\s*9001)[^\S\r\n]*[:=]?[^\S\r\n]*([A-Za-z0-9\-_/]{4,30})",
-        ], text)
-
-
-
+        # "ISO 9001:2015 Certificate No: Q-123" -> "Q-123" (the standard's year is never the certificate number)
+        return self._find_labeled_identifier(
+            r"\bISO[^\S\r\n]*-?[^\S\r\n]*9001(?:[^\S\r\n]*[:\-][^\S\r\n]*(?:19|20)\d{2})?|[أآا]يزو[^\S\r\n]*9001(?:[^\S\r\n]*[:\-][^\S\r\n]*(?:19|20)\d{2})?",
+            text,
+            reject_year_only=True,
+        )

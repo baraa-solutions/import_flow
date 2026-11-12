@@ -14,6 +14,156 @@
       "note"
     ]
   },
+  "AIR_AIRLINE_NOT_FOUND": {
+    "params": [
+      "provider_id"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "AIR_AIRPORT_NOT_FOUND": {
+    "params": [
+      "location_id"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "AIR_AWB_CHECK_DIGIT_INVALID": {
+    "params": [
+      "awb_number"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "AIR_AWB_DUPLICATE": {
+    "params": [
+      "air_record_code",
+      "awb_number"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "AIR_AWB_FORMAT_INVALID": {
+    "params": [
+      "awb_number"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "AIR_DATES_INVALID": {
+    "params": [
+      "arrival_date",
+      "flight_date"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "AIR_IMPORT_FILE_NOT_FOUND": {
+    "params": [
+      "import_file_id"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "AIR_LOCATION_NOT_AIRPORT": {
+    "params": [
+      "location_name"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "AIR_MODE_INVALID": {
+    "params": [
+      "shipment_mode"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "AIR_RECORD_NOT_FOUND": {
+    "params": [
+      "air_record_id"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "AIR_REVIEW_ALREADY_DECIDED": {
+    "params": [
+      "status"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "AIR_REVIEW_BLOCKING_MISMATCH": {
+    "params": [
+      "open_discrepancies_count"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "AIR_REVIEW_FIELD_MISMATCH": {
+    "params": [
+      "draft_value",
+      "field",
+      "system_value"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "AIR_REVIEW_FIELD_MISSING": {
+    "params": [
+      "field"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "AIR_REVIEW_NOT_FOUND": {
+    "params": [
+      "awb_review_id"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "AIR_REVIEW_WEIGHT_OUT_OF_TOLERANCE": {
+    "params": [
+      "draft_value",
+      "field",
+      "system_value",
+      "tolerance_pct"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "AIR_SAME_AIRPORTS": {
+    "params": [],
+    "parts": [
+      "note"
+    ]
+  },
+  "AIR_SUB_MODE_INVALID": {
+    "params": [
+      "shipment_mode",
+      "shipment_sub_mode"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
   "ALERT_ACID_EXPIRY_RADAR": {
     "params": [
       "acid_numbers",

@@ -86,6 +86,39 @@ def snap_weight(value: float) -> float:
     return float(nearest) if abs(value - nearest) < WEIGHT_SNAP_TOLERANCE else value
 
 
+# ── Weight units & divisor-based air volumetric weight (IATA: L x W x H [cm] / divisor) ──
+WEIGHT_UNITS: Tuple[str, ...] = ("kg", "lb")
+DEFAULT_WEIGHT_UNIT = "kg"
+KG_PER_LB = 0.45359237
+
+
+def normalize_weight_unit(unit: Optional[str]) -> str:
+    """``None`` / blank -> ``kg``; ``kgs`` / ``lbs`` aliases accepted (case-insensitive). Raises ``ValueError``."""
+    text = (unit or "").strip().lower() or DEFAULT_WEIGHT_UNIT
+    text = {"kgs": "kg", "kgm": "kg", "lbs": "lb"}.get(text, text)
+    if text not in WEIGHT_UNITS:
+        raise ValueError(f"Unknown weight unit: {unit!r}")
+    return text
+
+
+def to_kg(weight: float, unit: Optional[str] = DEFAULT_WEIGHT_UNIT) -> float:
+    return weight * KG_PER_LB if normalize_weight_unit(unit) == "lb" else weight
+
+
+def divisor_volumetric_weight_kg(
+    length: float, width: float, height: float, unit: Optional[str], quantity: float, divisor: float
+) -> float:
+    """Air / courier volumetric weight of ``quantity`` identical packages: ``L x W x H (cm) / divisor x qty``,
+    dimensions normalised to cm first. Any non-positive dimension, quantity or divisor gives 0 (unknown, not
+    an error: GP-001 progressive entry)."""
+    if divisor is None or divisor <= 0 or quantity is None or quantity <= 0:
+        return 0.0
+    l_cm, w_cm, h_cm = to_cm(length or 0.0, width or 0.0, height or 0.0, unit)
+    if l_cm <= 0 or w_cm <= 0 or h_cm <= 0:
+        return 0.0
+    return (l_cm * w_cm * h_cm) / divisor * quantity
+
+
 def volumetric_weight_kg(cbm: float, kg_per_cbm: float) -> float:
     return cbm * kg_per_cbm
 

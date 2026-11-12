@@ -7,6 +7,7 @@ import '../../../core/widgets/buttons/app_button.dart';
 import '../../../core/widgets/import_file_scope_selector.dart';
 import '../../../core/widgets/master_data_toolbar.dart';
 import '../../../core/widgets/page_header.dart';
+import '../air_freight/widgets/air_freight_panel.dart';
 import 'multimodal_freight_provider.dart';
 import 'widgets/air_freight_details_card.dart';
 import 'widgets/lcl_consolidation_card.dart';
@@ -24,7 +25,7 @@ class MultimodalFreightScreen extends ConsumerStatefulWidget {
 }
 
 class _MultimodalFreightScreenState extends ConsumerState<MultimodalFreightScreen> {
-  int _selectedModeIndex = 0; // 0: AIR, 1: LCL, 2: RORO/BULK
+  int _selectedModeIndex = 0; // 0: AIR (AWB records & review), 1: LCL, 2: RORO/BULK, 3: AIR handling charges
 
   late int? _fileId = widget.shipmentId;
 
@@ -88,7 +89,7 @@ class _MultimodalFreightScreenState extends ConsumerState<MultimodalFreightScree
                   children: [
                     ChoiceChip(
                       avatar: const Icon(Icons.flight_takeoff, size: 18),
-                      label: const Text('الشحن الجوي ومناولة المطار'),
+                      label: const Text('الشحن الجوي وبوالص AWB'),
                       selected: _selectedModeIndex == 0,
                       onSelected: (sel) => setState(() => _selectedModeIndex = 0),
                     ),
@@ -106,78 +107,90 @@ class _MultimodalFreightScreenState extends ConsumerState<MultimodalFreightScree
                       selected: _selectedModeIndex == 2,
                       onSelected: (sel) => setState(() => _selectedModeIndex = 2),
                     ),
+                    const SizedBox(width: 8),
+                    ChoiceChip(
+                      avatar: const Icon(Icons.local_airport, size: 18),
+                      label: const Text('رسوم مناولة المطار'),
+                      selected: _selectedModeIndex == 3,
+                      onSelected: (sel) => setState(() => _selectedModeIndex = 3),
+                    ),
                   ],
                 ),
               ),
-              Expanded(
-                child: ref
-                    .watch(multimodalFreightListProvider(fileId))
-                    .when(
-                      loading: () => const Center(child: CircularProgressIndicator()),
-                      error: (err, _) => Center(
-                        child: Text(
-                          ApiErrorText.of(context.l10n, err),
-                          style: const TextStyle(color: AppTheme.crimson),
+              if (_selectedModeIndex == 0)
+                Expanded(
+                  child: AirFreightPanel(key: ValueKey('air_freight_panel_$fileId'), importFileId: fileId),
+                )
+              else
+                Expanded(
+                  child: ref
+                      .watch(multimodalFreightListProvider(fileId))
+                      .when(
+                        loading: () => const Center(child: CircularProgressIndicator()),
+                        error: (err, _) => Center(
+                          child: Text(
+                            ApiErrorText.of(context.l10n, err),
+                            style: const TextStyle(color: AppTheme.crimson),
+                          ),
                         ),
-                      ),
-                      data: (result) {
-                        MultimodalFreightRecord? activeRecord;
-                        if (_selectedModeIndex == 0) {
-                          activeRecord = result.items.where((i) => i.transportMode == 'AIR').firstOrNull;
-                        } else if (_selectedModeIndex == 1) {
-                          activeRecord = result.items.where((i) => i.transportMode == 'LCL').firstOrNull;
-                        } else {
-                          activeRecord = result.items
-                              .where((i) => i.transportMode == 'RORO' || i.transportMode == 'BULK')
-                              .firstOrNull;
-                        }
+                        data: (result) {
+                          MultimodalFreightRecord? activeRecord;
+                          if (_selectedModeIndex == 3) {
+                            activeRecord = result.items.where((i) => i.transportMode == 'AIR').firstOrNull;
+                          } else if (_selectedModeIndex == 1) {
+                            activeRecord = result.items.where((i) => i.transportMode == 'LCL').firstOrNull;
+                          } else {
+                            activeRecord = result.items
+                                .where((i) => i.transportMode == 'RORO' || i.transportMode == 'BULK')
+                                .firstOrNull;
+                          }
 
-                        Widget cardWidget;
-                        if (_selectedModeIndex == 0) {
-                          cardWidget = AirFreightDetailsCard(record: activeRecord, onSave: _handleSave);
-                        } else if (_selectedModeIndex == 1) {
-                          cardWidget = LclConsolidationCard(record: activeRecord, onSave: _handleSave);
-                        } else {
-                          cardWidget = RoroBulkSpecsCard(record: activeRecord, onSave: _handleSave);
-                        }
+                          Widget cardWidget;
+                          if (_selectedModeIndex == 3) {
+                            cardWidget = AirFreightDetailsCard(record: activeRecord, onSave: _handleSave);
+                          } else if (_selectedModeIndex == 1) {
+                            cardWidget = LclConsolidationCard(record: activeRecord, onSave: _handleSave);
+                          } else {
+                            cardWidget = RoroBulkSpecsCard(record: activeRecord, onSave: _handleSave);
+                          }
 
-                        return SingleChildScrollView(
-                          padding: const EdgeInsets.all(16.0),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              cardWidget,
-                              const SizedBox(height: 16),
-                              Card(
-                                elevation: 0,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(10),
-                                  side: BorderSide(color: AppTheme.border.withValues(alpha: 0.3)),
-                                ),
-                                child: Padding(
-                                  padding: const EdgeInsets.all(16.0),
-                                  child: Row(
-                                    mainAxisAlignment: MainAxisAlignment.spaceAround,
-                                    children: [
-                                      _buildMetric('شحنات جوية', '${result.airCount}'),
-                                      _buildMetric('شحنات مشتركة (LCL)', '${result.lclCount}'),
-                                      _buildMetric('شحنات مدحرجة (Ro-Ro)', '${result.roroCount}'),
-                                      _buildMetric('شحنات صب (Bulk)', '${result.bulkCount}'),
-                                      _buildMetric(
-                                        'إجمالي التكاليف التقديرية',
-                                        '${result.totalEstimatedCharges.toStringAsFixed(2)} دولار',
-                                        isHighlight: true,
-                                      ),
-                                    ],
+                          return SingleChildScrollView(
+                            padding: const EdgeInsets.all(16.0),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                cardWidget,
+                                const SizedBox(height: 16),
+                                Card(
+                                  elevation: 0,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(10),
+                                    side: BorderSide(color: AppTheme.border.withValues(alpha: 0.3)),
+                                  ),
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(16.0),
+                                    child: Row(
+                                      mainAxisAlignment: MainAxisAlignment.spaceAround,
+                                      children: [
+                                        _buildMetric('شحنات جوية', '${result.airCount}'),
+                                        _buildMetric('شحنات مشتركة (LCL)', '${result.lclCount}'),
+                                        _buildMetric('شحنات مدحرجة (Ro-Ro)', '${result.roroCount}'),
+                                        _buildMetric('شحنات صب (Bulk)', '${result.bulkCount}'),
+                                        _buildMetric(
+                                          'إجمالي التكاليف التقديرية',
+                                          '${result.totalEstimatedCharges.toStringAsFixed(2)} دولار',
+                                          isHighlight: true,
+                                        ),
+                                      ],
+                                    ),
                                   ),
                                 ),
-                              ),
-                            ],
-                          ),
-                        );
-                      },
-                    ),
-              ),
+                              ],
+                            ),
+                          );
+                        },
+                      ),
+                ),
             ],
           ],
         ),

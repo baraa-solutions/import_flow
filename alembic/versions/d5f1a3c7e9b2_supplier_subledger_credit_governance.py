@@ -5,7 +5,7 @@ Adds ``supplier_ledger_entries`` (system-generated supplier account movements pe
 columns on ``suppliers``. Existing suppliers keep ``credit_limit`` (0 = no limit) with policy BLOCK.
 
 Revision ID: d5f1a3c7e9b2
-Revises: c4e8a2f6b1d9
+Revises: c4a8e2f6b1d3
 Create Date: 2026-11-12 18:00:00.000000
 
 """
@@ -17,7 +17,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision: str = 'd5f1a3c7e9b2'
-down_revision: Union[str, Sequence[str], None] = 'c4e8a2f6b1d9'
+down_revision: Union[str, Sequence[str], None] = 'c4a8e2f6b1d3'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
