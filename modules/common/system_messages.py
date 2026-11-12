@@ -1748,6 +1748,52 @@ CATALOG: Dict[str, Dict[str, str]] = {
     "SYSPARAM_INVALID_VALUE": {
         "note": "Invalid value for system parameter '{param_key}': {reason}",
     },
+    # ── Payment pathway, FOB valuation & supplier credit (v2.6.0) ────────────
+    "PAYMENT_PATHWAY_LOCKED": {
+        "note": "Cannot change the payment pathway of import file {import_file_code}: active financing instruments or payment requests exist on the current pathway ({payment_term}). Cancel them first.",
+    },
+    "PAYMENT_PATHWAY_CONFLICT": {
+        "note": "Financing of type {requested_type} conflicts with the payment pathway of import file {import_file_code}.",
+    },
+    "PAYMENT_INSTRUMENT_ALREADY_OPEN": {
+        "note": "Import file {import_file_code} already has an active primary financing instrument ({instrument_number}). Cancel it before opening a new one.",
+    },
+    "PAYMENT_MILESTONE_GATE_BLOCKED": {
+        "note": "Import file {import_file_code} cannot pass gate {gate} on payment pathway {payment_term} until its banking milestones are met.",
+    },
+    "FOB_NET_VALUE_INVALID": {
+        "note": "Invalid net FOB value for invoice {invoice_no}: the discount and financing markup cannot be negative or exceed the invoice total.",
+    },
+    "FOB_DOUBLE_COUNT_DETECTED": {
+        "note": "The goods value (FOB) was counted more than once in the file settlement: FOB must be counted exactly once.",
+    },
+    "FOB_DUPLICATE_INVOICE_IGNORED": {
+        "note": "Duplicate commercial invoice {invoice_no} was ignored in the FOB valuation.",
+    },
+    "FOB_CUSTOMS_DATE_PENDING": {
+        "note": "The customs declaration date is not recorded yet: the customs FOB base will be calculated once it is available.",
+    },
+    "FOB_CUSTOMS_RATE_MISSING": {
+        "note": "No customs exchange rate for {currency} on {on_date}: the customs FOB base could not be calculated for this currency.",
+    },
+    "FOB_MTM_RATE_MISSING": {
+        "note": "No exchange rate for {currency} on {on_date}: the open payable could not be revalued.",
+    },
+    "SUPPLIER_CREDIT_LIMIT_EXCEEDED": {
+        "note": "Supplier credit limit exceeded: limit {limit_amount} {currency}, used {utilization_amount}, requested {requested_amount}. An exceptional approval by a system administrator with a reason is required.",
+    },
+    "SUPPLIER_CREDIT_LIMIT_INVALID": {
+        "note": "Invalid supplier credit limit setting ({field}).",
+    },
+    "SUPPLIER_CREDIT_OVERRIDE_FORBIDDEN": {
+        "note": "Exceeding the supplier credit limit requires approval by a system administrator (ADMIN).",
+    },
+    "SUPPLIER_LEDGER_EGP_PAYMENT_NOT_CONVERTED": {
+        "note": "An EGP payment on import file {import_file_code} could not be converted to the file currency ({reason}).",
+    },
+    "SUPPLIER_LEDGER_FILE_NOT_VALUED": {
+        "note": "Import file {import_file_code} could not be valued in the supplier account ({reason}).",
+    },
 }
 
 

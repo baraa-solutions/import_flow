@@ -46,6 +46,10 @@ NOT_MESSAGE_CODES = {
     "EMPTY_CONTAINER_RETURN",  # milestone audit item code in file_closure
     "CHECKLIST_GATE_BLOCKED",  # gatekeeper 409 error code with custom dictionary payload
     "OPEN_TASKS_BYPASSED",  # lifecycle step skip warning payload code
+    # Banking milestone identifiers (MilestoneDefinition(code=...) in import_files/payment_milestones.py):
+    # data keys with their own label_ar / label_en, never raised as system messages.
+    "ADV_SWIFT_MT103", "LC_MT700_ISSUED", "LC_SHIPMENT_DEADLINE", "LC_DOCS_HONOURED",
+    "CAD_COLLECTION_NOTICE", "CAD_DOCS_RELEASED", "OA_GRN_RECEIVED", "OA_SUPPLIER_SETTLED",
 }
 NOT_MESSAGE_FILES = {"modules/auth/seed_rbac.py"}  # role definitions ({"code": "GENERAL_MANAGER", ...})
 

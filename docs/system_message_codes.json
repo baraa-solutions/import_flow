@@ -2491,6 +2491,52 @@
       "note"
     ]
   },
+  "FOB_CUSTOMS_DATE_PENDING": {
+    "params": [],
+    "parts": [
+      "note"
+    ]
+  },
+  "FOB_CUSTOMS_RATE_MISSING": {
+    "params": [
+      "currency",
+      "on_date"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "FOB_DOUBLE_COUNT_DETECTED": {
+    "params": [],
+    "parts": [
+      "note"
+    ]
+  },
+  "FOB_DUPLICATE_INVOICE_IGNORED": {
+    "params": [
+      "invoice_no"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "FOB_MTM_RATE_MISSING": {
+    "params": [
+      "currency",
+      "on_date"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "FOB_NET_VALUE_INVALID": {
+    "params": [
+      "invoice_no"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
   "FS_INVOICES_SETTLED": {
     "params": [
       "import_file_code",
@@ -3966,6 +4012,25 @@
       "note"
     ]
   },
+  "PAYMENT_INSTRUMENT_ALREADY_OPEN": {
+    "params": [
+      "import_file_code",
+      "instrument_number"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "PAYMENT_MILESTONE_GATE_BLOCKED": {
+    "params": [
+      "gate",
+      "import_file_code",
+      "payment_term"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
   "PAYMENT_MILESTONE_GATE_HOLD": {
     "params": [
       "gate",
@@ -3976,6 +4041,24 @@
     "parts": [
       "title",
       "body"
+    ]
+  },
+  "PAYMENT_PATHWAY_CONFLICT": {
+    "params": [
+      "import_file_code",
+      "requested_type"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "PAYMENT_PATHWAY_LOCKED": {
+    "params": [
+      "import_file_code",
+      "payment_term"
+    ],
+    "parts": [
+      "note"
     ]
   },
   "PAYMENT_STATUS_UNKNOWN": {
@@ -4482,6 +4565,49 @@
     "params": [
       "currency",
       "on_date"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "SUPPLIER_CREDIT_LIMIT_EXCEEDED": {
+    "params": [
+      "currency",
+      "limit_amount",
+      "requested_amount",
+      "utilization_amount"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "SUPPLIER_CREDIT_LIMIT_INVALID": {
+    "params": [
+      "field"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "SUPPLIER_CREDIT_OVERRIDE_FORBIDDEN": {
+    "params": [],
+    "parts": [
+      "note"
+    ]
+  },
+  "SUPPLIER_LEDGER_EGP_PAYMENT_NOT_CONVERTED": {
+    "params": [
+      "import_file_code",
+      "reason"
+    ],
+    "parts": [
+      "note"
+    ]
+  },
+  "SUPPLIER_LEDGER_FILE_NOT_VALUED": {
+    "params": [
+      "import_file_code",
+      "reason"
     ],
     "parts": [
       "note"

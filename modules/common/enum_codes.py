@@ -660,6 +660,7 @@ _LEGACY: Dict[str, Dict[str, str]] = {
         "Per Inspection (لكل عرض)": "PER_INSPECTION",
         "Per Inspection (لكل كشف)": "PER_INSPECTION",
         "Per Night (لكل ليلة)": "PER_NIGHT",
+        "Per Day (لكل يوم)": "PER_DAY",
         "Per Sample (لكل إجراء)": "PER_SAMPLE",
         "Per Sample (لكل عينة)": "PER_SAMPLE",
         "Per Shipment (لكل إقرار)": "PER_SHIPMENT",
