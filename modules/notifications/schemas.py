@@ -1,6 +1,6 @@
 from datetime import datetime
 from typing import Any, Dict, Optional
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from modules.common.system_messages import is_known_code, render_en
 
@@ -23,6 +23,17 @@ class NotificationCreate(NotificationBase):
     message: Optional[str] = Field(None, min_length=1)
     msg_code: Optional[str] = Field(None, max_length=80)
     msg_params: Optional[Dict[str, Any]] = None
+
+    @field_validator("target_role")
+    @classmethod
+    def _known_audience(cls, value: str) -> str:
+        """target_role must be ALL, a seeded role code or a known audience alias (422 otherwise); stored normalised."""
+        from .utils import known_audiences, normalize_audience
+
+        normalized = normalize_audience(value) or "ALL"
+        if normalized not in known_audiences():
+            raise ValueError(f"Unknown notification audience '{value}'. Allowed: {', '.join(sorted(known_audiences()))}.")
+        return normalized
 
     @model_validator(mode="before")
     @classmethod

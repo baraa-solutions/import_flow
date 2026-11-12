@@ -1,6 +1,7 @@
 import logging
 from typing import List
 from fastapi import APIRouter, Depends, HTTPException
+from modules.auth.permissions import require_permission
 from modules.auth.router import get_current_user
 from sqlalchemy.orm import Session
 
@@ -14,7 +15,7 @@ logger = logging.getLogger(__name__)
 container_loader_router = APIRouter(prefix="/api/v1/container-loader", tags=["Container Loader"], dependencies=[Depends(get_current_user)])
 
 
-@container_loader_router.post("/evaluate", response_model=ContainerLoaderEvaluationResult)
+@container_loader_router.post("/evaluate", response_model=ContainerLoaderEvaluationResult, dependencies=[Depends(require_permission("cbm.manage"))])
 def evaluate_container_loading(request: ContainerLoaderRequest, db: Session = Depends(get_db)):
     """
     Smart 2D/3D Container Loader Recommendation Engine Endpoint.

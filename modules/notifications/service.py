@@ -1,10 +1,11 @@
-from typing import Any, Dict, List, Optional
-from fastapi import Response
+from typing import Any, Dict, List, Optional, Set
+from fastapi import HTTPException, Response, status
 from sqlalchemy.orm import Session
 from modules.common.pagination import PageParams
 from .repository import NotificationRepository
 from .schemas import NotificationCreate, NotificationResponse, NotificationSummary
 from .expiry_checker import ExpiryCheckerService
+from .utils import audience_names_for_roles, canonical_roles, is_addressed_to
 
 
 class NotificationService:
@@ -42,11 +43,36 @@ class NotificationService:
     def create_notification(self, schema: NotificationCreate) -> NotificationResponse:
         return self.repo.create(schema)
 
-    def mark_read(self, notification_id: int) -> Optional[NotificationResponse]:
+    @staticmethod
+    def audience_roles(user: Any) -> Optional[Set[str]]:
+        """RBAC role codes whose notifications ``user`` may mark read: None (unrestricted) for an admin, otherwise
+        the caller's legacy role and assigned role, normalised through the audience alias map (utils)."""
+        from modules.auth.permissions import is_admin_user
+
+        if user is None:
+            return set()
+        if is_admin_user(user):
+            return None
+        roles = {(getattr(user, "role", None) or "").strip().upper()}
+        assigned = getattr(user, "assigned_role", None)
+        roles.add((getattr(assigned, "role_code", None) or "").strip().upper())
+        return canonical_roles(r for r in roles if r)
+
+    def mark_read(self, notification_id: int, user: Any = None) -> Optional[NotificationResponse]:
+        """Marks one notification read. A non-admin caller may only touch notifications addressed to ALL or to
+        one of its roles (404 otherwise, so other roles' notifications are not even confirmed to exist)."""
+        audience = self.audience_roles(user)
+        if audience is not None:
+            notification = self.repo.get_by_id(notification_id)
+            if notification is None or not is_addressed_to(notification.target_role, audience):
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Notification not found")
         return self.repo.mark_as_read(notification_id)
 
-    def mark_all_read(self, target_role: Optional[str] = None) -> int:
-        return self.repo.mark_all_as_read(target_role=target_role)
+    def mark_all_read(self, target_role: Optional[str] = None, user: Any = None) -> int:
+        """Marks all visible unread notifications read; a non-admin caller is limited to its own audience."""
+        audience = self.audience_roles(user)
+        audience_names = None if audience is None else audience_names_for_roles(audience)
+        return self.repo.mark_all_as_read(target_role=target_role, audience_names=audience_names)
 
     def get_summary(self, target_role: Optional[str] = None) -> NotificationSummary:
         all_notifs = self.repo.get_all(unread_only=False, target_role=target_role, limit=500)

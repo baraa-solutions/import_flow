@@ -10,10 +10,11 @@ Endpoints:
 
 from typing import List, Optional
 from fastapi import APIRouter, Depends, Query
+from modules.auth.permissions import require_permission
+from modules.users.model import User
 from modules.auth.router import get_current_user, require_manager_or_admin
 from sqlalchemy.orm import Session
 from database.database import get_db
-from modules.users.model import User
 import modules.recalculation.service as svc
 from modules.recalculation.schemas import (
     RecalculationPreviewResponse,
@@ -31,6 +32,7 @@ router = APIRouter(prefix="/api/v1/recalculation", tags=["Recalculation Engine"]
     "/preview",
     response_model=RecalculationPreviewResponse,
     summary="Preview Recalculation (read-only variance check)",
+    dependencies=[Depends(require_permission("import_files.view"))],
 )
 def preview_recalculation(
     target_entity_type: str = Query(..., description="e.g. 'import_budget'"),

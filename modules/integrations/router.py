@@ -1,5 +1,6 @@
 from typing import List, Optional
 from fastapi import APIRouter, Depends, status
+from modules.auth.permissions import require_permission
 from modules.auth.router import get_current_user, require_admin
 from sqlalchemy.orm import Session
 
@@ -43,7 +44,7 @@ def get_integration_status():
     )
 
 
-@router.post("/nafeza/request-acid")
+@router.post("/nafeza/request-acid", dependencies=[Depends(require_permission("cargox_nafeza.manage"))])
 def request_acid_from_nafeza(request: ACIDLiveRequest):
     client = NafezaIntegrationClient()
     return client.request_acid_number(
@@ -55,7 +56,7 @@ def request_acid_from_nafeza(request: ACIDLiveRequest):
     )
 
 
-@router.post("/cargox/create-envelope")
+@router.post("/cargox/create-envelope", dependencies=[Depends(require_permission("cargox_nafeza.manage"))])
 def create_cargox_envelope(request: CargoXEnvelopeLiveRequest):
     client = CargoXIntegrationClient()
     return client.create_envelope(
@@ -66,7 +67,7 @@ def create_cargox_envelope(request: CargoXEnvelopeLiveRequest):
     )
 
 
-@router.post("/cargox/transfer-envelope")
+@router.post("/cargox/transfer-envelope", dependencies=[Depends(require_permission("cargox_nafeza.manage"))])
 def transfer_cargox_envelope(request: CargoXTransferLiveRequest):
     client = CargoXIntegrationClient()
     return client.transfer_envelope_to_customs(
@@ -85,7 +86,7 @@ def sign_payload_with_pki(request: PKISignPayloadRequest):
 # INT-NAFEZA-008: Nafeza Tariff & Exchange Rate Endpoints
 # =========================================================================
 
-@router.post("/nafeza/tariffs/parse-and-sync", response_model=NafezaTariffSyncResponse)
+@router.post("/nafeza/tariffs/parse-and-sync", response_model=NafezaTariffSyncResponse, dependencies=[Depends(require_permission("customs_tariff.edit"))])
 def parse_and_sync_nafeza_tariff(
     request: NafezaTariffParseRequest,
     db: Session = Depends(get_db),
@@ -111,7 +112,7 @@ def get_nafeza_tariff_details(
     return client.lookup_tariff_by_hs_code(db, hs_code)
 
 
-@router.post("/nafeza/exchange-rates/sync", response_model=CustomsExchangeRateSyncResponse)
+@router.post("/nafeza/exchange-rates/sync", response_model=CustomsExchangeRateSyncResponse, dependencies=[Depends(require_permission("master_data.edit"))])
 def sync_customs_exchange_rates(
     rates_override: Optional[dict] = None,
     db: Session = Depends(get_db),
@@ -139,7 +140,7 @@ def get_latest_customs_exchange_rates(
 # INT-GOEIC-009: GOEIC Quality Inspection & Factory Registration Endpoints
 # =========================================================================
 
-@router.post("/goeic/verify-compliance", response_model=GOEICComplianceCheckResponse)
+@router.post("/goeic/verify-compliance", response_model=GOEICComplianceCheckResponse, dependencies=[Depends(require_permission("customs_clearance.update"))])
 def verify_goeic_compliance(
     request: GOEICComplianceCheckRequest,
     db: Session = Depends(get_db),

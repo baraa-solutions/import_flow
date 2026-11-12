@@ -18,7 +18,7 @@ from .schemas import (
     UserPermissionsUpdatePayload,
 )
 from datetime import datetime, timezone, timedelta
-from .security import decode_access_token, token_revocation_manager
+from .security import decode_access_token, revocation_expiry, token_revocation_manager
 from .revoked_token_model import RevokedToken
 from .service import AuthService
 
@@ -152,9 +152,7 @@ def refresh_token(
     new_token = service.generate_user_token(user)
 
     # Revoke old token on refresh
-    exp_ts = payload.get("exp")
-    expires_at = datetime.fromtimestamp(exp_ts, tz=timezone.utc) if exp_ts else datetime.now(timezone.utc) + timedelta(days=14)
-    token_revocation_manager.revoke(token, user.user_id, expires_at, db)
+    token_revocation_manager.revoke(token, user.user_id, revocation_expiry(payload.get("exp")), db)
 
     return TokenResponse(access_token=new_token, user=user)
 
@@ -197,8 +195,7 @@ def logout(
     if token:
         payload = decode_access_token(token, check_revocation=False)
         exp_ts = payload.get("exp") if payload else None
-        expires_at = datetime.fromtimestamp(exp_ts, tz=timezone.utc) if exp_ts else datetime.now(timezone.utc) + timedelta(days=1)
-        token_revocation_manager.revoke(token, current_user.user_id, expires_at, db)
+        token_revocation_manager.revoke(token, current_user.user_id, revocation_expiry(exp_ts), db)
 
     return {
         "status": "success",
