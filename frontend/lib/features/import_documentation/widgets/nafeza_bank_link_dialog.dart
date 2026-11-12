@@ -50,10 +50,8 @@ class _NafezaBankLinkDialogState extends ConsumerState<NafezaBankLinkDialog> {
   void initState() {
     super.initState();
     final doc = widget.doc;
-    final partners = ref.read(partnersProvider).valueOrNull ?? [];
-    final banks = partners.where((p) => p.partnerType.contains('Bank') || p.partnerType.contains('بنك')).toList();
-
-    _selectedBankId = doc.nafezaLinkedBankId ?? doc.swiftExecutingBankId ?? (banks.isNotEmpty ? banks.first.providerId : null);
+    // The SWIFT executing bank is the natural default; never fall back to an arbitrary first bank.
+    _selectedBankId = doc.nafezaLinkedBankId ?? doc.swiftExecutingBankId;
     _dateCtrl = TextEditingController(
       text: doc.nafezaBankLinkDate ?? DateTime.now().toIso8601String().substring(0, 10),
     );
